@@ -6,6 +6,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.ecosphere.data.model.DeviceControl
 import com.example.ecosphere.data.repository.SensorRepository
 import kotlinx.coroutines.launch
 
@@ -17,25 +18,89 @@ class EcoSphereViewModel(
         private set
 
     init {
-        loadLatestRecord()
+        refreshDashboard()
     }
 
-    fun loadLatestRecord() {
+    fun refreshDashboard() {
         viewModelScope.launch {
-            uiState = EcoSphereUiState(isLoading = true)
+            uiState = uiState.copy(isLoading = true, error = null, controlMessage = null)
 
             try {
                 val record = repository.getLatestRecord()
-                uiState = EcoSphereUiState(
+                val deviceControl = repository.getDeviceControl()
+
+                uiState = uiState.copy(
                     isLoading = false,
                     record = record,
+                    deviceControl = deviceControl,
                     error = if (record == null) "No hay registros todavía en Supabase." else null
                 )
             } catch (e: Exception) {
-                uiState = EcoSphereUiState(
+                uiState = uiState.copy(
                     isLoading = false,
-                    record = null,
                     error = e.message ?: "Error desconocido"
+                )
+            }
+        }
+    }
+
+    fun loadLatestRecord() {
+        refreshDashboard()
+    }
+
+    fun setAutoMode(enabled: Boolean) {
+        val message = if (enabled) "Modo automático activado" else "Modo automático desactivado"
+        updateControl(message) {
+            repository.updateAutoMode(enabled)
+        }
+    }
+
+    fun setFanTarget(enabled: Boolean) {
+        val message = if (enabled) "Ventilador encendido" else "Ventilador apagado"
+        updateControl(message) {
+            repository.updateFanTarget(enabled)
+        }
+    }
+
+    fun setLedTarget(enabled: Boolean) {
+        val message = if (enabled) "LED grow encendido" else "LED grow apagado"
+        updateControl(message) {
+            repository.updateLedTarget(enabled)
+        }
+    }
+
+    fun requestPump() {
+        val currentRequest = uiState.deviceControl?.pumpRequest ?: 0L
+        updateControl("Solicitud de riego enviada") {
+            repository.requestPump(currentRequest = currentRequest, durationMs = 3000)
+        }
+    }
+
+    private fun updateControl(
+        successMessage: String,
+        action: suspend () -> DeviceControl?
+    ) {
+        viewModelScope.launch {
+            uiState = uiState.copy(
+                isUpdatingControl = true,
+                error = null,
+                controlMessage = null
+            )
+
+            try {
+                val updatedControl = action()
+                val latestRecord = repository.getLatestRecord()
+
+                uiState = uiState.copy(
+                    isUpdatingControl = false,
+                    record = latestRecord,
+                    deviceControl = updatedControl ?: repository.getDeviceControl(),
+                    controlMessage = successMessage
+                )
+            } catch (e: Exception) {
+                uiState = uiState.copy(
+                    isUpdatingControl = false,
+                    error = e.message ?: "Error actualizando control"
                 )
             }
         }
