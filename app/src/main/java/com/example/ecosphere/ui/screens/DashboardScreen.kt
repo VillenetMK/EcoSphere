@@ -25,6 +25,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.ecosphere.ui.viewmodel.EcoSphereUiState
 
@@ -91,9 +92,11 @@ fun DashboardScreen(
                 }
             }
 
+            val deviceControl = uiState.deviceControl
+
             DeviceConnectionCard(
-                esp32Online = uiState.deviceControl?.esp32Online ?: false,
-                lastSeenAt = uiState.deviceControl?.lastSeenAt ?: "Sin conexión registrada"
+                esp32Online = deviceControl?.isOnlineNow() ?: false,
+                lastSeenAt = formatTimestamp(deviceControl?.lastSeenAt)
             )
 
             uiState.record?.let { record ->
@@ -102,7 +105,7 @@ fun DashboardScreen(
                 MetricCard("Humedad del suelo", "${record.soilHumidity ?: 0.0} %")
                 MetricCard("Luz", "${record.lightLux ?: 0.0} lux")
                 MetricCard("Nivel de agua", record.waterLevel ?: "unknown")
-                MetricCard("Última lectura", record.createdAt ?: "Sin fecha")
+                MetricCard("Última lectura", formatTimestamp(record.createdAt))
 
                 StatusCard(
                     fanOn = record.fanOn ?: false,
@@ -147,22 +150,8 @@ private fun DeviceConnectionCard(
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Conexión del ESP32", style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(8.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("Estado")
-                Text(if (esp32Online) "Online" else "Offline")
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("Última conexión")
-                Text(lastSeenAt)
-            }
+            StatusRow("Estado", if (esp32Online) "Online" else "Offline")
+            StatusRow("Última conexión", lastSeenAt)
         }
     }
 }
@@ -281,9 +270,26 @@ private fun StatusRow(title: String, value: String) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
     ) {
-        Text(title)
-        Text(value)
+        Text(
+            text = title,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = value,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.End
+        )
     }
+}
+
+private fun formatTimestamp(value: String?): String {
+    if (value.isNullOrBlank()) return "Sin registro"
+
+    return value
+        .replace("T", " ")
+        .substringBefore("+")
+        .substringBefore("Z")
 }
