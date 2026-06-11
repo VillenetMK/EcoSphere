@@ -70,6 +70,33 @@ class EcoSphereViewModel(
     }
 
     fun requestPump() {
+        val record = uiState.record
+        val soilHumidity = record?.soilHumidity
+        val waterLevel = record?.waterLevel?.lowercase()
+
+        when {
+            soilHumidity == null -> {
+                uiState = uiState.copy(
+                    controlMessage = "Riego bloqueado: no hay lectura válida de humedad del suelo."
+                )
+                return
+            }
+
+            soilHumidity >= 60.0 -> {
+                uiState = uiState.copy(
+                    controlMessage = "Riego bloqueado: el suelo ya está húmedo (${soilHumidity.toInt()}%)."
+                )
+                return
+            }
+
+            waterLevel == "low" -> {
+                uiState = uiState.copy(
+                    controlMessage = "Riego bloqueado: nivel de agua bajo."
+                )
+                return
+            }
+        }
+
         val currentRequest = uiState.deviceControl?.pumpRequest ?: 0L
         updateControl("Solicitud de riego enviada") {
             repository.requestPump(currentRequest = currentRequest, durationMs = 3000)
