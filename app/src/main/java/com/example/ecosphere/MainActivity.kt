@@ -29,7 +29,11 @@ class MainActivity : ComponentActivity() {
 
                 DashboardScreen(
                     uiState = ecoSphereViewModel.uiState,
-                    onRefresh = ecoSphereViewModel::loadLatestRecord
+                    onRefresh = ecoSphereViewModel::refreshDashboard,
+                    onAutoModeChange = ecoSphereViewModel::setAutoMode,
+                    onFanTargetChange = ecoSphereViewModel::setFanTarget,
+                    onLedTargetChange = ecoSphereViewModel::setLedTarget,
+                    onPumpRequest = ecoSphereViewModel::requestPump
                 )
             }
         }
