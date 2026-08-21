@@ -55,17 +55,17 @@ class EcoSphereViewModel(
         }
     }
 
-    fun setFanTarget(enabled: Boolean) {
-        val message = if (enabled) "Ventilador encendido" else "Ventilador apagado"
-        updateControl(message) {
-            repository.updateFanTarget(enabled)
+    fun setFanPower(power: Int) {
+        val safePower = power.coerceIn(0, 100)
+        updateControl("Ventilador ajustado al $safePower %") {
+            repository.updateFanPower(safePower)
         }
     }
 
-    fun setLedTarget(enabled: Boolean) {
-        val message = if (enabled) "LED grow encendido" else "LED grow apagado"
-        updateControl(message) {
-            repository.updateLedTarget(enabled)
+    fun setLedPower(power: Int) {
+        val safePower = power.coerceIn(0, 100)
+        updateControl("Iluminación ajustada al $safePower %") {
+            repository.updateLedPower(safePower)
         }
     }
 
