@@ -154,7 +154,7 @@ fun DiagnosticsScreen(
                         Text("Límite del diagnóstico actual", fontWeight = FontWeight.Bold)
                     }
                     Text(
-                        "La app puede detectar pérdida de comunicación, lecturas inválidas y diferencias entre una orden y el reporte del ESP32. Para confirmar un LED quemado, un cable de potencia abierto o energía insuficiente se necesita medir tensión y corriente físicamente en esa rama.",
+                        "La app puede detectar pérdida de comunicación, lecturas inválidas y diferencias entre una orden y el reporte del ESP32. Para confirmar un componente quemado, un cable de potencia abierto o energía insuficiente se necesita medir tensión y corriente físicamente en esa rama.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -216,6 +216,7 @@ private fun DiagnosticCard(entry: DiagnosticEntry) {
                         fontWeight = FontWeight.Bold
                     )
                 }
+
                 Surface(
                     shape = RoundedCornerShape(100.dp),
                     color = when (entry.level) {
@@ -244,6 +245,7 @@ private fun DiagnosticCard(entry: DiagnosticEntry) {
                     }
                 }
             }
+
             Text(
                 entry.detail,
                 style = MaterialTheme.typography.bodyMedium,
@@ -260,7 +262,7 @@ private fun diagnosticIcon(title: String, level: DiagnosticLevel): ImageVector {
         title.startsWith("BME280") -> EcoSphereIcons.Temperature
         title.startsWith("BH1750") -> EcoSphereIcons.Light
         title.startsWith("Sensor de humedad") -> EcoSphereIcons.SoilHumidity
-        title.startsWith("Sensores de nivel") -> EcoSphereIcons.WaterLevel
+        title.startsWith("Sensor de nivel") -> EcoSphereIcons.WaterLevel
         title.startsWith("Ventilador") -> EcoSphereIcons.Fan
         title.startsWith("LED grow") -> EcoSphereIcons.GrowLed
         title.startsWith("Bomba") -> EcoSphereIcons.Pump
@@ -285,15 +287,35 @@ private fun buildDiagnostics(record: SensorRecord?, control: DeviceControl?): Li
     val fresh = ageMs?.let { it in 0..15_000L } == true
 
     entries += if (online) {
-        DiagnosticEntry("ESP32 / comunicación", DiagnosticLevel.OK, "Heartbeat recibido dentro de la ventana de 30 segundos.")
+        DiagnosticEntry(
+            "ESP32 / comunicación",
+            DiagnosticLevel.OK,
+            "Heartbeat recibido dentro de la ventana de 30 segundos."
+        )
     } else {
-        DiagnosticEntry("ESP32 / comunicación", DiagnosticLevel.ERROR, "Sin heartbeat reciente: hardware desconectado, sin red o firmware sin reporte.")
+        DiagnosticEntry(
+            "ESP32 / comunicación",
+            DiagnosticLevel.ERROR,
+            "Sin heartbeat reciente: hardware desconectado, sin red o firmware sin reporte."
+        )
     }
 
     entries += when {
-        ageMs == null -> DiagnosticEntry("Telemetría", DiagnosticLevel.ERROR, "No existe una lectura con fecha válida.")
-        fresh -> DiagnosticEntry("Telemetría", DiagnosticLevel.OK, "Última lectura hace ${ageMs / 1000} s.")
-        else -> DiagnosticEntry("Telemetría", DiagnosticLevel.WARNING, "La lectura tiene ${ageMs / 1000} s de antigüedad y no se considera estado físico actual.")
+        ageMs == null -> DiagnosticEntry(
+            "Telemetría",
+            DiagnosticLevel.ERROR,
+            "No existe una lectura con fecha válida."
+        )
+        fresh -> DiagnosticEntry(
+            "Telemetría",
+            DiagnosticLevel.OK,
+            "Última lectura hace ${ageMs / 1000} s."
+        )
+        else -> DiagnosticEntry(
+            "Telemetría",
+            DiagnosticLevel.WARNING,
+            "La lectura tiene ${ageMs / 1000} s de antigüedad y no se considera estado físico actual."
+        )
     }
 
     val temperature = record?.temperature
@@ -326,11 +348,11 @@ private fun buildDiagnostics(record: SensorRecord?, control: DeviceControl?): Li
 
     val waterLevel = record?.waterLevel?.lowercase()
     entries += sensorStatus(
-        "Sensores de nivel de agua",
+        "Sensor de nivel de agua horizontal",
         fresh,
         waterLevel != null,
         waterLevel != null && waterLevel in setOf("low", "medium", "high"),
-        "Revisar GPIO27, GPIO32, GND y cableado de los sensores."
+        "Revisar GPIO32, GND y cableado del sensor horizontal."
     )
 
     entries += actuatorStatus(
@@ -339,7 +361,7 @@ private fun buildDiagnostics(record: SensorRecord?, control: DeviceControl?): Li
         control?.fanPower ?: 0,
         record?.fanOn,
         record?.fanPower,
-        "Revisar GPIO25, MOSFET, 12 V, cableado y ventilador."
+        "Revisar GPIO25, MOSFET, alimentación, cableado y ventilador."
     )
 
     entries += actuatorStatus(
@@ -348,23 +370,31 @@ private fun buildDiagnostics(record: SensorRecord?, control: DeviceControl?): Li
         control?.ledPower ?: 0,
         record?.ledOn,
         record?.ledPower,
-        "Revisar GPIO33, MOSFET, salida de 5 V del LM2596, cableado y LED grow."
+        "Revisar GPIO33, MOSFET, alimentación configurada para el LED instalado, cableado y LED grow."
     )
 
     entries += if (fresh && online) {
         DiagnosticEntry(
             "Bomba de riego",
             DiagnosticLevel.OK,
-            if (record?.pumpOn == true) "El ESP32 reporta la bomba encendida." else "El ESP32 reporta la bomba apagada; la lógica de humedad y nivel sigue activa."
+            if (record?.pumpOn == true) {
+                "El ESP32 reporta la bomba encendida."
+            } else {
+                "El ESP32 reporta la bomba apagada; la lógica de humedad y nivel sigue activa."
+            }
         )
     } else {
-        DiagnosticEntry("Bomba de riego", DiagnosticLevel.INFO, "Sin telemetría actual no se confirma el estado físico de la bomba.")
+        DiagnosticEntry(
+            "Bomba de riego",
+            DiagnosticLevel.INFO,
+            "Sin telemetría actual no se confirma el estado físico de la bomba."
+        )
     }
 
     entries += DiagnosticEntry(
         "Alimentación eléctrica",
         DiagnosticLevel.INFO,
-        "Sin sensor de tensión/corriente todavía. La app no puede distinguir de forma fiable entre componente quemado, cable abierto o alimentación insuficiente."
+        "Sin sensor de tensión/corriente todavía. La app no fija aquí el voltaje del LED grow porque puede cambiarse por otro modelo; debe usarse la alimentación correspondiente al hardware instalado."
     )
 
     return entries
@@ -377,9 +407,15 @@ private fun sensorStatus(
     plausible: Boolean,
     hint: String
 ): DiagnosticEntry {
-    if (!fresh) return DiagnosticEntry(title, DiagnosticLevel.INFO, "Sin telemetría actual; no se marca como falla.")
-    if (!present) return DiagnosticEntry(title, DiagnosticLevel.ERROR, "No hay lectura. $hint")
-    if (!plausible) return DiagnosticEntry(title, DiagnosticLevel.WARNING, "El sensor responde con un valor fuera del rango esperado. $hint")
+    if (!fresh) {
+        return DiagnosticEntry(title, DiagnosticLevel.INFO, "Sin telemetría actual; no se marca como falla.")
+    }
+    if (!present) {
+        return DiagnosticEntry(title, DiagnosticLevel.ERROR, "No hay lectura. $hint")
+    }
+    if (!plausible) {
+        return DiagnosticEntry(title, DiagnosticLevel.WARNING, "El sensor responde con un valor fuera del rango esperado. $hint")
+    }
     return DiagnosticEntry(title, DiagnosticLevel.OK, "Lectura presente y físicamente plausible.")
 }
 
@@ -391,27 +427,48 @@ private fun actuatorStatus(
     reportedPower: Int?,
     hint: String
 ): DiagnosticEntry {
-    if (!fresh) return DiagnosticEntry(title, DiagnosticLevel.INFO, "Sin estado actual del ESP32; no se confirma el actuador.")
+    if (!fresh) {
+        return DiagnosticEntry(title, DiagnosticLevel.INFO, "Sin estado actual del ESP32; no se confirma el actuador.")
+    }
 
     if (requestedPower > 0 && reportedOn != true) {
-        return DiagnosticEntry(title, DiagnosticLevel.ERROR, "Orden $requestedPower %, pero el ESP32 reporta apagado. $hint")
+        return DiagnosticEntry(
+            title,
+            DiagnosticLevel.ERROR,
+            "Orden $requestedPower %, pero el ESP32 reporta apagado. $hint"
+        )
     }
+
     if (requestedPower == 0 && reportedOn == true) {
-        return DiagnosticEntry(title, DiagnosticLevel.WARNING, "Orden 0 %, pero el ESP32 reporta encendido. Revisar MOSFET y firmware.")
+        return DiagnosticEntry(
+            title,
+            DiagnosticLevel.WARNING,
+            "Orden 0 %, pero el ESP32 reporta encendido. Revisar MOSFET y firmware."
+        )
     }
+
     if (requestedPower > 0 && reportedPower != null && abs(reportedPower - requestedPower) > 10) {
-        return DiagnosticEntry(title, DiagnosticLevel.WARNING, "Orden $requestedPower %, reporte $reportedPower %. Revisar PWM y sincronización.")
+        return DiagnosticEntry(
+            title,
+            DiagnosticLevel.WARNING,
+            "Orden $requestedPower %, reporte $reportedPower %. Revisar PWM y sincronización."
+        )
     }
 
     return DiagnosticEntry(
         title,
         DiagnosticLevel.OK,
-        if (requestedPower > 0) "Orden y reporte coinciden aproximadamente en $requestedPower %." else "Ordenado y reportado apagado."
+        if (requestedPower > 0) {
+            "Orden y reporte coinciden aproximadamente en $requestedPower %."
+        } else {
+            "Ordenado y reportado apagado."
+        }
     )
 }
 
 private fun telemetryAgeMs(value: String?): Long? {
     if (value.isNullOrBlank()) return null
+
     return try {
         val noZone = value.substringBefore("+").substringBefore("Z")
         val base = noZone.substringBefore(".")
