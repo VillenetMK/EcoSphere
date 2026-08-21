@@ -194,7 +194,7 @@ private fun DestinationContent(
     onPumpRequest: () -> Unit
 ) {
     when (destination) {
-        EcoSphereDestination.DASHBOARD -> DashboardScreen(
+        EcoSphereDestination.DASHBOARD -> AdaptiveDashboardScreen(
             uiState = uiState,
             onRefresh = onRefresh,
             onAutoModeChange = onAutoModeChange,
