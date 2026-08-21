@@ -1,6 +1,30 @@
+import java.util.Base64
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+}
+
+val generateEcoSphereLauncher by tasks.registering {
+    val encodedIcon = layout.projectDirectory.file("src/main/ecosphere_launcher_full.webp.b64")
+    val generatedResDir = layout.buildDirectory.dir("generated/ecosphereLauncher/res")
+    val outputFile = layout.buildDirectory.file(
+        "generated/ecosphereLauncher/res/drawable-nodpi/ecosphere_launcher_full.webp"
+    )
+
+    inputs.file(encodedIcon)
+    outputs.file(outputFile)
+
+    doLast {
+        val target = outputFile.get().asFile
+        target.parentFile.mkdirs()
+
+        val encoded = encodedIcon.asFile
+            .readText()
+            .filterNot { it.isWhitespace() }
+
+        target.writeBytes(Base64.getDecoder().decode(encoded))
+    }
 }
 
 android {
@@ -30,13 +54,25 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     buildFeatures {
         compose = true
     }
+
+    sourceSets.getByName("main").res.srcDir(
+        layout.buildDirectory.dir("generated/ecosphereLauncher/res")
+    )
+}
+
+tasks.matching {
+    it.name == "preBuild" || (it.name.startsWith("merge") && it.name.endsWith("Resources"))
+}.configureEach {
+    dependsOn(generateEcoSphereLauncher)
 }
 
 dependencies {
