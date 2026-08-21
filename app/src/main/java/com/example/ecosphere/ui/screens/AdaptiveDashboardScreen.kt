@@ -12,11 +12,10 @@ import androidx.compose.ui.unit.dp
 import com.example.ecosphere.ui.viewmodel.EcoSphereUiState
 
 /**
- * Adaptive host for the current dashboard.
+ * Adaptive host for the interactive EcoSphere dashboard.
  *
- * The existing phone UI is preserved, while large tablets, Chromebooks,
- * convertible laptops and desktop-sized Android windows get a constrained,
- * centered work area instead of an endlessly stretched layout.
+ * Phone layouts stay compact while tablets, Chromebooks, convertible laptops
+ * and desktop-sized Android windows get a constrained centered work area.
  */
 @Composable
 fun AdaptiveDashboardScreen(
@@ -44,7 +43,7 @@ fun AdaptiveDashboardScreen(
                     .fillMaxWidth()
                     .widthIn(max = maxContentWidth)
             ) {
-                DashboardScreen(
+                InteractiveDashboardScreen(
                     uiState = uiState,
                     onRefresh = onRefresh,
                     onAutoModeChange = onAutoModeChange,
