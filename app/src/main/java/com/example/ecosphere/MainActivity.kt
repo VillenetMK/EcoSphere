@@ -31,8 +31,8 @@ class MainActivity : ComponentActivity() {
                     uiState = ecoSphereViewModel.uiState,
                     onRefresh = ecoSphereViewModel::refreshDashboard,
                     onAutoModeChange = ecoSphereViewModel::setAutoMode,
-                    onFanTargetChange = ecoSphereViewModel::setFanTarget,
-                    onLedTargetChange = ecoSphereViewModel::setLedTarget,
+                    onFanPowerChange = ecoSphereViewModel::setFanPower,
+                    onLedPowerChange = ecoSphereViewModel::setLedPower,
                     onPumpRequest = ecoSphereViewModel::requestPump
                 )
             }
