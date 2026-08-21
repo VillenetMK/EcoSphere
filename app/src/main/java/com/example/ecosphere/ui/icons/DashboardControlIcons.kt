@@ -1,5 +1,12 @@
 package com.example.ecosphere.ui.icons
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
@@ -12,6 +19,12 @@ import androidx.compose.ui.unit.dp
 object DashboardControlIcons {
     val Green = Color(0xFF66FF7A)
 
+    private val refreshAnimationTrigger = mutableIntStateOf(0)
+
+    fun triggerRefreshAnimation() {
+        refreshAnimationTrigger.intValue++
+    }
+
     private data class IconPath(
         val data: String,
         val fill: Boolean = false,
@@ -19,7 +32,11 @@ object DashboardControlIcons {
         val strokeWidth: Float = 2.1f
     )
 
-    private fun icon(name: String, paths: List<IconPath>): ImageVector =
+    private fun icon(
+        name: String,
+        paths: List<IconPath>,
+        rotation: Float = 0f
+    ): ImageVector =
         ImageVector.Builder(
             name = name,
             defaultWidth = 24.dp,
@@ -27,6 +44,15 @@ object DashboardControlIcons {
             viewportWidth = 24f,
             viewportHeight = 24f
         ).apply {
+            if (rotation != 0f) {
+                addGroup(
+                    name = "${name}AnimatedGroup",
+                    rotate = rotation,
+                    pivotX = 12f,
+                    pivotY = 12f
+                )
+            }
+
             paths.forEach { path ->
                 addPath(
                     pathData = PathParser().parsePathString(path.data).toNodes(),
@@ -36,6 +62,10 @@ object DashboardControlIcons {
                     strokeLineCap = StrokeCap.Round,
                     strokeLineJoin = StrokeJoin.Round
                 )
+            }
+
+            if (rotation != 0f) {
+                clearGroup()
             }
         }.build()
 
@@ -112,13 +142,38 @@ object DashboardControlIcons {
         ))
     }
 
-    val Refresh: ImageVector by lazy {
-        icon("Refresh", listOf(
-            IconPath("M19 8V4l-2 2a8 8 0 0 0-13.1 4"),
-            IconPath("M5 16v4l2-2a8 8 0 0 0 13.1-4"),
-            IconPath("M15.5 4H19v3.5M8.5 20H5v-3.5")
-        ))
-    }
+    val Refresh: ImageVector
+        @Composable get() {
+            val trigger = refreshAnimationTrigger.intValue
+            val rotation = remember { Animatable(0f) }
+
+            LaunchedEffect(trigger) {
+                if (trigger > 0) {
+                    rotation.snapTo(0f)
+                    rotation.animateTo(
+                        targetValue = 360f,
+                        animationSpec = tween(
+                            durationMillis = 650,
+                            easing = LinearEasing
+                        )
+                    )
+                    rotation.snapTo(0f)
+                }
+            }
+
+            val angle = rotation.value
+            return remember(angle) {
+                icon(
+                    name = "Refresh",
+                    rotation = angle,
+                    paths = listOf(
+                        IconPath("M19 8V4l-2 2a8 8 0 0 0-13.1 4"),
+                        IconPath("M5 16v4l2-2a8 8 0 0 0 13.1-4"),
+                        IconPath("M15.5 4H19v3.5M8.5 20H5v-3.5")
+                    )
+                )
+            }
+        }
 
     val SoilHumidity: ImageVector by lazy {
         icon("SoilHumidity", listOf(
