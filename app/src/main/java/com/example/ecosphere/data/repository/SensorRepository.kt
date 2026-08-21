@@ -30,14 +30,19 @@ class SensorRepository(
         )
     }
 
-    suspend fun getHistoryByMonth(monthKey: String): List<SensorRecord> {
+    suspend fun getHistoryByMonth(
+        monthKey: String,
+        offset: Int = 0,
+        limit: Int = HISTORY_PAGE_SIZE
+    ): List<SensorRecord> {
         val (fromUtc, toUtc) = monthBoundsUtc(monthKey)
         return api.getHistoryByMonth(
             apiKey = apiKey,
             authorization = authorization,
             fromFilter = "gte.$fromUtc",
             toFilter = "lt.$toUtc",
-            limit = 1000
+            limit = limit,
+            offset = offset
         )
     }
 
@@ -110,5 +115,9 @@ class SensorRepository(
         }
 
         return formatter.format(start.time) to formatter.format(end.time)
+    }
+
+    companion object {
+        const val HISTORY_PAGE_SIZE = 200
     }
 }
