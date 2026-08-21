@@ -8,7 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ecosphere.data.network.NetworkModule
 import com.example.ecosphere.data.repository.SensorRepository
-import com.example.ecosphere.ui.screens.DashboardScreen
+import com.example.ecosphere.ui.screens.EcoSphereApp
 import com.example.ecosphere.ui.theme.EcoSphereTheme
 import com.example.ecosphere.ui.viewmodel.EcoSphereViewModel
 
@@ -27,9 +27,10 @@ class MainActivity : ComponentActivity() {
                     factory = EcoSphereViewModel.factory(repository)
                 )
 
-                DashboardScreen(
+                EcoSphereApp(
                     uiState = ecoSphereViewModel.uiState,
                     onRefresh = ecoSphereViewModel::refreshDashboard,
+                    onRefreshHistory = ecoSphereViewModel::refreshHistory,
                     onAutoModeChange = ecoSphereViewModel::setAutoMode,
                     onFanPowerChange = ecoSphereViewModel::setFanPower,
                     onLedPowerChange = ecoSphereViewModel::setLedPower,
