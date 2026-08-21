@@ -1,0 +1,19 @@
+{
+  "name": "EcoSphere",
+  "short_name": "EcoSphere",
+  "description": "Sistema inteligente de microclima",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0f0d",
+  "theme_color": "#0b0f0d",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

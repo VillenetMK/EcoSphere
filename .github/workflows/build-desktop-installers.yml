@@ -1,0 +1,73 @@
+name: Build EcoSphere Desktop Installers
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'desktopApp/**'
+      - '.github/workflows/build-desktop-installers.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'desktopApp/**'
+      - '.github/workflows/build-desktop-installers.yml'
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+      - name: Build Windows MSI
+        shell: pwsh
+        run: gradle -p desktopApp packageMsi --stacktrace
+      - name: Collect Windows installer
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          $msi = Get-ChildItem -Path desktopApp/build/compose/binaries/main/msi -Filter *.msi -Recurse | Select-Object -First 1
+          if (-not $msi) { throw 'MSI not found' }
+          Copy-Item $msi.FullName dist/EcoSphere-1.0.0-Windows-x64.msi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EcoSphere-Windows-Installer
+          path: dist/EcoSphere-1.0.0-Windows-x64.msi
+          if-no-files-found: error
+          retention-days: 30
+
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install packaging tools
+        run: sudo apt-get update && sudo apt-get install -y fakeroot
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.3.1'
+      - name: Build Linux DEB
+        run: gradle -p desktopApp packageDeb --stacktrace
+      - name: Collect Linux installer
+        run: |
+          mkdir -p dist
+          DEB=$(find desktopApp/build/compose/binaries/main/deb -name '*.deb' | head -n 1)
+          test -n "$DEB"
+          cp "$DEB" dist/EcoSphere-1.0.0-Linux-amd64.deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EcoSphere-Linux-Installer
+          path: dist/EcoSphere-1.0.0-Linux-amd64.deb
+          if-no-files-found: error
+          retention-days: 30

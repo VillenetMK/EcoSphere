@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0f0d" />
+  <meta name="description" content="EcoSphere - Sistema inteligente de microclima" />
+  <title>EcoSphere</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">ES</div>
+        <div>
+          <h1>EcoSphere</h1>
+          <p>Microclima inteligente</p>
+        </div>
+      </div>
+
+      <nav>
+        <button class="nav-item active" data-screen="dashboard">Panel principal</button>
+        <button class="nav-item" data-screen="history">Registros históricos</button>
+        <button class="nav-item" data-screen="diagnostics">Diagnóstico del sistema</button>
+      </nav>
+
+      <button id="installBtn" class="install-btn" hidden>Instalar EcoSphere</button>
+      <div class="version">EcoSphere Web 1.0.0</div>
+    </aside>
+
+    <main class="main">
+      <section id="dashboard" class="screen active">
+        <header class="topbar">
+          <div>
+            <h2>Panel principal</h2>
+            <p>Estado y control del microclima</p>
+          </div>
+        </header>
+
+        <div id="errorBox" class="error-box" hidden></div>
+        <div id="toast" class="toast" hidden></div>
+
+        <article class="status-panel">
+          <div class="eyebrow">Estado general</div>
+          <div class="status-title" id="systemStatus">Sistema sin conexión</div>
+          <div class="status-grid">
+            <div class="status-cell"><span>Modo</span><strong id="modeValue">Manual</strong></div>
+            <div class="status-cell"><span>ESP32</span><strong id="espValue">Offline</strong></div>
+            <div class="status-cell"><span>Humedad suelo</span><strong id="soilStatusValue">Sin registro</strong></div>
+          </div>
+          <div class="status-cell wide"><span>Última telemetría</span><strong id="lastTelemetry">Sin registro</strong></div>
+          <button id="refreshBtn" class="outline-btn"><span class="refresh-symbol">↻</span> Actualizar datos</button>
+        </article>
+
+        <h3>Lecturas ambientales</h3>
+        <div class="metrics">
+          <article class="metric-card"><span>Temperatura</span><strong id="temperatureValue">--</strong><small>BME280</small></article>
+          <article class="metric-card"><span>Humedad aire</span><strong id="airHumidityValue">--</strong><small>BME280</small></article>
+          <article class="metric-card"><span>Humedad suelo</span><strong id="soilHumidityValue">--</strong><small>Sensor capacitivo</small></article>
+          <article class="metric-card"><span>Iluminación</span><strong id="lightValue">--</strong><small>BH1750</small></article>
+          <article class="metric-card"><span>Nivel de agua</span><strong id="waterValue">Sin registro</strong><small>Sensor horizontal GPIO32</small></article>
+        </div>
+
+        <h3>Control y estado del sistema</h3>
+        <article class="control-panel">
+          <div class="control-row switch-row">
+            <div><strong>Modo automático</strong><small id="modeHint">Control manual habilitado</small></div>
+            <label class="switch"><input id="autoMode" type="checkbox"/><span></span></label>
+          </div>
+
+          <div class="control-row block">
+            <div class="control-head"><strong>Ventilador</strong><span id="fanPowerLabel">0 %</span></div>
+            <input id="fanPower" type="range" min="0" max="100" step="5" value="0" />
+          </div>
+
+          <div class="control-row block">
+            <div class="control-head"><strong>LED Grow</strong><span id="ledPowerLabel">0 %</span></div>
+            <input id="ledPower" type="range" min="0" max="100" step="5" value="0" />
+          </div>
+
+          <div class="control-row pump-row">
+            <div><strong>Bomba de riego</strong><small id="pumpHint">Esperando telemetría</small></div>
+            <button id="pumpBtn" class="primary-btn">Regar 3 s</button>
+          </div>
+        </article>
+      </section>
+
+      <section id="history" class="screen">
+        <header class="topbar"><div><h2>Registros históricos</h2><p id="historyCount">Últimos registros</p></div></header>
+        <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Temperatura</th><th>H. aire</th><th>H. suelo</th><th>Luz</th><th>Agua</th></tr></thead><tbody id="historyBody"></tbody></table></div>
+      </section>
+
+      <section id="diagnostics" class="screen">
+        <header class="topbar"><div><h2>Diagnóstico del sistema</h2><p>Estado inferido a partir de la telemetría disponible</p></div></header>
+        <div id="diagnosticsList" class="diagnostics"></div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
