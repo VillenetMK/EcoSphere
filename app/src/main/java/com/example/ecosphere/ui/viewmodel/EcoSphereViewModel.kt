@@ -25,10 +25,8 @@ class EcoSphereViewModel(
 
     private fun startAutoRefresh() {
         viewModelScope.launch {
-            // Primera carga visible.
             loadDashboard(showLoading = true, clearControlMessage = false)
 
-            // Actualización automática mientras este ViewModel exista.
             while (isActive) {
                 delay(POLL_INTERVAL_MS)
                 loadDashboard(showLoading = false, clearControlMessage = false)
@@ -39,6 +37,24 @@ class EcoSphereViewModel(
     fun refreshDashboard() {
         viewModelScope.launch {
             loadDashboard(showLoading = true, clearControlMessage = true)
+        }
+    }
+
+    fun refreshHistory() {
+        viewModelScope.launch {
+            uiState = uiState.copy(isLoadingHistory = true, error = null)
+            try {
+                val history = repository.getHistory()
+                uiState = uiState.copy(
+                    isLoadingHistory = false,
+                    history = history
+                )
+            } catch (e: Exception) {
+                uiState = uiState.copy(
+                    isLoadingHistory = false,
+                    error = e.message ?: "Error cargando el historial"
+                )
+            }
         }
     }
 
