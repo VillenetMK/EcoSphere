@@ -28,6 +28,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -39,6 +41,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,7 +51,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.ecosphere.ui.icons.DashboardControlIcons
 import com.example.ecosphere.ui.viewmodel.EcoSphereUiState
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+
+private const val MANUAL_IRRIGATION_MAX_SOIL_HUMIDITY = 60.0
 
 private enum class DashboardDetail {
     CONNECTION,
@@ -77,9 +83,41 @@ fun InteractiveDashboardScreen(
     val control = uiState.deviceControl
     val online = control?.isOnlineNow() == true
     var detail by remember { mutableStateOf<DashboardDetail?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    fun requestManualIrrigation(): Boolean {
+        val soilHumidity = record?.soilHumidity
+        val waterLevel = record?.waterLevel?.lowercase()
+
+        val denialMessage = when {
+            soilHumidity == null ->
+                "Riego manual denegado. No hay lectura válida de humedad del suelo."
+
+            soilHumidity >= MANUAL_IRRIGATION_MAX_SOIL_HUMIDITY ->
+                "Suelo húmedo. Riego manual denegado. Humedad actual: ${formatNumber(soilHumidity)} %."
+
+            waterLevel == "low" ->
+                "Riego manual denegado. Nivel de agua bajo."
+
+            else -> null
+        }
+
+        if (denialMessage != null) {
+            scope.launch {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                snackbarHostState.showSnackbar(denialMessage)
+            }
+            return false
+        }
+
+        onPumpRequest()
+        return true
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = {
@@ -89,15 +127,6 @@ fun InteractiveDashboardScreen(
                             "Sistema inteligente de microclima",
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = onRefresh, enabled = !uiState.isLoading) {
-                        Icon(
-                            DashboardControlIcons.Refresh,
-                            contentDescription = "Actualizar datos",
-                            tint = DashboardControlIcons.Green
                         )
                     }
                 },
@@ -168,7 +197,7 @@ fun InteractiveDashboardScreen(
                 onAutoModeChange = onAutoModeChange,
                 onFanPowerChange = onFanPowerChange,
                 onLedPowerChange = onLedPowerChange,
-                onPumpRequest = onPumpRequest,
+                onPumpRequest = { requestManualIrrigation() },
                 onOpen = { detail = it }
             )
 
@@ -194,8 +223,9 @@ fun InteractiveDashboardScreen(
                 detail = null
             },
             onPumpRequest = {
-                onPumpRequest()
-                detail = null
+                if (requestManualIrrigation()) {
+                    detail = null
+                }
             }
         )
     }
@@ -692,7 +722,7 @@ private fun EmptyTelemetryCard() {
 private fun irrigationSafety(soilHumidity: Double?, waterLevel: String?): String = when {
     soilHumidity == null -> "Bloqueado hasta recibir humedad del suelo."
     waterLevel?.lowercase() == "low" -> "Bloqueado: nivel de agua bajo."
-    soilHumidity >= 60.0 -> "Bloqueado: suelo húmedo (${soilHumidity.roundToInt()} %)."
+    soilHumidity >= MANUAL_IRRIGATION_MAX_SOIL_HUMIDITY -> "Bloqueado: suelo húmedo (${soilHumidity.roundToInt()} %)."
     soilHumidity <= 35.0 -> "Suelo seco: riego permitido."
     else -> "Rango aceptable; riego manual disponible."
 }
