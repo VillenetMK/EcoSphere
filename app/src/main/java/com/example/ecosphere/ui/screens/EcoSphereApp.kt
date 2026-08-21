@@ -33,6 +33,7 @@ fun EcoSphereApp(
     onRefresh: () -> Unit,
     onRefreshHistory: () -> Unit,
     onSelectHistoryMonth: (String) -> Unit,
+    onLoadMoreHistory: () -> Unit,
     onAutoModeChange: (Boolean) -> Unit,
     onFanPowerChange: (Int) -> Unit,
     onLedPowerChange: (Int) -> Unit,
@@ -99,10 +100,13 @@ fun EcoSphereApp(
                 records = uiState.history,
                 months = uiState.historyMonths,
                 selectedMonth = uiState.selectedHistoryMonth,
+                hasMore = uiState.historyHasMore,
                 isLoading = uiState.isLoadingHistory,
+                isLoadingMore = uiState.isLoadingMoreHistory,
                 error = uiState.error,
                 onRefresh = onRefreshHistory,
-                onSelectMonth = onSelectHistoryMonth
+                onSelectMonth = onSelectHistoryMonth,
+                onLoadMore = onLoadMoreHistory
             )
 
             EcoSphereDestination.DIAGNOSTICS -> DiagnosticsScreen(
