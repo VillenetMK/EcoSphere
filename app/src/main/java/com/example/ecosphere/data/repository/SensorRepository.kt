@@ -26,20 +26,26 @@ class SensorRepository(
     }
 
     suspend fun updateAutoMode(enabled: Boolean): DeviceControl? {
+        return updateDeviceControl(mapOf("auto_mode" to enabled))
+    }
+
+    suspend fun updateFanPower(power: Int): DeviceControl? {
+        val safePower = power.coerceIn(0, 100)
         return updateDeviceControl(
-            mapOf("auto_mode" to enabled)
+            mapOf(
+                "fan_power" to safePower,
+                "fan_target" to (safePower > 0)
+            )
         )
     }
 
-    suspend fun updateFanTarget(enabled: Boolean): DeviceControl? {
+    suspend fun updateLedPower(power: Int): DeviceControl? {
+        val safePower = power.coerceIn(0, 100)
         return updateDeviceControl(
-            mapOf("fan_target" to enabled)
-        )
-    }
-
-    suspend fun updateLedTarget(enabled: Boolean): DeviceControl? {
-        return updateDeviceControl(
-            mapOf("led_target" to enabled)
+            mapOf(
+                "led_power" to safePower,
+                "led_target" to (safePower > 0)
+            )
         )
     }
 
