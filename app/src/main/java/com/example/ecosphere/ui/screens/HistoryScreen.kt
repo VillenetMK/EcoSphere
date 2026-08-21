@@ -38,10 +38,13 @@ fun HistoryScreen(
     records: List<SensorRecord>,
     months: List<HistoryMonthSummary>,
     selectedMonth: String?,
+    hasMore: Boolean,
     isLoading: Boolean,
+    isLoadingMore: Boolean,
     error: String?,
     onRefresh: () -> Unit,
-    onSelectMonth: (String) -> Unit
+    onSelectMonth: (String) -> Unit,
+    onLoadMore: () -> Unit
 ) {
     val selectedSummary = months.firstOrNull { it.monthKey == selectedMonth }
     val firstHistoricalRecord = months.lastOrNull()?.firstRecord
@@ -92,7 +95,7 @@ fun HistoryScreen(
                             label = {
                                 Text("${monthLabel(month.monthKey)} · ${month.recordCount}")
                             },
-                            enabled = !isLoading
+                            enabled = !isLoading && !isLoadingMore
                         )
                     }
                 }
@@ -122,6 +125,12 @@ fun HistoryScreen(
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Text(
+                            text = "Mostrando ${records.size} de ${summary.recordCount}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                        Text(
                             text = "Primero: ${formatHistoryTimestamp(summary.firstRecord)}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -131,14 +140,6 @@ fun HistoryScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
-                        if (summary.recordCount > 1000) {
-                            Text(
-                                text = "Se muestran los 1000 registros más recientes de este mes.",
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
                     }
                 }
             }
@@ -146,7 +147,7 @@ fun HistoryScreen(
             Button(
                 onClick = onRefresh,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isLoading
+                enabled = !isLoading && !isLoadingMore
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(
@@ -202,6 +203,26 @@ fun HistoryScreen(
 
                         items(dayRecords, key = { it.id }) { record ->
                             HistoryRecordCard(record)
+                        }
+                    }
+
+                    if (hasMore || isLoadingMore) {
+                        item(key = "load-more") {
+                            Button(
+                                onClick = onLoadMore,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                enabled = !isLoadingMore
+                            ) {
+                                if (isLoadingMore) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.padding(end = 10.dp),
+                                        strokeWidth = 2.dp
+                                    )
+                                }
+                                Text(if (isLoadingMore) "Cargando más..." else "Cargar 200 registros más")
+                            }
                         }
                     }
                 }
