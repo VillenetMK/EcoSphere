@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ecosphere.data.network.NetworkModule
 import com.example.ecosphere.data.repository.SensorRepository
+import com.example.ecosphere.ui.icons.DashboardControlIcons
 import com.example.ecosphere.ui.screens.EcoSphereApp
 import com.example.ecosphere.ui.theme.EcoSphereTheme
 import com.example.ecosphere.ui.viewmodel.EcoSphereViewModel
@@ -29,7 +30,10 @@ class MainActivity : ComponentActivity() {
 
                 EcoSphereApp(
                     uiState = ecoSphereViewModel.uiState,
-                    onRefresh = ecoSphereViewModel::refreshDashboard,
+                    onRefresh = {
+                        DashboardControlIcons.triggerRefreshAnimation()
+                        ecoSphereViewModel.refreshDashboard()
+                    },
                     onRefreshHistory = ecoSphereViewModel::refreshHistory,
                     onSelectHistoryMonth = ecoSphereViewModel::selectHistoryMonth,
                     onLoadMoreHistory = ecoSphereViewModel::loadMoreHistory,
