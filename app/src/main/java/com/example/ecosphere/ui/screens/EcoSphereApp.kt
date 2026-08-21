@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -25,8 +26,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.ecosphere.ui.icons.EcoSphereIcons
 import com.example.ecosphere.ui.viewmodel.EcoSphereUiState
 import kotlinx.coroutines.launch
 
@@ -162,22 +166,46 @@ private fun EcoSphereNavigation(
 
         Spacer(modifier = Modifier.height(4.dp))
 
-        NavigationDrawerItem(
-            label = { Text("Panel principal") },
+        EcoSphereNavigationItem(
+            label = "Panel principal",
+            icon = EcoSphereIcons.Dashboard,
             selected = destination == EcoSphereDestination.DASHBOARD,
             onClick = { onSelect(EcoSphereDestination.DASHBOARD) }
         )
-        NavigationDrawerItem(
-            label = { Text("Registros históricos") },
+        EcoSphereNavigationItem(
+            label = "Registros históricos",
+            icon = EcoSphereIcons.History,
             selected = destination == EcoSphereDestination.HISTORY,
             onClick = { onSelect(EcoSphereDestination.HISTORY) }
         )
-        NavigationDrawerItem(
-            label = { Text("Diagnóstico del sistema") },
+        EcoSphereNavigationItem(
+            label = "Diagnóstico del sistema",
+            icon = EcoSphereIcons.Diagnostics,
             selected = destination == EcoSphereDestination.DIAGNOSTICS,
             onClick = { onSelect(EcoSphereDestination.DIAGNOSTICS) }
         )
     }
+}
+
+@Composable
+private fun EcoSphereNavigationItem(
+    label: String,
+    icon: ImageVector,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    NavigationDrawerItem(
+        label = { Text(label) },
+        icon = {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color.Unspecified
+            )
+        },
+        selected = selected,
+        onClick = onClick
+    )
 }
 
 @Composable
