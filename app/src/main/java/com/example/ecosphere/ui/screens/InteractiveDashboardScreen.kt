@@ -309,15 +309,14 @@ private fun SystemOverviewCard(
             OverviewValue(Modifier.fillMaxWidth(), "Última telemetría", lastReadingAt)
 
             OutlinedButton(onClick = onRefresh, modifier = Modifier.fillMaxWidth(), enabled = !isLoading) {
-                Icon(DashboardControlIcons.Refresh, null, Modifier.size(20.dp), tint = DashboardControlIcons.Green)
+                Icon(
+                    DashboardControlIcons.Refresh,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = DashboardControlIcons.Green
+                )
                 Spacer(Modifier.width(8.dp))
-                if (isLoading) {
-                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Actualizando...")
-                } else {
-                    Text("Actualizar datos")
-                }
+                Text(if (isLoading) "Actualizando..." else "Actualizar datos")
             }
         }
     }
