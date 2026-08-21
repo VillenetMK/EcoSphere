@@ -1,9 +1,14 @@
 package com.example.ecosphere.data.repository
 
 import com.example.ecosphere.data.model.DeviceControl
+import com.example.ecosphere.data.model.HistoryMonthSummary
 import com.example.ecosphere.data.model.SensorRecord
 import com.example.ecosphere.data.network.SupabaseApi
 import com.example.ecosphere.data.network.SupabaseConfig
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
+import java.util.TimeZone
 
 class SensorRepository(
     private val api: SupabaseApi
@@ -18,10 +23,21 @@ class SensorRepository(
         ).firstOrNull()
     }
 
-    suspend fun getHistory(): List<SensorRecord> {
-        return api.getHistory(
+    suspend fun getHistoryMonths(): List<HistoryMonthSummary> {
+        return api.getHistoryMonths(
             apiKey = apiKey,
             authorization = authorization
+        )
+    }
+
+    suspend fun getHistoryByMonth(monthKey: String): List<SensorRecord> {
+        val (fromUtc, toUtc) = monthBoundsUtc(monthKey)
+        return api.getHistoryByMonth(
+            apiKey = apiKey,
+            authorization = authorization,
+            fromFilter = "gte.$fromUtc",
+            toFilter = "lt.$toUtc",
+            limit = 1000
         )
     }
 
@@ -71,5 +87,28 @@ class SensorRepository(
             authorization = authorization,
             body = body
         ).firstOrNull()
+    }
+
+    private fun monthBoundsUtc(monthKey: String): Pair<String, String> {
+        val parts = monthKey.split("-")
+        require(parts.size == 2) { "Mes histórico inválido: $monthKey" }
+
+        val year = parts[0].toInt()
+        val month = parts[1].toInt()
+        require(month in 1..12) { "Mes histórico inválido: $monthKey" }
+
+        val localZone = TimeZone.getTimeZone("America/Lima")
+        val start = Calendar.getInstance(localZone).apply {
+            clear()
+            set(year, month - 1, 1, 0, 0, 0)
+        }
+        val end = start.clone() as Calendar
+        end.add(Calendar.MONTH, 1)
+
+        val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }
+
+        return formatter.format(start.time) to formatter.format(end.time)
     }
 }
