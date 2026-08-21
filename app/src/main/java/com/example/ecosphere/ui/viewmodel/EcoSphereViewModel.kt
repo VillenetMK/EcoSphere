@@ -8,6 +8,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.ecosphere.data.model.DeviceControl
 import com.example.ecosphere.data.repository.SensorRepository
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class EcoSphereViewModel(
@@ -18,29 +20,55 @@ class EcoSphereViewModel(
         private set
 
     init {
-        refreshDashboard()
+        startAutoRefresh()
+    }
+
+    private fun startAutoRefresh() {
+        viewModelScope.launch {
+            // Primera carga visible.
+            loadDashboard(showLoading = true, clearControlMessage = false)
+
+            // Actualización automática mientras este ViewModel exista.
+            while (isActive) {
+                delay(POLL_INTERVAL_MS)
+                loadDashboard(showLoading = false, clearControlMessage = false)
+            }
+        }
     }
 
     fun refreshDashboard() {
         viewModelScope.launch {
-            uiState = uiState.copy(isLoading = true, error = null, controlMessage = null)
+            loadDashboard(showLoading = true, clearControlMessage = true)
+        }
+    }
 
-            try {
-                val record = repository.getLatestRecord()
-                val deviceControl = repository.getDeviceControl()
+    private suspend fun loadDashboard(
+        showLoading: Boolean,
+        clearControlMessage: Boolean
+    ) {
+        if (showLoading) {
+            uiState = uiState.copy(
+                isLoading = true,
+                error = null,
+                controlMessage = if (clearControlMessage) null else uiState.controlMessage
+            )
+        }
 
-                uiState = uiState.copy(
-                    isLoading = false,
-                    record = record,
-                    deviceControl = deviceControl,
-                    error = if (record == null) "No hay registros todavía en Supabase." else null
-                )
-            } catch (e: Exception) {
-                uiState = uiState.copy(
-                    isLoading = false,
-                    error = e.message ?: "Error desconocido"
-                )
-            }
+        try {
+            val record = repository.getLatestRecord()
+            val deviceControl = repository.getDeviceControl()
+
+            uiState = uiState.copy(
+                isLoading = false,
+                record = record,
+                deviceControl = deviceControl,
+                error = if (record == null) "No hay registros todavía en Supabase." else null
+            )
+        } catch (e: Exception) {
+            uiState = uiState.copy(
+                isLoading = false,
+                error = e.message ?: "Error sincronizando con Supabase"
+            )
         }
     }
 
@@ -134,6 +162,8 @@ class EcoSphereViewModel(
     }
 
     companion object {
+        private const val POLL_INTERVAL_MS = 2_000L
+
         fun factory(repository: SensorRepository): ViewModelProvider.Factory {
             return object : ViewModelProvider.Factory {
                 @Suppress("UNCHECKED_CAST")
