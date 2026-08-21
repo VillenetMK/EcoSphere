@@ -1,7 +1,6 @@
 package com.example.ecosphere.ui.screens
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -116,13 +115,6 @@ fun InteractiveDashboardScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            QuickIconBar(
-                online = online,
-                autoMode = control?.autoMode == true,
-                onRefresh = onRefresh,
-                onOpen = { detail = it }
-            )
-
             SystemOverviewCard(
                 online = online,
                 autoMode = control?.autoMode ?: record?.autoMode ?: false,
@@ -206,56 +198,6 @@ fun InteractiveDashboardScreen(
                 detail = null
             }
         )
-    }
-}
-
-@Composable
-private fun QuickIconBar(
-    online: Boolean,
-    autoMode: Boolean,
-    onRefresh: () -> Unit,
-    onOpen: (DashboardDetail) -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        QuickIcon(DashboardControlIcons.Temperature, "Temp") { onOpen(DashboardDetail.TEMPERATURE) }
-        QuickIcon(DashboardControlIcons.AirHumidity, "Aire") { onOpen(DashboardDetail.AIR_HUMIDITY) }
-        QuickIcon(DashboardControlIcons.SoilHumidity, "Suelo") { onOpen(DashboardDetail.SOIL_HUMIDITY) }
-        QuickIcon(DashboardControlIcons.Light, "Luz") { onOpen(DashboardDetail.LIGHT) }
-        QuickIcon(DashboardControlIcons.WaterLevel, "Agua") { onOpen(DashboardDetail.WATER_LEVEL) }
-        QuickIcon(DashboardControlIcons.Fan, "Fan") { onOpen(DashboardDetail.FAN) }
-        QuickIcon(DashboardControlIcons.GrowLed, "LED") { onOpen(DashboardDetail.GROW_LED) }
-        QuickIcon(DashboardControlIcons.Pump, "Bomba") { onOpen(DashboardDetail.PUMP) }
-        QuickIcon(if (autoMode) DashboardControlIcons.AutoMode else DashboardControlIcons.ManualMode, "Modo") {
-            onOpen(DashboardDetail.MODE)
-        }
-        QuickIcon(if (online) DashboardControlIcons.Online else DashboardControlIcons.Offline, if (online) "Online" else "Offline") {
-            onOpen(DashboardDetail.CONNECTION)
-        }
-        QuickIcon(DashboardControlIcons.Refresh, "Actualizar", onRefresh)
-    }
-}
-
-@Composable
-private fun QuickIcon(icon: ImageVector, label: String, onClick: () -> Unit) {
-    Surface(
-        modifier = Modifier.width(72.dp).clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(5.dp)
-        ) {
-            Icon(icon, label, Modifier.size(26.dp), tint = DashboardControlIcons.Green)
-            Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
-        }
     }
 }
 
