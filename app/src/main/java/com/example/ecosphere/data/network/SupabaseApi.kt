@@ -29,7 +29,8 @@ interface SupabaseApi {
         @Header("Authorization") authorization: String,
         @Query("created_at") fromFilter: String,
         @Query("created_at") toFilter: String,
-        @Query("limit") limit: Int = 1000
+        @Query("limit") limit: Int,
+        @Query("offset") offset: Int
     ): List<SensorRecord>
 
     @GET("rest/v1/device_control?id=eq.1&select=*")
