@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -13,6 +14,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -22,10 +24,13 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.ecosphere.data.model.DeviceControl
 import com.example.ecosphere.data.model.SensorRecord
+import com.example.ecosphere.ui.icons.EcoSphereIcons
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
@@ -62,13 +67,24 @@ fun DiagnosticsScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text("Diagnóstico del sistema", fontWeight = FontWeight.Bold)
-                        Text(
-                            "Estado técnico de sensores y actuadores",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = EcoSphereIcons.Diagnostics,
+                            contentDescription = null,
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(26.dp)
                         )
+                        Column {
+                            Text("Diagnóstico del sistema", fontWeight = FontWeight.Bold)
+                            Text(
+                                "Estado técnico de sensores y actuadores",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -97,15 +113,21 @@ fun DiagnosticsScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text("Resumen", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    SummaryRow("ESP32", if (online) "ONLINE" else "OFFLINE")
-                    SummaryRow("Telemetría", if (telemetryFresh) "ACTUAL" else "NO ACTUAL")
-                    SummaryRow("Fallas detectadas", errors.toString())
-                    SummaryRow("Elementos a revisar", warnings.toString())
+                    SummaryRow(EcoSphereIcons.Esp32, "ESP32", if (online) "ONLINE" else "OFFLINE")
+                    SummaryRow(EcoSphereIcons.Cloud, "Telemetría", if (telemetryFresh) "ACTUAL" else "NO ACTUAL")
+                    SummaryRow(EcoSphereIcons.Error, "Fallas detectadas", errors.toString())
+                    SummaryRow(EcoSphereIcons.Warning, "Elementos a revisar", warnings.toString())
                 }
             }
 
             Button(onClick = onRefresh, modifier = Modifier.fillMaxWidth()) {
-                Text("Actualizar diagnóstico")
+                Icon(
+                    imageVector = EcoSphereIcons.Refresh,
+                    contentDescription = null,
+                    tint = Color.Unspecified,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text("Actualizar diagnóstico", modifier = Modifier.padding(start = 8.dp))
             }
 
             entries.forEach { DiagnosticCard(it) }
@@ -119,7 +141,18 @@ fun DiagnosticsScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text("Límite del diagnóstico actual", fontWeight = FontWeight.Bold)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = EcoSphereIcons.Info,
+                            contentDescription = null,
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text("Límite del diagnóstico actual", fontWeight = FontWeight.Bold)
+                    }
                     Text(
                         "La app puede detectar pérdida de comunicación, lecturas inválidas y diferencias entre una orden y el reporte del ESP32. Para confirmar un LED quemado, un cable de potencia abierto o energía insuficiente se necesita medir tensión y corriente físicamente en esa rama.",
                         style = MaterialTheme.typography.bodySmall,
@@ -132,13 +165,24 @@ fun DiagnosticsScreen(
 }
 
 @Composable
-private fun SummaryRow(label: String, value: String) {
+private fun SummaryRow(icon: ImageVector, label: String, value: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, color = MaterialTheme.colorScheme.onPrimaryContainer)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color.Unspecified,
+                modifier = Modifier.size(18.dp)
+            )
+            Text(label, color = MaterialTheme.colorScheme.onPrimaryContainer)
+        }
         Text(value, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimaryContainer)
     }
 }
@@ -155,12 +199,23 @@ private fun DiagnosticCard(entry: DiagnosticEntry) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    entry.title,
+                Row(
                     modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(9.dp)
+                ) {
+                    Icon(
+                        imageVector = diagnosticIcon(entry.title, entry.level),
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Text(
+                        entry.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
                 Surface(
                     shape = RoundedCornerShape(100.dp),
                     color = when (entry.level) {
@@ -170,12 +225,23 @@ private fun DiagnosticCard(entry: DiagnosticEntry) {
                         DiagnosticLevel.INFO -> MaterialTheme.colorScheme.surfaceVariant
                     }
                 ) {
-                    Text(
-                        entry.level.label,
+                    Row(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Icon(
+                            imageVector = levelIcon(entry.level),
+                            contentDescription = null,
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Text(
+                            entry.level.label,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
             Text(
@@ -184,6 +250,31 @@ private fun DiagnosticCard(entry: DiagnosticEntry) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+private fun diagnosticIcon(title: String, level: DiagnosticLevel): ImageVector {
+    return when {
+        title.startsWith("ESP32") -> EcoSphereIcons.Esp32
+        title.startsWith("Telemetría") -> EcoSphereIcons.Cloud
+        title.startsWith("BME280") -> EcoSphereIcons.Temperature
+        title.startsWith("BH1750") -> EcoSphereIcons.Light
+        title.startsWith("Sensor de humedad") -> EcoSphereIcons.SoilHumidity
+        title.startsWith("Sensores de nivel") -> EcoSphereIcons.WaterLevel
+        title.startsWith("Ventilador") -> EcoSphereIcons.Fan
+        title.startsWith("LED grow") -> EcoSphereIcons.GrowLed
+        title.startsWith("Bomba") -> EcoSphereIcons.Pump
+        title.startsWith("Alimentación") -> EcoSphereIcons.Power
+        else -> levelIcon(level)
+    }
+}
+
+private fun levelIcon(level: DiagnosticLevel): ImageVector {
+    return when (level) {
+        DiagnosticLevel.OK -> EcoSphereIcons.Ok
+        DiagnosticLevel.WARNING -> EcoSphereIcons.Warning
+        DiagnosticLevel.ERROR -> EcoSphereIcons.Error
+        DiagnosticLevel.INFO -> EcoSphereIcons.Info
     }
 }
 
