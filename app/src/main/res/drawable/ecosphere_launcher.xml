@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Fondo redondeado oscuro -->
+    <path
+        android:fillColor="#071B16"
+        android:pathData="M18,2H90A16,16 0,0 1,106 18V90A16,16 0,0 1,90 106H18A16,16 0,0 1,2 90V18A16,16 0,0 1,18 2Z" />
+
+    <!-- Halo exterior -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#58E36A"
+        android:strokeWidth="2.2"
+        android:pathData="M54,12A42,42 0,1 1,53.9 12Z" />
+
+    <!-- Cápsula / terrario -->
+    <path
+        android:fillColor="#12392F"
+        android:strokeColor="#B9F5D0"
+        android:strokeWidth="1.6"
+        android:pathData="M54,21A31,31 0,1 1,53.9 21Z" />
+
+    <!-- Base metálica del terrario -->
+    <path
+        android:fillColor="#1E2D2A"
+        android:strokeColor="#58E36A"
+        android:strokeWidth="1.2"
+        android:pathData="M28,72H80L76,82H32Z" />
+
+    <!-- Suelo -->
+    <path
+        android:fillColor="#304D2B"
+        android:pathData="M31,68C38,65 45,67 51,66C58,65 65,63 77,68V74H31Z" />
+
+    <!-- Tallo principal -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#8CF56F"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M54,69C54,60 54,52 55,42" />
+
+    <!-- Hoja izquierda -->
+    <path
+        android:fillColor="#66D94E"
+        android:strokeColor="#C9FF9F"
+        android:strokeWidth="0.8"
+        android:pathData="M54,56C45,46 36,45 32,50C37,58 45,61 54,56Z" />
+
+    <!-- Hoja derecha -->
+    <path
+        android:fillColor="#81E95D"
+        android:strokeColor="#D7FFB2"
+        android:strokeWidth="0.8"
+        android:pathData="M55,50C63,40 72,39 77,44C72,52 64,55 55,50Z" />
+
+    <!-- Brote superior -->
+    <path
+        android:fillColor="#97F36F"
+        android:strokeColor="#E4FFC7"
+        android:strokeWidth="0.8"
+        android:pathData="M55,43C49,35 50,29 55,26C62,31 62,37 55,43Z" />
+
+    <!-- Ventilador -->
+    <path
+        android:fillColor="#263E3B"
+        android:strokeColor="#9EE8D1"
+        android:strokeWidth="1"
+        android:pathData="M37,33A8,8 0,1 1,36.9 33Z" />
+    <path
+        android:fillColor="#79DCC8"
+        android:pathData="M37,35C40,30 44,31 44,34C42,37 40,38 37,38Z" />
+    <path
+        android:fillColor="#79DCC8"
+        android:pathData="M35,37C30,34 31,30 34,30C37,32 38,34 38,37Z" />
+    <path
+        android:fillColor="#79DCC8"
+        android:pathData="M37,39C34,44 30,43 30,40C32,37 34,36 37,36Z" />
+
+    <!-- Lámpara superior -->
+    <path
+        android:fillColor="#C7FFF2"
+        android:strokeColor="#64E6CA"
+        android:strokeWidth="1"
+        android:pathData="M45,24H65L62,29H48Z" />
+
+    <!-- Gotas / sensores -->
+    <path
+        android:fillColor="#73E5E8"
+        android:pathData="M73,59C77,64 77,67 73,69C69,67 69,64 73,59Z" />
+    <path
+        android:fillColor="#9FF3FF"
+        android:pathData="M78,55A2.2,2.2 0,1 1,77.9 55Z" />
+
+    <!-- Señal Wi‑Fi -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#8CF56F"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M16,29C23,22 31,22 38,29M20,34C25,29 30,29 35,34M25,39C27,37 29,37 31,39" />
+    <path
+        android:fillColor="#8CF56F"
+        android:pathData="M28,42A2.3,2.3 0,1 1,27.9 42Z" />
+
+    <!-- Nodos tecnológicos -->
+    <path
+        android:fillColor="#58E36A"
+        android:pathData="M86,31A2,2 0,1 1,85.9 31ZM91,38A1.7,1.7 0,1 1,90.9 38ZM86,46A1.7,1.7 0,1 1,85.9 46Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#58E36A"
+        android:strokeWidth="1"
+        android:pathData="M86,33V36L91,38M91,40L86,44" />
+
+    <!-- Marca E simplificada -->
+    <path
+        android:fillColor="#E8F7EF"
+        android:pathData="M26,88H41V92H31V94H39V98H31V100H41V104H26Z" />
+
+    <!-- Hoja de la marca -->
+    <path
+        android:fillColor="#7BEA58"
+        android:pathData="M37,86C40,81 45,80 48,82C45,87 41,89 37,86Z" />
+
+    <!-- Marca S simplificada -->
+    <path
+        android:fillColor="#78EE55"
+        android:pathData="M48,89C48,86 51,84 55,84H65V88H55C54,88 53,88 53,89C53,90 54,90 55,90H60C64,90 66,92 66,96C66,100 63,103 59,103H48V99H59C61,99 61,98 61,97C61,96 60,96 59,96H54C50,96 48,93 48,89Z" />
+</vector>
