@@ -201,34 +201,34 @@ class EcoSphereViewModel(
         when {
             soilHumidity == null -> {
                 uiState = uiState.copy(
-                    controlMessage = "Riego bloqueado: no hay lectura válida de humedad del suelo."
+                    controlMessage = "Riego manual denegado. No hay lectura válida de humedad del suelo."
                 )
                 return
             }
 
             soilHumidity >= 60.0 -> {
                 uiState = uiState.copy(
-                    controlMessage = "Riego bloqueado: el suelo ya está húmedo (${soilHumidity.toInt()}%)."
+                    controlMessage = "Suelo húmedo. Riego manual denegado. Humedad actual: ${soilHumidity.toInt()} %."
                 )
                 return
             }
 
             waterLevel == "low" -> {
                 uiState = uiState.copy(
-                    controlMessage = "Riego bloqueado: nivel de agua bajo."
+                    controlMessage = "Riego manual denegado. Nivel de agua bajo."
                 )
                 return
             }
         }
 
         val currentRequest = uiState.deviceControl?.pumpRequest ?: 0L
-        updateControl("Solicitud de riego enviada") {
+        updateControl(null) {
             repository.requestPump(currentRequest = currentRequest, durationMs = 3000)
         }
     }
 
     private fun updateControl(
-        successMessage: String,
+        successMessage: String?,
         action: suspend () -> DeviceControl?
     ) {
         viewModelScope.launch {
