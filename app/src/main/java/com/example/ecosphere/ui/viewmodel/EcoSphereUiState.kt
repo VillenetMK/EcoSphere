@@ -1,6 +1,7 @@
 package com.example.ecosphere.ui.viewmodel
 
 import com.example.ecosphere.data.model.DeviceControl
+import com.example.ecosphere.data.model.HistoryMonthSummary
 import com.example.ecosphere.data.model.SensorRecord
 
 data class EcoSphereUiState(
@@ -9,6 +10,8 @@ data class EcoSphereUiState(
     val isUpdatingControl: Boolean = false,
     val record: SensorRecord? = null,
     val history: List<SensorRecord> = emptyList(),
+    val historyMonths: List<HistoryMonthSummary> = emptyList(),
+    val selectedHistoryMonth: String? = null,
     val deviceControl: DeviceControl? = null,
     val error: String? = null,
     val controlMessage: String? = null
