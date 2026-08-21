@@ -15,6 +15,12 @@ interface SupabaseApi {
         @Header("Authorization") authorization: String
     ): List<SensorRecord>
 
+    @GET("rest/v1/sensor_records?select=*&order=created_at.desc&limit=100")
+    suspend fun getHistory(
+        @Header("apikey") apiKey: String,
+        @Header("Authorization") authorization: String
+    ): List<SensorRecord>
+
     @GET("rest/v1/device_control?id=eq.1&select=*")
     suspend fun getDeviceControl(
         @Header("apikey") apiKey: String,
