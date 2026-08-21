@@ -73,7 +73,7 @@ android {
     }
 
     sourceSets.getByName("main").res.srcDir(
-        layout.buildDirectory.dir("generated/ecosphereLauncher/res")
+        layout.buildDirectory.get().asFile.resolve("generated/ecosphereLauncher/res")
     )
 }
 
