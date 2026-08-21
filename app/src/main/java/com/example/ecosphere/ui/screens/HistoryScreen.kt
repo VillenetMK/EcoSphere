@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -16,6 +17,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -24,10 +26,13 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.ecosphere.data.model.HistoryMonthSummary
 import com.example.ecosphere.data.model.SensorRecord
+import com.example.ecosphere.ui.icons.EcoSphereIcons
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.TimeZone
@@ -55,14 +60,25 @@ fun HistoryScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text("Registros históricos", fontWeight = FontWeight.Bold)
-                        Text(
-                            firstHistoricalRecord?.let { "Datos almacenados desde ${formatHistoryDate(it)}" }
-                                ?: "Historial mensual de EcoSphere",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(
+                            imageVector = EcoSphereIcons.History,
+                            contentDescription = null,
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(26.dp)
                         )
+                        Column {
+                            Text("Registros históricos", fontWeight = FontWeight.Bold)
+                            Text(
+                                firstHistoricalRecord?.let { "Datos almacenados desde ${formatHistoryDate(it)}" }
+                                    ?: "Historial mensual de EcoSphere",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -154,8 +170,18 @@ fun HistoryScreen(
                         modifier = Modifier.padding(end = 10.dp),
                         strokeWidth = 2.dp
                     )
+                } else {
+                    Icon(
+                        imageVector = EcoSphereIcons.Refresh,
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
-                Text(if (isLoading) "Cargando..." else "Actualizar historial")
+                Text(
+                    if (isLoading) "Cargando..." else "Actualizar historial",
+                    modifier = Modifier.padding(start = if (isLoading) 0.dp else 8.dp)
+                )
             }
 
             error?.let {
@@ -248,31 +274,46 @@ private fun HistoryRecordCard(record: SensorRecord) {
                 fontWeight = FontWeight.Bold
             )
 
-            HistoryPair("Temperatura", record.temperature?.let { "${formatValue(it)} °C" } ?: "Sin dato")
-            HistoryPair("Humedad aire", record.airHumidity?.let { "${formatValue(it)} %" } ?: "Sin dato")
-            HistoryPair("Humedad suelo", record.soilHumidity?.let { "${formatValue(it)} %" } ?: "Sin dato")
-            HistoryPair("Iluminación", record.lightLux?.let { "${formatValue(it)} lx" } ?: "Sin dato")
-            HistoryPair("Depósito", waterLevelLabel(record.waterLevel))
-            HistoryPair("Ventilador", actuatorLabel(record.fanOn, record.fanPower))
-            HistoryPair("Bomba", if (record.pumpOn == true) "Encendida" else "Apagada")
-            HistoryPair("LED grow", actuatorLabel(record.ledOn, record.ledPower))
-            HistoryPair("Modo", if (record.autoMode == true) "Automático" else "Manual")
+            HistoryPair(EcoSphereIcons.Temperature, "Temperatura", record.temperature?.let { "${formatValue(it)} °C" } ?: "Sin dato")
+            HistoryPair(EcoSphereIcons.AirHumidity, "Humedad aire", record.airHumidity?.let { "${formatValue(it)} %" } ?: "Sin dato")
+            HistoryPair(EcoSphereIcons.SoilHumidity, "Humedad suelo", record.soilHumidity?.let { "${formatValue(it)} %" } ?: "Sin dato")
+            HistoryPair(EcoSphereIcons.Light, "Iluminación", record.lightLux?.let { "${formatValue(it)} lx" } ?: "Sin dato")
+            HistoryPair(EcoSphereIcons.WaterLevel, "Depósito", waterLevelLabel(record.waterLevel))
+            HistoryPair(EcoSphereIcons.Fan, "Ventilador", actuatorLabel(record.fanOn, record.fanPower))
+            HistoryPair(EcoSphereIcons.Pump, "Bomba", if (record.pumpOn == true) "Encendida" else "Apagada")
+            HistoryPair(EcoSphereIcons.GrowLed, "LED grow", actuatorLabel(record.ledOn, record.ledPower))
+            HistoryPair(
+                if (record.autoMode == true) EcoSphereIcons.AutoMode else EcoSphereIcons.ManualMode,
+                "Modo",
+                if (record.autoMode == true) "Automático" else "Manual"
+            )
         }
     }
 }
 
 @Composable
-private fun HistoryPair(label: String, value: String) {
+private fun HistoryPair(icon: ImageVector, label: String, value: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color.Unspecified,
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         Text(
             text = value,
             style = MaterialTheme.typography.bodyMedium,
