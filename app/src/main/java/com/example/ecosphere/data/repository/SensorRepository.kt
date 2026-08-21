@@ -18,6 +18,13 @@ class SensorRepository(
         ).firstOrNull()
     }
 
+    suspend fun getHistory(): List<SensorRecord> {
+        return api.getHistory(
+            apiKey = apiKey,
+            authorization = authorization
+        )
+    }
+
     suspend fun getDeviceControl(): DeviceControl? {
         return api.getDeviceControl(
             apiKey = apiKey,
