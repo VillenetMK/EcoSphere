@@ -31,6 +31,7 @@ class MainActivity : ComponentActivity() {
                     uiState = ecoSphereViewModel.uiState,
                     onRefresh = ecoSphereViewModel::refreshDashboard,
                     onRefreshHistory = ecoSphereViewModel::refreshHistory,
+                    onSelectHistoryMonth = ecoSphereViewModel::selectHistoryMonth,
                     onAutoModeChange = ecoSphereViewModel::setAutoMode,
                     onFanPowerChange = ecoSphereViewModel::setFanPower,
                     onLedPowerChange = ecoSphereViewModel::setLedPower,
