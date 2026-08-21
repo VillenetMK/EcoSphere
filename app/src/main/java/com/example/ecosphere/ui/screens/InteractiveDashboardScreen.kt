@@ -123,7 +123,7 @@ fun InteractiveDashboardScreen(
                 onOpen = { detail = it }
             )
 
-            SystemOverviewCardInteractive(
+            SystemOverviewCard(
                 online = online,
                 autoMode = control?.autoMode ?: record?.autoMode ?: false,
                 lastSeenAt = prettyTimestamp(control?.lastSeenAt),
@@ -134,15 +134,15 @@ fun InteractiveDashboardScreen(
                 onModeClick = { detail = DashboardDetail.MODE }
             )
 
-            uiState.error?.let { MessageCard(it, error = true) }
-            uiState.controlMessage?.let { MessageCard(it, error = false) }
+            uiState.error?.let { MessageCard(it, true) }
+            uiState.controlMessage?.let { MessageCard(it, false) }
 
-            SectionTitleInteractive("Lecturas ambientales", "Toca cualquier tarjeta para abrir el detalle")
+            SectionTitle("Lecturas ambientales", "Toca cualquier tarjeta para abrir el detalle")
 
             if (record == null) {
-                EmptyTelemetryCardInteractive()
+                EmptyTelemetryCard()
             } else {
-                SensorGridInteractive(
+                SensorGrid(
                     temperature = record.temperature,
                     airHumidity = record.airHumidity,
                     soilHumidity = record.soilHumidity,
@@ -152,9 +152,8 @@ fun InteractiveDashboardScreen(
                 )
             }
 
-            SectionTitleInteractive("Estado del sistema", "Estado reportado por el ESP32")
-
-            ActuatorStatusInteractive(
+            SectionTitle("Estado del sistema", "Estado reportado por el ESP32")
+            ActuatorStatus(
                 fanOn = record?.fanOn == true,
                 fanPower = record?.fanPower,
                 pumpOn = record?.pumpOn == true,
@@ -164,9 +163,8 @@ fun InteractiveDashboardScreen(
                 onOpen = { detail = it }
             )
 
-            SectionTitleInteractive("Control remoto", "Órdenes enviadas a través de Supabase")
-
-            ControlCardInteractive(
+            SectionTitle("Control remoto", "Órdenes enviadas a través de Supabase")
+            ControlCard(
                 autoMode = control?.autoMode ?: false,
                 fanPower = control?.fanPower ?: 0,
                 ledPower = control?.ledPower ?: 0,
@@ -245,9 +243,7 @@ private fun QuickIconBar(
 @Composable
 private fun QuickIcon(icon: ImageVector, label: String, onClick: () -> Unit) {
     Surface(
-        modifier = Modifier
-            .width(72.dp)
-            .clickable(onClick = onClick),
+        modifier = Modifier.width(72.dp).clickable(onClick = onClick),
         shape = RoundedCornerShape(18.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp
@@ -264,7 +260,7 @@ private fun QuickIcon(icon: ImageVector, label: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun SystemOverviewCardInteractive(
+private fun SystemOverviewCard(
     online: Boolean,
     autoMode: Boolean,
     lastSeenAt: String,
@@ -296,21 +292,21 @@ private fun SystemOverviewCardInteractive(
                 IconButton(onClick = onConnectionClick) {
                     Icon(
                         if (online) DashboardControlIcons.Online else DashboardControlIcons.Offline,
-                        if (online) "ONLINE" else "OFFLINE",
+                        contentDescription = if (online) "ONLINE" else "OFFLINE",
                         tint = DashboardControlIcons.Green
                     )
                 }
             }
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OverviewValueInteractive(
+                OverviewValue(
                     Modifier.weight(1f).clickable(onClick = onModeClick),
                     "Modo",
                     if (autoMode) "Automático" else "Manual"
                 )
-                OverviewValueInteractive(Modifier.weight(1f), "Último ESP32", lastSeenAt)
+                OverviewValue(Modifier.weight(1f), "Último ESP32", lastSeenAt)
             }
-            OverviewValueInteractive(Modifier.fillMaxWidth(), "Última telemetría", lastReadingAt)
+            OverviewValue(Modifier.fillMaxWidth(), "Última telemetría", lastReadingAt)
 
             OutlinedButton(onClick = onRefresh, modifier = Modifier.fillMaxWidth(), enabled = !isLoading) {
                 Icon(DashboardControlIcons.Refresh, null, Modifier.size(20.dp), tint = DashboardControlIcons.Green)
@@ -328,8 +324,12 @@ private fun SystemOverviewCardInteractive(
 }
 
 @Composable
-private fun OverviewValueInteractive(modifier: Modifier, title: String, value: String) {
-    Surface(modifier = modifier, shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface.copy(alpha = .70f)) {
+private fun OverviewValue(modifier: Modifier, title: String, value: String) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = .70f)
+    ) {
         Column(Modifier.padding(12.dp)) {
             Text(title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
@@ -338,7 +338,7 @@ private fun OverviewValueInteractive(modifier: Modifier, title: String, value: S
 }
 
 @Composable
-private fun SectionTitleInteractive(title: String, subtitle: String) {
+private fun SectionTitle(title: String, subtitle: String) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -346,7 +346,7 @@ private fun SectionTitleInteractive(title: String, subtitle: String) {
 }
 
 @Composable
-private fun SensorGridInteractive(
+private fun SensorGrid(
     temperature: Double?,
     airHumidity: Double?,
     soilHumidity: Double?,
@@ -356,33 +356,31 @@ private fun SensorGridInteractive(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SensorCardInteractive(
+            SensorCard(
                 Modifier.weight(1f), DashboardControlIcons.Temperature, "Temperatura",
-                temperature?.let { "${formatNumberQuick(it)} °C" } ?: "--", "BME280",
-                temperature?.let { (it / 50.0).toFloat() },
-                { onOpen(DashboardDetail.TEMPERATURE) }
-            )
-            SensorCardInteractive(
+                temperature?.let { "${formatNumber(it)} °C" } ?: "--", "BME280",
+                temperature?.let { (it / 50.0).toFloat() }
+            ) { onOpen(DashboardDetail.TEMPERATURE) }
+            SensorCard(
                 Modifier.weight(1f), DashboardControlIcons.AirHumidity, "Humedad aire",
-                airHumidity?.let { "${formatNumberQuick(it)} %" } ?: "--", "BME280",
-                airHumidity?.let { (it / 100.0).toFloat() },
-                { onOpen(DashboardDetail.AIR_HUMIDITY) }
-            )
+                airHumidity?.let { "${formatNumber(it)} %" } ?: "--", "BME280",
+                airHumidity?.let { (it / 100.0).toFloat() }
+            ) { onOpen(DashboardDetail.AIR_HUMIDITY) }
         }
+
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SensorCardInteractive(
+            SensorCard(
                 Modifier.weight(1f), DashboardControlIcons.SoilHumidity, "Humedad suelo",
-                soilHumidity?.let { "${formatNumberQuick(it)} %" } ?: "--", "Sensor capacitivo",
-                soilHumidity?.let { (it / 100.0).toFloat() },
-                { onOpen(DashboardDetail.SOIL_HUMIDITY) }
-            )
-            SensorCardInteractive(
+                soilHumidity?.let { "${formatNumber(it)} %" } ?: "--", "Sensor capacitivo",
+                soilHumidity?.let { (it / 100.0).toFloat() }
+            ) { onOpen(DashboardDetail.SOIL_HUMIDITY) }
+            SensorCard(
                 Modifier.weight(1f), DashboardControlIcons.Light, "Iluminación",
-                lightLux?.let { "${formatNumberQuick(it)} lx" } ?: "--", "BH1750",
-                lightLux?.let { (it / 20000.0).toFloat() },
-                { onOpen(DashboardDetail.LIGHT) }
-            )
+                lightLux?.let { "${formatNumber(it)} lx" } ?: "--", "BH1750",
+                lightLux?.let { (it / 20000.0).toFloat() }
+            ) { onOpen(DashboardDetail.LIGHT) }
         }
+
         Card(
             modifier = Modifier.fillMaxWidth().clickable { onOpen(DashboardDetail.WATER_LEVEL) },
             shape = RoundedCornerShape(20.dp),
@@ -398,14 +396,14 @@ private fun SensorGridInteractive(
                     Text("Depósito de agua", style = MaterialTheme.typography.labelLarge)
                     Text(waterLevelDisplay(waterLevel), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 }
-                Text("Ver sensores", style = MaterialTheme.typography.bodySmall)
+                Text("Ver sensor", style = MaterialTheme.typography.bodySmall)
             }
         }
     }
 }
 
 @Composable
-private fun SensorCardInteractive(
+private fun SensorCard(
     modifier: Modifier,
     icon: ImageVector,
     title: String,
@@ -434,7 +432,7 @@ private fun SensorCardInteractive(
 }
 
 @Composable
-private fun ActuatorStatusInteractive(
+private fun ActuatorStatus(
     fanOn: Boolean,
     fanPower: Int?,
     pumpOn: Boolean,
@@ -445,19 +443,19 @@ private fun ActuatorStatusInteractive(
 ) {
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.padding(18.dp)) {
-            StatusLineInteractive(DashboardControlIcons.Fan, "Ventilador", if (fanOn) "ENCENDIDO${fanPower?.let { " · $it %" } ?: ""}" else "APAGADO") { onOpen(DashboardDetail.FAN) }
+            StatusLine(DashboardControlIcons.Fan, "Ventilador", if (fanOn) "ENCENDIDO${fanPower?.let { " · $it %" } ?: ""}" else "APAGADO") { onOpen(DashboardDetail.FAN) }
             HorizontalDivider(Modifier.padding(vertical = 10.dp))
-            StatusLineInteractive(DashboardControlIcons.Pump, "Bomba de riego", if (pumpOn) "ENCENDIDA" else "APAGADA") { onOpen(DashboardDetail.PUMP) }
+            StatusLine(DashboardControlIcons.Pump, "Bomba de riego", if (pumpOn) "ENCENDIDA" else "APAGADA") { onOpen(DashboardDetail.PUMP) }
             HorizontalDivider(Modifier.padding(vertical = 10.dp))
-            StatusLineInteractive(DashboardControlIcons.GrowLed, "LED grow", if (ledOn) "ENCENDIDO${ledPower?.let { " · $it %" } ?: ""}" else "APAGADO") { onOpen(DashboardDetail.GROW_LED) }
+            StatusLine(DashboardControlIcons.GrowLed, "LED grow", if (ledOn) "ENCENDIDO${ledPower?.let { " · $it %" } ?: ""}" else "APAGADO") { onOpen(DashboardDetail.GROW_LED) }
             HorizontalDivider(Modifier.padding(vertical = 10.dp))
-            StatusLineInteractive(if (autoMode) DashboardControlIcons.AutoMode else DashboardControlIcons.ManualMode, "Control", if (autoMode) "AUTOMÁTICO" else "MANUAL") { onOpen(DashboardDetail.MODE) }
+            StatusLine(if (autoMode) DashboardControlIcons.AutoMode else DashboardControlIcons.ManualMode, "Control", if (autoMode) "AUTOMÁTICO" else "MANUAL") { onOpen(DashboardDetail.MODE) }
         }
     }
 }
 
 @Composable
-private fun StatusLineInteractive(icon: ImageVector, title: String, value: String, onClick: () -> Unit) {
+private fun StatusLine(icon: ImageVector, title: String, value: String, onClick: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -472,7 +470,7 @@ private fun StatusLineInteractive(icon: ImageVector, title: String, value: Strin
 }
 
 @Composable
-private fun ControlCardInteractive(
+private fun ControlCard(
     autoMode: Boolean,
     fanPower: Int,
     ledPower: Int,
@@ -489,15 +487,15 @@ private fun ControlCardInteractive(
 ) {
     var fanSlider by remember(fanPower) { mutableFloatStateOf(fanPower.toFloat()) }
     var ledSlider by remember(ledPower) { mutableFloatStateOf(ledPower.toFloat()) }
-    val irrigation = irrigationSafetyQuick(soilHumidity, waterLevel)
+    val irrigation = irrigationSafety(soilHumidity, waterLevel)
 
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             ControlHeader(
                 if (autoMode) DashboardControlIcons.AutoMode else DashboardControlIcons.ManualMode,
-                "Modo de operación",
-                { onOpen(DashboardDetail.MODE) }
-            )
+                "Modo de operación"
+            ) { onOpen(DashboardDetail.MODE) }
+
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Control automático", fontWeight = FontWeight.Medium)
@@ -511,24 +509,24 @@ private fun ControlCardInteractive(
             }
 
             HorizontalDivider()
-            ControlHeader(DashboardControlIcons.Fan, "Ventilación", { onOpen(DashboardDetail.FAN) })
-            PowerSliderInteractive("Potencia del ventilador", fanSlider, !autoMode && !isUpdating, { fanSlider = it }) {
+            ControlHeader(DashboardControlIcons.Fan, "Ventilación") { onOpen(DashboardDetail.FAN) }
+            PowerSlider("Potencia del ventilador", fanSlider, !autoMode && !isUpdating, { fanSlider = it }) {
                 onFanPowerChange(fanSlider.roundToInt())
             }
 
             HorizontalDivider()
-            ControlHeader(DashboardControlIcons.GrowLed, "Iluminación", { onOpen(DashboardDetail.GROW_LED) })
-            PowerSliderInteractive("Intensidad LED grow", ledSlider, !autoMode && !isUpdating, { ledSlider = it }) {
+            ControlHeader(DashboardControlIcons.GrowLed, "Iluminación") { onOpen(DashboardDetail.GROW_LED) }
+            PowerSlider("Intensidad LED grow", ledSlider, !autoMode && !isUpdating, { ledSlider = it }) {
                 onLedPowerChange(ledSlider.roundToInt())
             }
 
             HorizontalDivider()
-            ControlHeader(DashboardControlIcons.Pump, "Riego manual", { onOpen(DashboardDetail.PUMP) })
+            ControlHeader(DashboardControlIcons.Pump, "Riego manual") { onOpen(DashboardDetail.PUMP) }
             Text(irrigation, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Button(onClick = onPumpRequest, modifier = Modifier.fillMaxWidth(), enabled = !isUpdating) {
                 Icon(DashboardControlIcons.Pump, null, Modifier.size(20.dp), tint = DashboardControlIcons.Green)
                 Spacer(Modifier.width(8.dp))
-                Text("Regar ahora · ${durationLabelQuick(pumpDurationMs)}")
+                Text("Regar ahora · ${durationLabel(pumpDurationMs)}")
             }
             Text("Solicitudes enviadas: $pumpRequest", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
@@ -556,7 +554,7 @@ private fun ControlHeader(icon: ImageVector, title: String, onClick: () -> Unit)
 }
 
 @Composable
-private fun PowerSliderInteractive(
+private fun PowerSlider(
     title: String,
     value: Float,
     enabled: Boolean,
@@ -646,29 +644,30 @@ private fun DashboardDetailDialog(
                         Text(if (autoMode) "Los sliders manuales quedan bloqueados." else "Puedes ajustar ventilador y LED manualmente.")
                     }
                     DashboardDetail.TEMPERATURE -> {
-                        DetailPair("Valor", record?.temperature?.let { "${formatNumberQuick(it)} °C" } ?: "Sin lectura")
+                        DetailPair("Valor", record?.temperature?.let { "${formatNumber(it)} °C" } ?: "Sin lectura")
                         DetailPair("Sensor", "BME280")
                         DetailPair("Última lectura", prettyTimestamp(record?.createdAt))
                     }
                     DashboardDetail.AIR_HUMIDITY -> {
-                        DetailPair("Valor", record?.airHumidity?.let { "${formatNumberQuick(it)} %" } ?: "Sin lectura")
+                        DetailPair("Valor", record?.airHumidity?.let { "${formatNumber(it)} %" } ?: "Sin lectura")
                         DetailPair("Sensor", "BME280")
                         DetailPair("Última lectura", prettyTimestamp(record?.createdAt))
                     }
                     DashboardDetail.SOIL_HUMIDITY -> {
-                        DetailPair("Valor", record?.soilHumidity?.let { "${formatNumberQuick(it)} %" } ?: "Sin lectura")
-                        DetailPair("Riego", irrigationSafetyQuick(record?.soilHumidity, record?.waterLevel))
+                        DetailPair("Valor", record?.soilHumidity?.let { "${formatNumber(it)} %" } ?: "Sin lectura")
+                        DetailPair("Riego", irrigationSafety(record?.soilHumidity, record?.waterLevel))
                         DetailPair("Referencia", "35–60 % aceptable")
                     }
                     DashboardDetail.LIGHT -> {
-                        DetailPair("Valor", record?.lightLux?.let { "${formatNumberQuick(it)} lx" } ?: "Sin lectura")
+                        DetailPair("Valor", record?.lightLux?.let { "${formatNumber(it)} lx" } ?: "Sin lectura")
                         DetailPair("Sensor", "BH1750")
                         DetailPair("Última lectura", prettyTimestamp(record?.createdAt))
                     }
                     DashboardDetail.WATER_LEVEL -> {
                         DetailPair("Nivel", waterLevelDisplay(record?.waterLevel))
-                        DetailPair("Sensores", "Vertical + horizontal")
-                        Text("El riego queda protegido cuando el nivel reportado es bajo.")
+                        DetailPair("Sensor", "Nivel de agua horizontal")
+                        DetailPair("Entrada", "GPIO32")
+                        Text("El riego queda protegido cuando el sensor reporta nivel bajo.")
                     }
                     DashboardDetail.FAN -> {
                         DetailPair("Orden actual", "${control?.fanPower ?: 0} %")
@@ -679,13 +678,14 @@ private fun DashboardDetailDialog(
                     DashboardDetail.GROW_LED -> {
                         DetailPair("Orden actual", "${control?.ledPower ?: 0} %")
                         DetailPair("Reportado", if (record?.ledOn == true) "ENCENDIDO · ${record.ledPower ?: 0} %" else "APAGADO")
+                        DetailPair("Alimentación", "Configurable según el LED instalado")
                         Slider(ledPower, { ledPower = it }, valueRange = 0f..100f, steps = 19, enabled = !autoMode && !uiState.isUpdatingControl)
                         Text("Nueva intensidad: ${ledPower.roundToInt()} %")
                     }
                     DashboardDetail.PUMP -> {
                         DetailPair("Estado", if (record?.pumpOn == true) "ENCENDIDA" else "APAGADA")
-                        DetailPair("Duración", durationLabelQuick(control?.pumpDurationMs ?: 3000))
-                        DetailPair("Protección", irrigationSafetyQuick(record?.soilHumidity, record?.waterLevel))
+                        DetailPair("Duración", durationLabel(control?.pumpDurationMs ?: 3000))
+                        DetailPair("Protección", irrigationSafety(record?.soilHumidity, record?.waterLevel))
                     }
                 }
             }
@@ -732,16 +732,23 @@ private fun MessageCard(message: String, error: Boolean) {
 }
 
 @Composable
-private fun EmptyTelemetryCardInteractive() {
+private fun EmptyTelemetryCard() {
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
-        Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(
+            Modifier.fillMaxWidth().padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             Text("Esperando telemetría", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text("Cuando el ESP32 vuelva a enviar datos, las lecturas aparecerán aquí automáticamente.", textAlign = TextAlign.Center)
+            Text(
+                "Cuando el ESP32 vuelva a enviar datos, las lecturas aparecerán aquí automáticamente.",
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
 
-private fun irrigationSafetyQuick(soilHumidity: Double?, waterLevel: String?): String = when {
+private fun irrigationSafety(soilHumidity: Double?, waterLevel: String?): String = when {
     soilHumidity == null -> "Bloqueado hasta recibir humedad del suelo."
     waterLevel?.lowercase() == "low" -> "Bloqueado: nivel de agua bajo."
     soilHumidity >= 60.0 -> "Bloqueado: suelo húmedo (${soilHumidity.roundToInt()} %)."
@@ -757,9 +764,10 @@ private fun waterLevelDisplay(value: String?): String = when (value?.lowercase()
     else -> value
 }
 
-private fun durationLabelQuick(ms: Int): String = if (ms % 1000 == 0) "${ms / 1000} s" else "$ms ms"
+private fun durationLabel(ms: Int): String = if (ms % 1000 == 0) "${ms / 1000} s" else "$ms ms"
 
-private fun formatNumberQuick(value: Double): String = if (value % 1.0 == 0.0) value.roundToInt().toString() else "%.1f".format(value)
+private fun formatNumber(value: Double): String =
+    if (value % 1.0 == 0.0) value.roundToInt().toString() else "%.1f".format(value)
 
 private fun prettyTimestamp(value: String?): String {
     if (value.isNullOrBlank()) return "Sin registro"
