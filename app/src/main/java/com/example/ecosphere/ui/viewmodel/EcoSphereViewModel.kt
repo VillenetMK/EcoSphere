@@ -52,17 +52,23 @@ class EcoSphereViewModel(
                     else -> null
                 }
 
-                val history = selectedMonth?.let { repository.getHistoryByMonth(it) } ?: emptyList()
+                val history = selectedMonth?.let {
+                    repository.getHistoryByMonth(it, offset = 0)
+                } ?: emptyList()
+                val totalForMonth = months.firstOrNull { it.monthKey == selectedMonth }?.recordCount ?: 0L
 
                 uiState = uiState.copy(
                     isLoadingHistory = false,
+                    isLoadingMoreHistory = false,
                     historyMonths = months,
                     selectedHistoryMonth = selectedMonth,
-                    history = history
+                    history = history,
+                    historyHasMore = history.size.toLong() < totalForMonth
                 )
             } catch (e: Exception) {
                 uiState = uiState.copy(
                     isLoadingHistory = false,
+                    isLoadingMoreHistory = false,
                     error = e.message ?: "Error cargando el historial"
                 )
             }
@@ -75,21 +81,58 @@ class EcoSphereViewModel(
         viewModelScope.launch {
             uiState = uiState.copy(
                 isLoadingHistory = true,
+                isLoadingMoreHistory = false,
                 selectedHistoryMonth = monthKey,
                 history = emptyList(),
+                historyHasMore = false,
                 error = null
             )
 
             try {
-                val history = repository.getHistoryByMonth(monthKey)
+                val history = repository.getHistoryByMonth(monthKey, offset = 0)
+                val totalForMonth = uiState.historyMonths
+                    .firstOrNull { it.monthKey == monthKey }
+                    ?.recordCount ?: history.size.toLong()
+
                 uiState = uiState.copy(
                     isLoadingHistory = false,
-                    history = history
+                    history = history,
+                    historyHasMore = history.size.toLong() < totalForMonth
                 )
             } catch (e: Exception) {
                 uiState = uiState.copy(
                     isLoadingHistory = false,
                     error = e.message ?: "Error cargando el mes seleccionado"
+                )
+            }
+        }
+    }
+
+    fun loadMoreHistory() {
+        val monthKey = uiState.selectedHistoryMonth ?: return
+        if (uiState.isLoadingHistory || uiState.isLoadingMoreHistory || !uiState.historyHasMore) return
+
+        viewModelScope.launch {
+            uiState = uiState.copy(isLoadingMoreHistory = true, error = null)
+            try {
+                val nextPage = repository.getHistoryByMonth(
+                    monthKey = monthKey,
+                    offset = uiState.history.size
+                )
+                val combined = uiState.history + nextPage
+                val totalForMonth = uiState.historyMonths
+                    .firstOrNull { it.monthKey == monthKey }
+                    ?.recordCount ?: combined.size.toLong()
+
+                uiState = uiState.copy(
+                    isLoadingMoreHistory = false,
+                    history = combined,
+                    historyHasMore = combined.size.toLong() < totalForMonth && nextPage.isNotEmpty()
+                )
+            } catch (e: Exception) {
+                uiState = uiState.copy(
+                    isLoadingMoreHistory = false,
+                    error = e.message ?: "Error cargando más registros"
                 )
             }
         }
