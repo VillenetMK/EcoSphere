@@ -97,30 +97,23 @@ fun DiagnosticsScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text("Resumen", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    DiagnosticSummaryRow("ESP32", if (online) "ONLINE" else "OFFLINE")
-                    DiagnosticSummaryRow("Telemetría", if (telemetryFresh) "ACTUAL" else "NO ACTUAL")
-                    DiagnosticSummaryRow("Fallas detectadas", errors.toString())
-                    DiagnosticSummaryRow("Elementos a revisar", warnings.toString())
+                    SummaryRow("ESP32", if (online) "ONLINE" else "OFFLINE")
+                    SummaryRow("Telemetría", if (telemetryFresh) "ACTUAL" else "NO ACTUAL")
+                    SummaryRow("Fallas detectadas", errors.toString())
+                    SummaryRow("Elementos a revisar", warnings.toString())
                 }
             }
 
-            Button(
-                onClick = onRefresh,
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            Button(onClick = onRefresh, modifier = Modifier.fillMaxWidth()) {
                 Text("Actualizar diagnóstico")
             }
 
-            entries.forEach { entry ->
-                DiagnosticCard(entry)
-            }
+            entries.forEach { DiagnosticCard(it) }
 
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                )
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -128,7 +121,7 @@ fun DiagnosticsScreen(
                 ) {
                     Text("Límite del diagnóstico actual", fontWeight = FontWeight.Bold)
                     Text(
-                        "EcoSphere puede detectar pérdida de comunicación, datos inválidos y diferencias entre una orden y lo que reporta el ESP32. Para afirmar que un LED está quemado, que un cable de potencia está abierto o que falta energía eléctrica, se necesita medir tensión y corriente físicamente en cada rama.",
+                        "La app puede detectar pérdida de comunicación, lecturas inválidas y diferencias entre una orden y el reporte del ESP32. Para confirmar un LED quemado, un cable de potencia abierto o energía insuficiente se necesita medir tensión y corriente físicamente en esa rama.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -139,7 +132,7 @@ fun DiagnosticsScreen(
 }
 
 @Composable
-private fun DiagnosticSummaryRow(label: String, value: String) {
+private fun SummaryRow(label: String, value: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -152,10 +145,7 @@ private fun DiagnosticSummaryRow(label: String, value: String) {
 
 @Composable
 private fun DiagnosticCard(entry: DiagnosticEntry) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp)
-    ) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -166,10 +156,10 @@ private fun DiagnosticCard(entry: DiagnosticEntry) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = entry.title,
+                    entry.title,
+                    modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
+                    fontWeight = FontWeight.Bold
                 )
                 Surface(
                     shape = RoundedCornerShape(100.dp),
@@ -181,16 +171,15 @@ private fun DiagnosticCard(entry: DiagnosticEntry) {
                     }
                 ) {
                     Text(
-                        text = entry.level.label,
+                        entry.level.label,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
-
             Text(
-                text = entry.detail,
+                entry.detail,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -198,188 +187,150 @@ private fun DiagnosticCard(entry: DiagnosticEntry) {
     }
 }
 
-private fun buildDiagnostics(
-    record: SensorRecord?,
-    control: DeviceControl?
-): List<DiagnosticEntry> {
-    val result = mutableListOf<DiagnosticEntry>()
+private fun buildDiagnostics(record: SensorRecord?, control: DeviceControl?): List<DiagnosticEntry> {
+    val entries = mutableListOf<DiagnosticEntry>()
     val online = control?.isOnlineNow() == true
     val ageMs = telemetryAgeMs(record?.createdAt)
-    val fresh = ageMs != null && ageMs in 0..15_000L
+    val fresh = ageMs?.let { it in 0..15_000L } == true
 
-    result += if (online) {
+    entries += if (online) {
         DiagnosticEntry("ESP32 / comunicación", DiagnosticLevel.OK, "Heartbeat recibido dentro de la ventana de 30 segundos.")
     } else {
-        DiagnosticEntry("ESP32 / comunicación", DiagnosticLevel.ERROR, "No hay heartbeat reciente. El hardware está desconectado, sin red o el firmware no está reportando.")
+        DiagnosticEntry("ESP32 / comunicación", DiagnosticLevel.ERROR, "Sin heartbeat reciente: hardware desconectado, sin red o firmware sin reporte.")
     }
 
-    result += when {
+    entries += when {
         ageMs == null -> DiagnosticEntry("Telemetría", DiagnosticLevel.ERROR, "No existe una lectura con fecha válida.")
-        fresh -> DiagnosticEntry("Telemetría", DiagnosticLevel.OK, "La lectura más reciente tiene ${ageMs / 1000} s de antigüedad.")
-        else -> DiagnosticEntry("Telemetría", DiagnosticLevel.WARNING, "La última lectura tiene ${ageMs / 1000} s de antigüedad; no se usa como evidencia de estado físico actual.")
+        fresh -> DiagnosticEntry("Telemetría", DiagnosticLevel.OK, "Última lectura hace ${ageMs / 1000} s.")
+        else -> DiagnosticEntry("Telemetría", DiagnosticLevel.WARNING, "La lectura tiene ${ageMs / 1000} s de antigüedad y no se considera estado físico actual.")
     }
 
-    result += sensorPairDiagnostic(
-        title = "BME280 · temperatura / humedad de aire",
-        fresh = fresh,
-        valuesPresent = record?.temperature != null && record.airHumidity != null,
-        valuesPlausible = record?.temperature?.let { it in -10.0..60.0 } == true &&
-            record.airHumidity?.let { it in 0.0..100.0 } == true,
-        failureDetail = "Sin datos válidos. Revisar alimentación 3.3 V, GND, SDA GPIO21 y SCL GPIO22."
+    val temperature = record?.temperature
+    val airHumidity = record?.airHumidity
+    entries += sensorStatus(
+        "BME280 · temperatura / humedad",
+        fresh,
+        temperature != null && airHumidity != null,
+        temperature?.let { it in -10.0..60.0 } == true && airHumidity?.let { it in 0.0..100.0 } == true,
+        "Revisar 3.3 V, GND, SDA GPIO21 y SCL GPIO22."
     )
 
-    result += sensorDiagnostic(
-        title = "BH1750 · iluminación",
-        fresh = fresh,
-        present = record?.lightLux != null,
-        plausible = record?.lightLux?.let { it in 0.0..120000.0 } == true,
-        failureDetail = "Sin lectura válida de lux. Revisar alimentación e I2C compartido."
+    val lightLux = record?.lightLux
+    entries += sensorStatus(
+        "BH1750 · iluminación",
+        fresh,
+        lightLux != null,
+        lightLux?.let { it in 0.0..120000.0 } == true,
+        "Revisar alimentación e I2C compartido."
     )
 
-    result += sensorDiagnostic(
-        title = "Sensor de humedad del suelo",
-        fresh = fresh,
-        present = record?.soilHumidity != null,
-        plausible = record?.soilHumidity?.let { it in 0.0..100.0 } == true,
-        failureDetail = "Lectura ausente o fuera de 0–100 %. Revisar AO, GPIO34, 3.3 V, GND y calibración."
+    val soilHumidity = record?.soilHumidity
+    entries += sensorStatus(
+        "Sensor de humedad del suelo",
+        fresh,
+        soilHumidity != null,
+        soilHumidity?.let { it in 0.0..100.0 } == true,
+        "Revisar AO, GPIO34, 3.3 V, GND y calibración."
     )
 
     val waterLevel = record?.waterLevel?.lowercase()
-    result += sensorDiagnostic(
-        title = "Sensores de nivel de agua",
-        fresh = fresh,
-        present = waterLevel != null,
-        plausible = waterLevel in setOf("low", "medium", "high"),
-        failureDetail = "Estado de nivel inválido. Revisar GPIO27, GPIO32, GND y cableado de los sensores."
+    entries += sensorStatus(
+        "Sensores de nivel de agua",
+        fresh,
+        waterLevel != null,
+        waterLevel != null && waterLevel in setOf("low", "medium", "high"),
+        "Revisar GPIO27, GPIO32, GND y cableado de los sensores."
     )
 
-    result += actuatorDiagnostic(
-        title = "Ventilador",
-        fresh = fresh && online,
-        requestedPower = control?.fanPower ?: 0,
-        reportedOn = record?.fanOn,
-        reportedPower = record?.fanPower,
-        electricalHint = "Revisar GPIO25, MOSFET, alimentación de 12 V, cableado y ventilador."
+    entries += actuatorStatus(
+        "Ventilador",
+        fresh && online,
+        control?.fanPower ?: 0,
+        record?.fanOn,
+        record?.fanPower,
+        "Revisar GPIO25, MOSFET, 12 V, cableado y ventilador."
     )
 
-    result += actuatorDiagnostic(
-        title = "LED grow",
-        fresh = fresh && online,
-        requestedPower = control?.ledPower ?: 0,
-        reportedOn = record?.ledOn,
-        reportedPower = record?.ledPower,
-        electricalHint = "Revisar GPIO33, MOSFET, salida de 5 V del LM2596, cableado y LED grow."
+    entries += actuatorStatus(
+        "LED grow",
+        fresh && online,
+        control?.ledPower ?: 0,
+        record?.ledOn,
+        record?.ledPower,
+        "Revisar GPIO33, MOSFET, salida de 5 V del LM2596, cableado y LED grow."
     )
 
-    result += if (!fresh || !online) {
-        DiagnosticEntry("Bomba de riego", DiagnosticLevel.INFO, "Sin telemetría actual no se puede confirmar el estado físico de la bomba.")
-    } else {
+    entries += if (fresh && online) {
         DiagnosticEntry(
             "Bomba de riego",
             DiagnosticLevel.OK,
-            if (record?.pumpOn == true) "El ESP32 reporta la bomba encendida." else "El ESP32 reporta la bomba apagada; queda protegida por humedad y nivel de agua."
+            if (record?.pumpOn == true) "El ESP32 reporta la bomba encendida." else "El ESP32 reporta la bomba apagada; la lógica de humedad y nivel sigue activa."
         )
+    } else {
+        DiagnosticEntry("Bomba de riego", DiagnosticLevel.INFO, "Sin telemetría actual no se confirma el estado físico de la bomba.")
     }
 
-    result += DiagnosticEntry(
+    entries += DiagnosticEntry(
         "Alimentación eléctrica",
         DiagnosticLevel.INFO,
-        "Todavía no hay telemetría de voltaje/corriente. No se puede distinguir con certeza entre componente quemado, cable abierto o tensión insuficiente sin instrumentación eléctrica."
+        "Sin sensor de tensión/corriente todavía. La app no puede distinguir de forma fiable entre componente quemado, cable abierto o alimentación insuficiente."
     )
 
-    return result
+    return entries
 }
 
-private fun sensorDiagnostic(
+private fun sensorStatus(
     title: String,
     fresh: Boolean,
     present: Boolean,
     plausible: Boolean,
-    failureDetail: String
+    hint: String
 ): DiagnosticEntry {
-    if (!fresh) {
-        return DiagnosticEntry(title, DiagnosticLevel.INFO, "Sin telemetría actual; no se marca como falla hasta recibir una lectura nueva.")
-    }
-    if (!present) {
-        return DiagnosticEntry(title, DiagnosticLevel.ERROR, failureDetail)
-    }
-    if (!plausible) {
-        return DiagnosticEntry(title, DiagnosticLevel.WARNING, "El sensor responde, pero su valor está fuera del rango esperado. Revisar calibración o cableado.")
-    }
-    return DiagnosticEntry(title, DiagnosticLevel.OK, "Lectura presente y dentro de un rango físicamente plausible.")
+    if (!fresh) return DiagnosticEntry(title, DiagnosticLevel.INFO, "Sin telemetría actual; no se marca como falla.")
+    if (!present) return DiagnosticEntry(title, DiagnosticLevel.ERROR, "No hay lectura. $hint")
+    if (!plausible) return DiagnosticEntry(title, DiagnosticLevel.WARNING, "El sensor responde con un valor fuera del rango esperado. $hint")
+    return DiagnosticEntry(title, DiagnosticLevel.OK, "Lectura presente y físicamente plausible.")
 }
 
-private fun sensorPairDiagnostic(
-    title: String,
-    fresh: Boolean,
-    valuesPresent: Boolean,
-    valuesPlausible: Boolean,
-    failureDetail: String
-): DiagnosticEntry {
-    return sensorDiagnostic(title, fresh, valuesPresent, valuesPlausible, failureDetail)
-}
-
-private fun actuatorDiagnostic(
+private fun actuatorStatus(
     title: String,
     fresh: Boolean,
     requestedPower: Int,
     reportedOn: Boolean?,
     reportedPower: Int?,
-    electricalHint: String
+    hint: String
 ): DiagnosticEntry {
-    if (!fresh) {
-        return DiagnosticEntry(title, DiagnosticLevel.INFO, "ESP32 o telemetría sin estado actual; no se puede confirmar el actuador.")
-    }
+    if (!fresh) return DiagnosticEntry(title, DiagnosticLevel.INFO, "Sin estado actual del ESP32; no se confirma el actuador.")
 
     if (requestedPower > 0 && reportedOn != true) {
-        return DiagnosticEntry(
-            title,
-            DiagnosticLevel.ERROR,
-            "Orden solicitada: $requestedPower %, pero el ESP32 reporta apagado. $electricalHint"
-        )
+        return DiagnosticEntry(title, DiagnosticLevel.ERROR, "Orden $requestedPower %, pero el ESP32 reporta apagado. $hint")
     }
-
     if (requestedPower == 0 && reportedOn == true) {
-        return DiagnosticEntry(
-            title,
-            DiagnosticLevel.WARNING,
-            "La orden es 0 %, pero el ESP32 reporta el actuador encendido. Revisar MOSFET, lógica de control y firmware."
-        )
+        return DiagnosticEntry(title, DiagnosticLevel.WARNING, "Orden 0 %, pero el ESP32 reporta encendido. Revisar MOSFET y firmware.")
     }
-
     if (requestedPower > 0 && reportedPower != null && abs(reportedPower - requestedPower) > 10) {
-        return DiagnosticEntry(
-            title,
-            DiagnosticLevel.WARNING,
-            "Orden $requestedPower %, reporte $reportedPower %. Revisar sincronización de PWM y firmware."
-        )
+        return DiagnosticEntry(title, DiagnosticLevel.WARNING, "Orden $requestedPower %, reporte $reportedPower %. Revisar PWM y sincronización.")
     }
 
     return DiagnosticEntry(
         title,
         DiagnosticLevel.OK,
-        if (requestedPower > 0) "Orden y reporte del ESP32 coinciden aproximadamente en $requestedPower %." else "Ordenado apagado y reportado apagado."
+        if (requestedPower > 0) "Orden y reporte coinciden aproximadamente en $requestedPower %." else "Ordenado y reportado apagado."
     )
 }
 
 private fun telemetryAgeMs(value: String?): Long? {
     if (value.isNullOrBlank()) return null
-
     return try {
-        val normalized = normalizeDiagnosticTimestamp(value)
+        val noZone = value.substringBefore("+").substringBefore("Z")
+        val base = noZone.substringBefore(".")
+        val fraction = noZone.substringAfter(".", "0").padEnd(3, '0').take(3)
         val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US).apply {
             timeZone = TimeZone.getTimeZone("UTC")
         }
-        val millis = parser.parse(normalized)?.time ?: return null
+        val millis = parser.parse("$base.$fraction")?.time ?: return null
         System.currentTimeMillis() - millis
     } catch (_: Exception) {
         null
     }
-}
-
-private fun normalizeDiagnosticTimestamp(value: String): String {
-    val noZone = value.substringBefore("+").substringBefore("Z")
-    val base = noZone.substringBefore(".")
-    val fraction = noZone.substringAfter(".", "0").padEnd(3, '0').take(3)
-    return "$base.$fraction"
 }
