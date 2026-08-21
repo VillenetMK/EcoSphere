@@ -27,11 +27,17 @@ data class SensorRecord(
     @SerializedName("fan_on")
     val fanOn: Boolean?,
 
+    @SerializedName("fan_power")
+    val fanPower: Int?,
+
     @SerializedName("pump_on")
     val pumpOn: Boolean?,
 
     @SerializedName("led_on")
     val ledOn: Boolean?,
+
+    @SerializedName("led_power")
+    val ledPower: Int?,
 
     @SerializedName("auto_mode")
     val autoMode: Boolean?
