@@ -1,7 +1,6 @@
 package com.example.ecosphere.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,12 +23,17 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -47,8 +51,8 @@ fun DashboardScreen(
     uiState: EcoSphereUiState,
     onRefresh: () -> Unit,
     onAutoModeChange: (Boolean) -> Unit,
-    onFanTargetChange: (Boolean) -> Unit,
-    onLedTargetChange: (Boolean) -> Unit,
+    onFanPowerChange: (Int) -> Unit,
+    onLedPowerChange: (Int) -> Unit,
     onPumpRequest: () -> Unit
 ) {
     val record = uiState.record
@@ -97,13 +101,8 @@ fun DashboardScreen(
                 onRefresh = onRefresh
             )
 
-            uiState.error?.let { message ->
-                ErrorBanner(message)
-            }
-
-            uiState.controlMessage?.let { message ->
-                InfoBanner(message)
-            }
+            uiState.error?.let { ErrorBanner(it) }
+            uiState.controlMessage?.let { InfoBanner(it) }
 
             SectionTitle(
                 title = "Lecturas ambientales",
@@ -129,8 +128,10 @@ fun DashboardScreen(
 
             ActuatorStatusCard(
                 fanOn = record?.fanOn ?: false,
+                fanPower = record?.fanPower,
                 pumpOn = record?.pumpOn ?: false,
                 ledOn = record?.ledOn ?: false,
+                ledPower = record?.ledPower,
                 autoMode = record?.autoMode ?: control?.autoMode ?: false
             )
 
@@ -141,16 +142,16 @@ fun DashboardScreen(
 
             ControlCard(
                 autoMode = control?.autoMode ?: false,
-                fanTarget = control?.fanTarget ?: false,
-                ledTarget = control?.ledTarget ?: false,
+                fanPower = control?.fanPower ?: 0,
+                ledPower = control?.ledPower ?: 0,
                 pumpRequest = control?.pumpRequest ?: 0L,
                 pumpDurationMs = control?.pumpDurationMs ?: 3000,
                 soilHumidity = record?.soilHumidity,
                 waterLevel = record?.waterLevel,
                 isUpdating = uiState.isUpdatingControl,
                 onAutoModeChange = onAutoModeChange,
-                onFanTargetChange = onFanTargetChange,
-                onLedTargetChange = onLedTargetChange,
+                onFanPowerChange = onFanPowerChange,
+                onLedPowerChange = onLedPowerChange,
                 onPumpRequest = onPumpRequest
             )
 
@@ -197,11 +198,7 @@ private fun SystemOverviewCard(
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
-
-                StatusPill(
-                    label = if (online) "ONLINE" else "OFFLINE",
-                    emphasized = online
-                )
+                StatusPill(if (online) "ONLINE" else "OFFLINE", online)
             }
 
             Row(
@@ -233,9 +230,7 @@ private fun SystemOverviewCard(
             ) {
                 if (isLoading) {
                     CircularProgressIndicator(
-                        modifier = Modifier
-                            .width(18.dp)
-                            .height(18.dp),
+                        modifier = Modifier.width(18.dp).height(18.dp),
                         strokeWidth = 2.dp
                     )
                     Spacer(modifier = Modifier.width(10.dp))
@@ -249,11 +244,7 @@ private fun SystemOverviewCard(
 }
 
 @Composable
-private fun OverviewValue(
-    modifier: Modifier,
-    title: String,
-    value: String
-) {
+private fun OverviewValue(modifier: Modifier, title: String, value: String) {
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(16.dp),
@@ -277,11 +268,7 @@ private fun OverviewValue(
 @Composable
 private fun SectionTitle(title: String, subtitle: String) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
+        Text(text = title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodySmall,
@@ -354,9 +341,7 @@ private fun MetricCard(
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(
@@ -368,11 +353,7 @@ private fun MetricCard(
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
+            Text(text = value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
             Text(
                 text = detail,
                 style = MaterialTheme.typography.bodySmall,
@@ -400,14 +381,10 @@ private fun WaterLevelCard(waterLevel: String?) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer
-        )
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -441,20 +418,25 @@ private fun WaterLevelCard(waterLevel: String?) {
 @Composable
 private fun ActuatorStatusCard(
     fanOn: Boolean,
+    fanPower: Int?,
     pumpOn: Boolean,
     ledOn: Boolean,
+    ledPower: Int?,
     autoMode: Boolean
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp)
-    ) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
         Column(modifier = Modifier.padding(18.dp)) {
-            StatusLine("Ventilador", if (fanOn) "ENCENDIDO" else "APAGADO")
+            StatusLine(
+                "Ventilador",
+                if (fanOn) "ENCENDIDO${fanPower?.let { " · $it %" } ?: ""}" else "APAGADO"
+            )
             HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
             StatusLine("Bomba de riego", if (pumpOn) "ENCENDIDA" else "APAGADA")
             HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
-            StatusLine("LED grow", if (ledOn) "ENCENDIDO" else "APAGADO")
+            StatusLine(
+                "LED grow",
+                if (ledOn) "ENCENDIDO${ledPower?.let { " · $it %" } ?: ""}" else "APAGADO"
+            )
             HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
             StatusLine("Control", if (autoMode) "AUTOMÁTICO" else "MANUAL")
         }
@@ -468,11 +450,7 @@ private fun StatusLine(title: String, value: String) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Medium
-        )
+        Text(text = title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
         Surface(
             shape = RoundedCornerShape(100.dp),
             color = MaterialTheme.colorScheme.surfaceVariant
@@ -490,44 +468,36 @@ private fun StatusLine(title: String, value: String) {
 @Composable
 private fun ControlCard(
     autoMode: Boolean,
-    fanTarget: Boolean,
-    ledTarget: Boolean,
+    fanPower: Int,
+    ledPower: Int,
     pumpRequest: Long,
     pumpDurationMs: Int,
     soilHumidity: Double?,
     waterLevel: String?,
     isUpdating: Boolean,
     onAutoModeChange: (Boolean) -> Unit,
-    onFanTargetChange: (Boolean) -> Unit,
-    onLedTargetChange: (Boolean) -> Unit,
+    onFanPowerChange: (Int) -> Unit,
+    onLedPowerChange: (Int) -> Unit,
     onPumpRequest: () -> Unit
 ) {
     val irrigationStatus = irrigationSafetyText(soilHumidity, waterLevel)
+    var fanSlider by remember(fanPower) { mutableFloatStateOf(fanPower.toFloat()) }
+    var ledSlider by remember(ledPower) { mutableFloatStateOf(ledPower.toFloat()) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Text(
-                text = "Modo de operación",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Text(text = "Modo de operación", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
 
             ControlSwitchRow(
                 title = "Control automático",
-                subtitle = if (autoMode) {
-                    "El ESP32 decide según las lecturas"
-                } else {
-                    "Los actuadores pueden controlarse manualmente"
-                },
+                subtitle = if (autoMode) "El ESP32 decide según las lecturas" else "Los actuadores pueden controlarse manualmente",
                 checked = autoMode,
                 enabled = !isUpdating,
                 onCheckedChange = onAutoModeChange
@@ -535,36 +505,30 @@ private fun ControlCard(
 
             HorizontalDivider()
 
-            Text(
-                text = "Actuadores",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+            Text(text = "Ventilación", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            PowerControl(
+                title = "Potencia del ventilador",
+                value = fanSlider,
+                enabled = !autoMode && !isUpdating,
+                onValueChange = { fanSlider = it },
+                onValueChangeFinished = { onFanPowerChange(fanSlider.roundToInt()) }
             )
 
-            ControlSwitchRow(
-                title = "Ventilador",
-                subtitle = if (autoMode) "Gestionado automáticamente" else "Control manual",
-                checked = fanTarget,
-                enabled = !autoMode && !isUpdating,
-                onCheckedChange = onFanTargetChange
-            )
+            HorizontalDivider()
 
-            ControlSwitchRow(
-                title = "Iluminación grow",
-                subtitle = if (autoMode) "Gestionada automáticamente" else "Control manual",
-                checked = ledTarget,
+            Text(text = "Iluminación", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            PowerControl(
+                title = "Intensidad LED grow",
+                value = ledSlider,
                 enabled = !autoMode && !isUpdating,
-                onCheckedChange = onLedTargetChange
+                onValueChange = { ledSlider = it },
+                onValueChangeFinished = { onLedPowerChange(ledSlider.roundToInt()) }
             )
 
             HorizontalDivider()
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = "Riego manual",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                Text(text = "Riego manual", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Text(
                     text = irrigationStatus,
                     style = MaterialTheme.typography.bodySmall,
@@ -591,9 +555,7 @@ private fun ControlCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     CircularProgressIndicator(
-                        modifier = Modifier
-                            .width(20.dp)
-                            .height(20.dp),
+                        modifier = Modifier.width(20.dp).height(20.dp),
                         strokeWidth = 2.dp
                     )
                     Spacer(modifier = Modifier.width(10.dp))
@@ -601,6 +563,39 @@ private fun ControlCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PowerControl(
+    title: String,
+    value: Float,
+    enabled: Boolean,
+    onValueChange: (Float) -> Unit,
+    onValueChangeFinished: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+            Text(text = "${value.roundToInt()} %", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        }
+        Slider(
+            value = value.coerceIn(0f, 100f),
+            onValueChange = onValueChange,
+            valueRange = 0f..100f,
+            steps = 19,
+            enabled = enabled,
+            onValueChangeFinished = onValueChangeFinished
+        )
+        Text(
+            text = if (enabled) "Ajuste manual PWM de 0 a 100 %" else "Gestionado por el modo automático",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -617,15 +612,8 @@ private fun ControlSwitchRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium
-            )
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(text = title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
@@ -633,11 +621,7 @@ private fun ControlSwitchRow(
             )
         }
         Spacer(modifier = Modifier.width(12.dp))
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            enabled = enabled
-        )
+        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
     }
 }
 
@@ -645,44 +629,27 @@ private fun ControlSwitchRow(
 private fun StatusPill(label: String, emphasized: Boolean) {
     Surface(
         shape = RoundedCornerShape(100.dp),
-        color = if (emphasized) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            MaterialTheme.colorScheme.surfaceVariant
-        }
+        color = if (emphasized) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
     ) {
         Text(
             text = label,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
             style = MaterialTheme.typography.labelMedium,
             fontWeight = FontWeight.Bold,
-            color = if (emphasized) {
-                MaterialTheme.colorScheme.onPrimary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            }
+            color = if (emphasized) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
 
 @Composable
 private fun EmptyTelemetryCard() {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp)
-    ) {
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
+            modifier = Modifier.fillMaxWidth().padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                text = "Esperando telemetría",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Text(text = "Esperando telemetría", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text(
                 text = "Cuando el ESP32 vuelva a enviar datos, las lecturas aparecerán aquí automáticamente.",
                 style = MaterialTheme.typography.bodyMedium,
@@ -698,22 +665,13 @@ private fun ErrorBanner(message: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer
-        )
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Se detectó un problema",
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onErrorContainer
-            )
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onErrorContainer
-            )
-        }
+        Text(
+            text = message,
+            modifier = Modifier.padding(16.dp),
+            color = MaterialTheme.colorScheme.onErrorContainer
+        )
     }
 }
 
@@ -722,15 +680,11 @@ private fun InfoBanner(message: String) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer
-        )
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
     ) {
         Text(
             text = message,
             modifier = Modifier.padding(16.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSecondaryContainer
         )
     }
@@ -738,28 +692,20 @@ private fun InfoBanner(message: String) {
 
 private fun irrigationSafetyText(soilHumidity: Double?, waterLevel: String?): String {
     return when {
-        soilHumidity == null -> "Riego protegido: falta lectura válida de humedad del suelo."
-        soilHumidity >= 60.0 -> "Riego protegido: el suelo ya tiene ${soilHumidity.roundToInt()}% de humedad."
-        waterLevel?.lowercase() == "low" -> "Riego protegido: el depósito reporta nivel bajo."
-        else -> "Condiciones válidas para solicitar un riego manual."
-    }
-}
-
-private fun formatDuration(durationMs: Int): String {
-    val seconds = durationMs / 1000.0
-    return if (seconds % 1.0 == 0.0) {
-        "${seconds.toInt()} s"
-    } else {
-        String.format(Locale.getDefault(), "%.1f s", seconds)
+        soilHumidity == null -> "Bloqueado hasta recibir una lectura válida de humedad del suelo."
+        waterLevel?.lowercase() == "low" -> "Bloqueado porque el depósito tiene nivel de agua bajo."
+        soilHumidity >= 60.0 -> "Bloqueado: el suelo ya está húmedo (${soilHumidity.roundToInt()} %)."
+        soilHumidity <= 35.0 -> "Suelo seco: el riego está permitido."
+        else -> "Humedad dentro del rango aceptable. El riego manual sigue disponible."
     }
 }
 
 private fun formatNumber(value: Double): String {
-    return if (value % 1.0 == 0.0) {
-        value.toInt().toString()
-    } else {
-        String.format(Locale.getDefault(), "%.1f", value)
-    }
+    return if (value % 1.0 == 0.0) value.roundToInt().toString() else String.format(Locale.getDefault(), "%.1f", value)
+}
+
+private fun formatDuration(durationMs: Int): String {
+    return if (durationMs % 1000 == 0) "${durationMs / 1000} s" else "${durationMs} ms"
 }
 
 private fun formatTimestamp(value: String?): String {
@@ -776,10 +722,7 @@ private fun formatTimestamp(value: String?): String {
             timeZone = TimeZone.getDefault()
         }.format(date)
     } catch (_: Exception) {
-        value
-            .replace("T", " ")
-            .substringBefore("+")
-            .substringBefore("Z")
+        value.replace("T", " ").substringBefore("+").substringBefore("Z")
     }
 }
 
@@ -794,15 +737,9 @@ private fun normalizeSupabaseTimestamp(value: String): String {
     val withoutZone = value
         .removeSuffix("Z")
         .substringBefore("+")
-        .let { text ->
-            if (text.drop(10).contains("-")) text.substringBeforeLast("-") else text
-        }
+        .let { text -> if (text.drop(10).contains("-")) text.substringBeforeLast("-") else text }
 
     val base = withoutZone.substringBefore(".")
-    val millis = withoutZone
-        .substringAfter(".", "0")
-        .padEnd(3, '0')
-        .take(3)
-
+    val millis = withoutZone.substringAfter(".", "0").padEnd(3, '0').take(3)
     return "$base.$millis$zone"
 }
