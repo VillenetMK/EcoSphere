@@ -44,7 +44,44 @@ class EcoSphereViewModel(
         viewModelScope.launch {
             uiState = uiState.copy(isLoadingHistory = true, error = null)
             try {
-                val history = repository.getHistory()
+                val months = repository.getHistoryMonths()
+                val currentSelection = uiState.selectedHistoryMonth
+                val selectedMonth = when {
+                    currentSelection != null && months.any { it.monthKey == currentSelection } -> currentSelection
+                    months.isNotEmpty() -> months.first().monthKey
+                    else -> null
+                }
+
+                val history = selectedMonth?.let { repository.getHistoryByMonth(it) } ?: emptyList()
+
+                uiState = uiState.copy(
+                    isLoadingHistory = false,
+                    historyMonths = months,
+                    selectedHistoryMonth = selectedMonth,
+                    history = history
+                )
+            } catch (e: Exception) {
+                uiState = uiState.copy(
+                    isLoadingHistory = false,
+                    error = e.message ?: "Error cargando el historial"
+                )
+            }
+        }
+    }
+
+    fun selectHistoryMonth(monthKey: String) {
+        if (monthKey == uiState.selectedHistoryMonth && uiState.history.isNotEmpty()) return
+
+        viewModelScope.launch {
+            uiState = uiState.copy(
+                isLoadingHistory = true,
+                selectedHistoryMonth = monthKey,
+                history = emptyList(),
+                error = null
+            )
+
+            try {
+                val history = repository.getHistoryByMonth(monthKey)
                 uiState = uiState.copy(
                     isLoadingHistory = false,
                     history = history
@@ -52,7 +89,7 @@ class EcoSphereViewModel(
             } catch (e: Exception) {
                 uiState = uiState.copy(
                     isLoadingHistory = false,
-                    error = e.message ?: "Error cargando el historial"
+                    error = e.message ?: "Error cargando el mes seleccionado"
                 )
             }
         }
