@@ -6,22 +6,30 @@ plugins {
 }
 
 val generateEcoSphereLauncher by tasks.registering {
-    val encodedIcon = layout.projectDirectory.file("src/main/ecosphere_launcher_full.webp.b64")
-    val generatedResDir = layout.buildDirectory.dir("generated/ecosphereLauncher/res")
+    val encodedIconParts = listOf(
+        layout.projectDirectory.file("src/main/ecosphere_logo_exact_00.b64"),
+        layout.projectDirectory.file("src/main/ecosphere_logo_exact_01.b64"),
+        layout.projectDirectory.file("src/main/ecosphere_logo_exact_02.b64"),
+        layout.projectDirectory.file("src/main/ecosphere_logo_exact_03.b64"),
+        layout.projectDirectory.file("src/main/ecosphere_logo_exact_04.b64"),
+        layout.projectDirectory.file("src/main/ecosphere_logo_exact_05.b64")
+    )
     val outputFile = layout.buildDirectory.file(
         "generated/ecosphereLauncher/res/drawable-nodpi/ecosphere_launcher_full.webp"
     )
 
-    inputs.file(encodedIcon)
+    inputs.files(encodedIconParts)
     outputs.file(outputFile)
 
     doLast {
         val target = outputFile.get().asFile
         target.parentFile.mkdirs()
 
-        val encoded = encodedIcon.asFile
-            .readText()
-            .filterNot { it.isWhitespace() }
+        val encoded = buildString {
+            encodedIconParts.forEach { part ->
+                append(part.asFile.readText().filterNot { it.isWhitespace() })
+            }
+        }
 
         target.writeBytes(Base64.getDecoder().decode(encoded))
     }
