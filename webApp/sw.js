@@ -1,9 +1,11 @@
-const CACHE = 'ecosphere-web-v1.0.0';
+const CACHE = 'ecosphere-web-v1.1.0';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
+  './control-policy.js',
+  './config/control-policy.json',
   './manifest.webmanifest',
   './icon.svg'
 ];
