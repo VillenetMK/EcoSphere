@@ -1,6 +1,11 @@
+import {
+  evaluateManualWatering,
+  isDeviceOnline,
+  loadControlPolicy,
+} from './control-policy.js';
+
 const BASE_URL = 'https://kslzmrddrhfyyrxyfmbw.supabase.co';
 const API_KEY = 'sb_publishable_oHQqSvres8b5l0qgcpXJ2w_9A33lfg3';
-const SOIL_DENY = 60;
 
 let latestRecord = null;
 let deviceControl = null;
@@ -8,6 +13,7 @@ let historyRecords = [];
 let busy = false;
 let deferredInstallPrompt = null;
 let activeScreen = 'dashboard';
+let controlPolicy = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -66,11 +72,7 @@ async function refresh({ manual = false } = {}) {
 }
 
 function onlineNow(control) {
-  if (!control?.esp32_online || !control?.last_seen_at) return false;
-  const ms = Date.parse(control.last_seen_at);
-  if (Number.isNaN(ms)) return false;
-  const age = Date.now() - ms;
-  return age >= -60000 && age <= 30000;
+  return controlPolicy ? isDeviceOnline(control, controlPolicy) : false;
 }
 
 function formatNumber(value, unit) {
@@ -131,9 +133,10 @@ function renderDashboard() {
   $('pumpBtn').disabled = busy || auto || !deviceControl;
 
   const soil = latestRecord?.soil_humidity;
+  const denyThreshold = controlPolicy?.manualWatering.soilDenyAtOrAbovePercent;
   $('pumpHint').textContent = soil == null
     ? 'Sin lectura de humedad'
-    : soil >= SOIL_DENY
+    : denyThreshold != null && soil >= denyThreshold
       ? `Suelo húmedo: ${Math.round(soil)} %`
       : `Humedad actual: ${Math.round(soil)} %`;
 }
@@ -247,23 +250,24 @@ $('ledPower').addEventListener('change', event => {
 });
 
 $('pumpBtn').addEventListener('click', async () => {
-  const soil = latestRecord?.soil_humidity;
-  const water = String(latestRecord?.water_level ?? '').toLowerCase();
-  if (soil == null) {
-    toast('Riego manual denegado. No hay lectura válida de humedad del suelo.');
+  if (!controlPolicy) {
+    toast('El contrato de control todavía no está disponible.');
     return;
   }
-  if (soil >= SOIL_DENY) {
-    toast(`Suelo húmedo. Riego manual denegado. Humedad actual: ${Math.round(soil)} %.`);
+
+  const decision = evaluateManualWatering(
+    latestRecord?.soil_humidity,
+    latestRecord?.water_level,
+    controlPolicy
+  );
+  if (!decision.allowed) {
+    toast(decision.message);
     return;
   }
-  if (water === 'low') {
-    toast('Riego manual denegado. Nivel de agua bajo.');
-    return;
-  }
+
   await updateControl({
     pump_request: Number(deviceControl?.pump_request ?? 0) + 1,
-    pump_duration_ms: 3000,
+    pump_duration_ms: controlPolicy.manualWatering.pumpDurationMs,
   });
 });
 
@@ -302,5 +306,20 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
 }
 
-refresh();
-setInterval(() => refresh(), 2000);
+async function boot() {
+  try {
+    controlPolicy = await loadControlPolicy();
+    const seconds = controlPolicy.manualWatering.pumpDurationMs / 1000;
+    $('pumpBtn').textContent = `Regar ${seconds} s`;
+    await refresh();
+    setInterval(() => refresh(), controlPolicy.pollIntervalMs);
+  } catch (error) {
+    showError(error.message || 'No se pudo iniciar EcoSphere Web.');
+    $('autoMode').disabled = true;
+    $('fanPower').disabled = true;
+    $('ledPower').disabled = true;
+    $('pumpBtn').disabled = true;
+  }
+}
+
+boot();
