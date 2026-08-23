@@ -2,6 +2,7 @@ package com.example.ecosphere.desktop
 
 import com.google.gson.Gson
 import java.time.OffsetDateTime
+import kotlin.math.roundToInt
 
 internal data class ManualWateringPolicy(
     val soilDenyAtOrAbovePercent: Double,
@@ -61,7 +62,7 @@ internal object ControlPolicy {
         if (soilHumidity >= config.manualWatering.soilDenyAtOrAbovePercent) {
             return ManualWateringDecision(
                 allowed = false,
-                message = "Suelo húmedo. Riego manual denegado. Humedad actual: ${soilHumidity.toInt()} %."
+                message = "Suelo húmedo. Riego manual denegado. Humedad actual: ${soilHumidity.roundToInt()} %."
             )
         }
 
