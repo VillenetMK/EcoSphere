@@ -351,7 +351,7 @@ private fun buildDiagnostics(record: SensorRecord?, control: DeviceControl?): Li
         "Sensor de nivel de agua horizontal",
         fresh,
         waterLevel != null,
-        waterLevel != null && waterLevel in setOf("low", "medium", "high"),
+        waterLevel != null && waterLevel in setOf("low", "high"),
         "Revisar GPIO32, GND y cableado del sensor horizontal."
     )
 

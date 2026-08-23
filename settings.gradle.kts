@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "EcoSphere"
 include(":app")
+include(":sharedCore")

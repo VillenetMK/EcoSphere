@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.ecosphere.data.model.HistoryMonthSummary
 import com.example.ecosphere.data.model.SensorRecord
+import com.example.ecosphere.shared.ControlPolicy
 import com.example.ecosphere.ui.icons.EcoSphereIcons
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -331,13 +332,7 @@ private fun actuatorLabel(on: Boolean?, power: Int?): String {
 }
 
 private fun waterLevelLabel(value: String?): String {
-    return when (value?.lowercase()) {
-        "high" -> "Nivel alto"
-        "medium" -> "Nivel medio"
-        "low" -> "Nivel bajo"
-        null -> "Sin dato"
-        else -> value
-    }
+    return ControlPolicy.waterLevelLabel(value)
 }
 
 private fun formatValue(value: Double): String {

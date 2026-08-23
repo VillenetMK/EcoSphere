@@ -1,6 +1,14 @@
+import {
+  CONTROL_POLICY,
+  clampPower,
+  irrigationDecision,
+  irrigationStatus,
+  isDeviceOnline,
+  waterLevelLabel,
+} from './control-policy.js';
+
 const BASE_URL = 'https://kslzmrddrhfyyrxyfmbw.supabase.co';
 const API_KEY = 'sb_publishable_oHQqSvres8b5l0qgcpXJ2w_9A33lfg3';
-const SOIL_DENY = 60;
 
 let latestRecord = null;
 let deviceControl = null;
@@ -8,6 +16,7 @@ let historyRecords = [];
 let busy = false;
 let deferredInstallPrompt = null;
 let activeScreen = 'dashboard';
+let refreshing = false;
 
 const $ = (id) => document.getElementById(id);
 
@@ -52,6 +61,8 @@ async function loadHistory() {
 }
 
 async function refresh({ manual = false } = {}) {
+  if (refreshing) return;
+  refreshing = true;
   if (manual) setRefreshLoading(true);
   try {
     await loadLatest();
@@ -62,27 +73,17 @@ async function refresh({ manual = false } = {}) {
     showError(error.message || 'Error sincronizando con Supabase');
   } finally {
     if (manual) setRefreshLoading(false);
+    refreshing = false;
   }
 }
 
 function onlineNow(control) {
-  if (!control?.esp32_online || !control?.last_seen_at) return false;
-  const ms = Date.parse(control.last_seen_at);
-  if (Number.isNaN(ms)) return false;
-  const age = Date.now() - ms;
-  return age >= -60000 && age <= 30000;
+  return isDeviceOnline(control);
 }
 
 function formatNumber(value, unit) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return '--';
   return `${Number(value).toFixed(1)} ${unit}`;
-}
-
-function waterLabel(value) {
-  const v = String(value ?? '').toLowerCase();
-  if (['high', 'normal', 'ok'].includes(v)) return 'Disponible';
-  if (v === 'low') return 'Bajo';
-  return 'Sin registro';
 }
 
 function formatDate(value) {
@@ -113,7 +114,7 @@ function renderDashboard() {
   $('airHumidityValue').textContent = formatNumber(latestRecord?.air_humidity, '%');
   $('soilHumidityValue').textContent = formatNumber(latestRecord?.soil_humidity, '%');
   $('lightValue').textContent = formatNumber(latestRecord?.light_lux, 'lux');
-  $('waterValue').textContent = waterLabel(latestRecord?.water_level);
+  $('waterValue').textContent = waterLevelLabel(latestRecord?.water_level);
 
   const auto = !!deviceControl?.auto_mode;
   $('autoMode').checked = auto;
@@ -128,14 +129,15 @@ function renderDashboard() {
   $('ledPowerLabel').textContent = `${led} %`;
   $('fanPower').disabled = busy || auto || !deviceControl;
   $('ledPower').disabled = busy || auto || !deviceControl;
-  $('pumpBtn').disabled = busy || auto || !deviceControl;
-
-  const soil = latestRecord?.soil_humidity;
-  $('pumpHint').textContent = soil == null
-    ? 'Sin lectura de humedad'
-    : soil >= SOIL_DENY
-      ? `Suelo húmedo: ${Math.round(soil)} %`
-      : `Humedad actual: ${Math.round(soil)} %`;
+  const irrigation = irrigationDecision(
+    latestRecord?.soil_humidity,
+    latestRecord?.water_level,
+  );
+  $('pumpBtn').disabled = busy || !deviceControl || !irrigation.allowed;
+  $('pumpHint').textContent = irrigationStatus(
+    latestRecord?.soil_humidity,
+    latestRecord?.water_level,
+  );
 }
 
 function renderHistory() {
@@ -147,7 +149,7 @@ function renderHistory() {
       <td>${escapeHtml(formatNumber(row.air_humidity, '%'))}</td>
       <td>${escapeHtml(formatNumber(row.soil_humidity, '%'))}</td>
       <td>${escapeHtml(formatNumber(row.light_lux, 'lx'))}</td>
-      <td>${escapeHtml(waterLabel(row.water_level))}</td>
+      <td>${escapeHtml(waterLevelLabel(row.water_level))}</td>
     </tr>
   `).join('');
 }
@@ -158,7 +160,11 @@ function renderDiagnostics() {
     ['BME280', latestRecord?.temperature != null && latestRecord?.air_humidity != null ? 'OK' : 'SIN CONFIRMAR', 'Temperatura y humedad del aire'],
     ['BH1750', latestRecord?.light_lux != null ? 'OK' : 'SIN CONFIRMAR', 'Sensor de iluminación'],
     ['Humedad de suelo', latestRecord?.soil_humidity != null ? 'OK' : 'SIN CONFIRMAR', latestRecord?.soil_humidity != null ? `${Math.round(latestRecord.soil_humidity)} %` : 'Sin lectura'],
-    ['Nivel de agua', latestRecord?.water_level != null ? 'OK' : 'SIN CONFIRMAR', waterLabel(latestRecord?.water_level)],
+    [
+      'Nivel de agua',
+      ['high', 'low'].includes(String(latestRecord?.water_level ?? '').toLowerCase()) ? 'OK' : 'SIN CONFIRMAR',
+      waterLevelLabel(latestRecord?.water_level),
+    ],
     ['Ventilador', 'ESTADO', `${latestRecord?.fan_power ?? deviceControl?.fan_power ?? 0} %`],
     ['LED Grow', 'ESTADO', `${latestRecord?.led_power ?? deviceControl?.led_power ?? 0} %`],
     ['Bomba', 'ESTADO', latestRecord?.pump_on ? 'Encendida' : 'Apagada'],
@@ -234,7 +240,7 @@ $('fanPower').addEventListener('input', event => {
   $('fanPowerLabel').textContent = `${event.target.value} %`;
 });
 $('fanPower').addEventListener('change', event => {
-  const power = Number(event.target.value);
+  const power = clampPower(event.target.value);
   updateControl({ fan_power: power, fan_target: power > 0 });
 });
 
@@ -242,28 +248,22 @@ $('ledPower').addEventListener('input', event => {
   $('ledPowerLabel').textContent = `${event.target.value} %`;
 });
 $('ledPower').addEventListener('change', event => {
-  const power = Number(event.target.value);
+  const power = clampPower(event.target.value);
   updateControl({ led_power: power, led_target: power > 0 });
 });
 
 $('pumpBtn').addEventListener('click', async () => {
-  const soil = latestRecord?.soil_humidity;
-  const water = String(latestRecord?.water_level ?? '').toLowerCase();
-  if (soil == null) {
-    toast('Riego manual denegado. No hay lectura válida de humedad del suelo.');
-    return;
-  }
-  if (soil >= SOIL_DENY) {
-    toast(`Suelo húmedo. Riego manual denegado. Humedad actual: ${Math.round(soil)} %.`);
-    return;
-  }
-  if (water === 'low') {
-    toast('Riego manual denegado. Nivel de agua bajo.');
+  const decision = irrigationDecision(
+    latestRecord?.soil_humidity,
+    latestRecord?.water_level,
+  );
+  if (!decision.allowed) {
+    toast(decision.message);
     return;
   }
   await updateControl({
     pump_request: Number(deviceControl?.pump_request ?? 0) + 1,
-    pump_duration_ms: 3000,
+    pump_duration_ms: CONTROL_POLICY.pumpDurationMs,
   });
 });
 

@@ -1,11 +1,14 @@
-const CACHE = 'ecosphere-web-v1.0.0';
+const CACHE = 'ecosphere-web-v1.1.0';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
+  './control-policy.js',
   './manifest.webmanifest',
-  './icon.svg'
+  './icon.svg',
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 self.addEventListener('install', event => {

@@ -15,8 +15,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import com.example.ecosphere.shared.ControlPolicy
+import com.example.ecosphere.shared.DeviceControl
+import com.example.ecosphere.shared.EcoSphereConfig
+import com.example.ecosphere.shared.SensorRecord
 import com.google.gson.Gson
-import com.google.gson.annotations.SerializedName
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -32,10 +35,6 @@ import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
-private const val BASE_URL = "https://kslzmrddrhfyyrxyfmbw.supabase.co"
-private const val API_KEY = "sb_publishable_oHQqSvres8b5l0qgcpXJ2w_9A33lfg3"
-private const val SOIL_MANUAL_DENY_THRESHOLD = 60.0
-
 private val EcoGreen = Color(0xFF66FF7A)
 private val AppBackground = Color(0xFF0B0F0D)
 private val AppSurface = Color(0xFF121915)
@@ -48,47 +47,6 @@ private enum class Destination(val label: String) {
     DIAGNOSTICS("Diagnóstico del sistema")
 }
 
-data class SensorRecord(
-    @SerializedName("id") val id: Long? = null,
-    @SerializedName("created_at") val createdAt: String? = null,
-    @SerializedName("temperature") val temperature: Double? = null,
-    @SerializedName("air_humidity") val airHumidity: Double? = null,
-    @SerializedName("soil_humidity") val soilHumidity: Double? = null,
-    @SerializedName("light_lux") val lightLux: Double? = null,
-    @SerializedName("water_level") val waterLevel: String? = null,
-    @SerializedName("fan_on") val fanOn: Boolean? = null,
-    @SerializedName("fan_power") val fanPower: Int? = null,
-    @SerializedName("pump_on") val pumpOn: Boolean? = null,
-    @SerializedName("led_on") val ledOn: Boolean? = null,
-    @SerializedName("led_power") val ledPower: Int? = null,
-    @SerializedName("auto_mode") val autoMode: Boolean? = null
-)
-
-data class DeviceControl(
-    @SerializedName("id") val id: Int = 1,
-    @SerializedName("fan_target") val fanTarget: Boolean = false,
-    @SerializedName("fan_power") val fanPower: Int = 0,
-    @SerializedName("led_target") val ledTarget: Boolean = false,
-    @SerializedName("led_power") val ledPower: Int = 0,
-    @SerializedName("auto_mode") val autoMode: Boolean = false,
-    @SerializedName("pump_request") val pumpRequest: Long = 0,
-    @SerializedName("pump_duration_ms") val pumpDurationMs: Int = 3000,
-    @SerializedName("esp32_online") val esp32Online: Boolean = false,
-    @SerializedName("heartbeat_seq") val heartbeatSeq: Long = 0,
-    @SerializedName("last_seen_at") val lastSeenAt: String? = null,
-    @SerializedName("updated_at") val updatedAt: String? = null
-) {
-    fun isOnlineNow(timeoutSeconds: Long = 30): Boolean {
-        if (!esp32Online || lastSeenAt.isNullOrBlank()) return false
-        return try {
-            val age = System.currentTimeMillis() - OffsetDateTime.parse(lastSeenAt).toInstant().toEpochMilli()
-            age in -60_000..(timeoutSeconds * 1000)
-        } catch (_: Exception) {
-            false
-        }
-    }
-}
-
 private class EcoSphereApi {
     private val gson = Gson()
     private val client = HttpClient.newBuilder()
@@ -96,10 +54,10 @@ private class EcoSphereApi {
         .build()
 
     private fun requestBuilder(path: String): HttpRequest.Builder = HttpRequest.newBuilder()
-        .uri(URI.create("$BASE_URL/$path"))
+        .uri(URI.create("${EcoSphereConfig.SUPABASE_URL}/$path"))
         .timeout(java.time.Duration.ofSeconds(15))
-        .header("apikey", API_KEY)
-        .header("Authorization", "Bearer $API_KEY")
+        .header("apikey", EcoSphereConfig.SUPABASE_PUBLISHABLE_KEY)
+        .header("Authorization", "Bearer ${EcoSphereConfig.SUPABASE_PUBLISHABLE_KEY}")
 
     private inline fun <reified T> parseList(json: String): List<T> {
         val type = object : TypeToken<List<T>>() {}.type
@@ -141,15 +99,20 @@ private class EcoSphereApi {
 
     suspend fun setAutoMode(enabled: Boolean) = patchControl(mapOf("auto_mode" to enabled))
 
-    suspend fun setFanPower(power: Int) = patchControl(
-        mapOf("fan_power" to power.coerceIn(0, 100), "fan_target" to (power > 0))
-    )
+    suspend fun setFanPower(power: Int): DeviceControl? {
+        val safePower = ControlPolicy.clampPower(power)
+        return patchControl(mapOf("fan_power" to safePower, "fan_target" to (safePower > 0)))
+    }
 
-    suspend fun setLedPower(power: Int) = patchControl(
-        mapOf("led_power" to power.coerceIn(0, 100), "led_target" to (power > 0))
-    )
+    suspend fun setLedPower(power: Int): DeviceControl? {
+        val safePower = ControlPolicy.clampPower(power)
+        return patchControl(mapOf("led_power" to safePower, "led_target" to (safePower > 0)))
+    }
 
-    suspend fun requestPump(currentRequest: Long, durationMs: Int = 3000) = patchControl(
+    suspend fun requestPump(
+        currentRequest: Long,
+        durationMs: Int = ControlPolicy.PUMP_DURATION_MS
+    ) = patchControl(
         mapOf("pump_request" to currentRequest + 1, "pump_duration_ms" to durationMs)
     )
 }
@@ -262,24 +225,24 @@ private fun EcoSphereDesktopApp() {
                         },
                         onPump = {
                             scope.launch {
-                                val soil = record?.soilHumidity
-                                val water = record?.waterLevel?.lowercase()
-                                when {
-                                    soil == null -> snackbar.showSnackbar("Riego manual denegado. No hay lectura válida de humedad del suelo.")
-                                    soil >= SOIL_MANUAL_DENY_THRESHOLD -> snackbar.showSnackbar(
-                                        "Suelo húmedo. Riego manual denegado. Humedad actual: ${soil.roundToInt()} %."
-                                    )
-                                    water == "low" -> snackbar.showSnackbar("Riego manual denegado. Nivel de agua bajo.")
-                                    else -> {
-                                        actionBusy = true
-                                        try {
-                                            api.requestPump(control?.pumpRequest ?: 0L, 3000)
-                                            refresh()
-                                        } catch (e: Exception) {
-                                            snackbar.showSnackbar(e.message ?: "Error solicitando riego")
-                                        } finally {
-                                            actionBusy = false
-                                        }
+                                val decision = ControlPolicy.irrigationDecision(
+                                    record?.soilHumidity,
+                                    record?.waterLevel
+                                )
+                                if (!decision.allowed) {
+                                    snackbar.showSnackbar(decision.message)
+                                } else {
+                                    actionBusy = true
+                                    try {
+                                        api.requestPump(
+                                            control?.pumpRequest ?: 0L,
+                                            ControlPolicy.PUMP_DURATION_MS
+                                        )
+                                        refresh()
+                                    } catch (e: Exception) {
+                                        snackbar.showSnackbar(e.message ?: "Error solicitando riego")
+                                    } finally {
+                                        actionBusy = false
                                     }
                                 }
                             }
@@ -480,18 +443,17 @@ private fun ControlPanel(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column {
                     Text("Bomba de riego", fontWeight = FontWeight.SemiBold)
-                    val soil = record?.soilHumidity
                     Text(
-                        when {
-                            soil == null -> "Sin lectura de humedad"
-                            soil >= 60.0 -> "Suelo húmedo: ${soil.roundToInt()} %"
-                            else -> "Humedad actual: ${soil.roundToInt()} %"
-                        },
+                        ControlPolicy.irrigationStatus(record?.soilHumidity, record?.waterLevel),
                         color = Muted,
                         fontSize = 12.sp
                     )
                 }
-                Button(onClick = onPump, enabled = manual && !actionBusy && control != null) {
+                Button(
+                    onClick = onPump,
+                    enabled = !actionBusy && control != null &&
+                        ControlPolicy.irrigationDecision(record?.soilHumidity, record?.waterLevel).allowed
+                ) {
                     Text("Regar 3 s")
                 }
             }
@@ -589,11 +551,7 @@ private fun DiagnosticRow(name: String, status: String, detail: String) {
 private fun format(value: Double?, unit: String): String =
     value?.let { String.format("%.1f %s", it, unit) } ?: "--"
 
-private fun waterLabel(value: String?): String = when (value?.lowercase()) {
-    "high", "normal", "ok" -> "Disponible"
-    "low" -> "Bajo"
-    else -> "Sin registro"
-}
+private fun waterLabel(value: String?): String = ControlPolicy.waterLevelLabel(value)
 
 private fun formatDate(value: String?): String {
     if (value.isNullOrBlank()) return "Sin registro"
