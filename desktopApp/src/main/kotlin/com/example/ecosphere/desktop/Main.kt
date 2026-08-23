@@ -34,7 +34,6 @@ import kotlin.math.roundToInt
 
 private const val BASE_URL = "https://kslzmrddrhfyyrxyfmbw.supabase.co"
 private const val API_KEY = "sb_publishable_oHQqSvres8b5l0qgcpXJ2w_9A33lfg3"
-private const val SOIL_MANUAL_DENY_THRESHOLD = 60.0
 
 private val EcoGreen = Color(0xFF66FF7A)
 private val AppBackground = Color(0xFF0B0F0D)
@@ -78,15 +77,8 @@ data class DeviceControl(
     @SerializedName("last_seen_at") val lastSeenAt: String? = null,
     @SerializedName("updated_at") val updatedAt: String? = null
 ) {
-    fun isOnlineNow(timeoutSeconds: Long = 30): Boolean {
-        if (!esp32Online || lastSeenAt.isNullOrBlank()) return false
-        return try {
-            val age = System.currentTimeMillis() - OffsetDateTime.parse(lastSeenAt).toInstant().toEpochMilli()
-            age in -60_000..(timeoutSeconds * 1000)
-        } catch (_: Exception) {
-            false
-        }
-    }
+    fun isOnlineNow(): Boolean =
+        ControlPolicy.isDeviceOnline(esp32Online, lastSeenAt)
 }
 
 private class EcoSphereApi {
@@ -208,7 +200,7 @@ private fun EcoSphereDesktopApp() {
     LaunchedEffect(Unit) {
         refresh()
         while (true) {
-            delay(2_000)
+            delay(ControlPolicy.config.pollIntervalMs)
             refresh(destination == Destination.HISTORY)
         }
     }
@@ -262,24 +254,24 @@ private fun EcoSphereDesktopApp() {
                         },
                         onPump = {
                             scope.launch {
-                                val soil = record?.soilHumidity
-                                val water = record?.waterLevel?.lowercase()
-                                when {
-                                    soil == null -> snackbar.showSnackbar("Riego manual denegado. No hay lectura válida de humedad del suelo.")
-                                    soil >= SOIL_MANUAL_DENY_THRESHOLD -> snackbar.showSnackbar(
-                                        "Suelo húmedo. Riego manual denegado. Humedad actual: ${soil.roundToInt()} %."
-                                    )
-                                    water == "low" -> snackbar.showSnackbar("Riego manual denegado. Nivel de agua bajo.")
-                                    else -> {
-                                        actionBusy = true
-                                        try {
-                                            api.requestPump(control?.pumpRequest ?: 0L, 3000)
-                                            refresh()
-                                        } catch (e: Exception) {
-                                            snackbar.showSnackbar(e.message ?: "Error solicitando riego")
-                                        } finally {
-                                            actionBusy = false
-                                        }
+                                val decision = ControlPolicy.evaluateManualWatering(
+                                    record?.soilHumidity,
+                                    record?.waterLevel
+                                )
+                                if (!decision.allowed) {
+                                    snackbar.showSnackbar(decision.message ?: "Riego manual denegado.")
+                                } else {
+                                    actionBusy = true
+                                    try {
+                                        api.requestPump(
+                                            control?.pumpRequest ?: 0L,
+                                            ControlPolicy.config.manualWatering.pumpDurationMs
+                                        )
+                                        refresh()
+                                    } catch (e: Exception) {
+                                        snackbar.showSnackbar(e.message ?: "Error solicitando riego")
+                                    } finally {
+                                        actionBusy = false
                                     }
                                 }
                             }
@@ -321,7 +313,7 @@ private fun NavigationPane(destination: Destination, onDestination: (Destination
             }
 
             Spacer(Modifier.weight(1f))
-            Text("EcoSphere Desktop 1.0.0", color = Muted, fontSize = 11.sp)
+            Text("EcoSphere Desktop 1.1.0", color = Muted, fontSize = 11.sp)
         }
     }
 }
@@ -484,7 +476,8 @@ private fun ControlPanel(
                     Text(
                         when {
                             soil == null -> "Sin lectura de humedad"
-                            soil >= 60.0 -> "Suelo húmedo: ${soil.roundToInt()} %"
+                            soil >= ControlPolicy.config.manualWatering.soilDenyAtOrAbovePercent ->
+                                "Suelo húmedo: ${soil.roundToInt()} %"
                             else -> "Humedad actual: ${soil.roundToInt()} %"
                         },
                         color = Muted,
@@ -492,7 +485,7 @@ private fun ControlPanel(
                     )
                 }
                 Button(onClick = onPump, enabled = manual && !actionBusy && control != null) {
-                    Text("Regar 3 s")
+                    Text("Regar ${ControlPolicy.config.manualWatering.pumpDurationMs / 1000} s")
                 }
             }
         }
