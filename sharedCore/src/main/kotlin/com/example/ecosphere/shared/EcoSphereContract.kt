@@ -145,30 +145,32 @@ object ControlPolicy {
         return ageMs in -CLOCK_SKEW_TOLERANCE_MS..timeoutMs
     }
 
-    private fun parseSupabaseUtcMillis(value: String): Long? = try {
-        val noZone = value.substringBefore("+").substringBefore("Z")
-        val dateAndTime = noZone.split("T")
-        if (dateAndTime.size != 2) return null
+    private fun parseSupabaseUtcMillis(value: String): Long? {
+        return try {
+            val noZone = value.substringBefore("+").substringBefore("Z")
+            val dateAndTime = noZone.split("T")
+            if (dateAndTime.size != 2) return null
 
-        val date = dateAndTime[0].split("-")
-        val time = dateAndTime[1].split(":")
-        if (date.size != 3 || time.size != 3) return null
+            val date = dateAndTime[0].split("-")
+            val time = dateAndTime[1].split(":")
+            if (date.size != 3 || time.size != 3) return null
 
-        val secondsPart = time[2]
-        Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
-            clear()
-            set(Calendar.YEAR, date[0].toInt())
-            set(Calendar.MONTH, date[1].toInt() - 1)
-            set(Calendar.DAY_OF_MONTH, date[2].toInt())
-            set(Calendar.HOUR_OF_DAY, time[0].toInt())
-            set(Calendar.MINUTE, time[1].toInt())
-            set(Calendar.SECOND, secondsPart.substringBefore(".").toInt())
-            set(
-                Calendar.MILLISECOND,
-                secondsPart.substringAfter(".", "0").padEnd(3, '0').take(3).toInt()
-            )
-        }.timeInMillis
-    } catch (_: Exception) {
-        null
+            val secondsPart = time[2]
+            Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
+                clear()
+                set(Calendar.YEAR, date[0].toInt())
+                set(Calendar.MONTH, date[1].toInt() - 1)
+                set(Calendar.DAY_OF_MONTH, date[2].toInt())
+                set(Calendar.HOUR_OF_DAY, time[0].toInt())
+                set(Calendar.MINUTE, time[1].toInt())
+                set(Calendar.SECOND, secondsPart.substringBefore(".").toInt())
+                set(
+                    Calendar.MILLISECOND,
+                    secondsPart.substringAfter(".", "0").padEnd(3, '0').take(3).toInt()
+                )
+            }.timeInMillis
+        } catch (_: Exception) {
+            null
+        }
     }
 }
