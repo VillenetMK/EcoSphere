@@ -23,16 +23,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate control policy and JavaScript
+        run: |
+          npm --prefix webApp run check
+          npm --prefix webApp test
       - name: Prepare PWA bundle
         run: |
           mkdir -p dist
           cp -R webApp/. dist/
+          rm -rf dist/tests dist/package.json
           cd dist
-          zip -r ../EcoSphere-1.0.0-Web-PWA.zip .
+          zip -r ../EcoSphere-1.1.0-Web-PWA.zip .
       - uses: actions/upload-artifact@v4
         with:
           name: EcoSphere-Web-PWA
-          path: EcoSphere-1.0.0-Web-PWA.zip
+          path: EcoSphere-1.1.0-Web-PWA.zip
           if-no-files-found: error
           retention-days: 30
       - name: Upload Pages artifact
