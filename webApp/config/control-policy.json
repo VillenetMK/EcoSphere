@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "pollIntervalMs": 2000,
+  "onlineTimeoutMs": 30000,
+  "futureClockSkewMs": 60000,
+  "manualWatering": {
+    "soilDenyAtOrAbovePercent": 60.0,
+    "pumpDurationMs": 3000,
+    "blockedWaterLevels": ["low"]
+  },
+  "automaticWatering": {
+    "soilStartAtOrBelowPercent": 35.0,
+    "implementation": "firmware"
+  }
+}
