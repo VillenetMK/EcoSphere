@@ -5,6 +5,7 @@ import com.example.ecosphere.data.model.HistoryMonthSummary
 import com.example.ecosphere.data.model.SensorRecord
 import com.example.ecosphere.data.network.SupabaseApi
 import com.example.ecosphere.data.network.SupabaseConfig
+import com.example.ecosphere.shared.ControlPolicy
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -58,7 +59,7 @@ class SensorRepository(
     }
 
     suspend fun updateFanPower(power: Int): DeviceControl? {
-        val safePower = power.coerceIn(0, 100)
+        val safePower = ControlPolicy.clampPower(power)
         return updateDeviceControl(
             mapOf(
                 "fan_power" to safePower,
@@ -68,7 +69,7 @@ class SensorRepository(
     }
 
     suspend fun updateLedPower(power: Int): DeviceControl? {
-        val safePower = power.coerceIn(0, 100)
+        val safePower = ControlPolicy.clampPower(power)
         return updateDeviceControl(
             mapOf(
                 "led_power" to safePower,
@@ -77,7 +78,10 @@ class SensorRepository(
         )
     }
 
-    suspend fun requestPump(currentRequest: Long, durationMs: Int = 3000): DeviceControl? {
+    suspend fun requestPump(
+        currentRequest: Long,
+        durationMs: Int = ControlPolicy.PUMP_DURATION_MS
+    ): DeviceControl? {
         return updateDeviceControl(
             mapOf(
                 "pump_request" to currentRequest + 1,

@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.ecosphere.shared.ControlPolicy
 import com.example.ecosphere.ui.viewmodel.EcoSphereUiState
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -145,7 +146,7 @@ fun DashboardScreen(
                 fanPower = control?.fanPower ?: 0,
                 ledPower = control?.ledPower ?: 0,
                 pumpRequest = control?.pumpRequest ?: 0L,
-                pumpDurationMs = control?.pumpDurationMs ?: 3000,
+                pumpDurationMs = control?.pumpDurationMs ?: ControlPolicy.PUMP_DURATION_MS,
                 soilHumidity = record?.soilHumidity,
                 waterLevel = record?.waterLevel,
                 isUpdating = uiState.isUpdatingControl,
@@ -370,13 +371,7 @@ private fun MetricCard(
 @Composable
 private fun WaterLevelCard(waterLevel: String?) {
     val normalized = waterLevel?.lowercase()
-    val display = when (normalized) {
-        "high" -> "Nivel alto"
-        "medium" -> "Nivel medio"
-        "low" -> "Nivel bajo"
-        null -> "Sin lectura"
-        else -> waterLevel
-    }
+    val display = ControlPolicy.waterLevelLabel(waterLevel)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -395,7 +390,7 @@ private fun WaterLevelCard(waterLevel: String?) {
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
                 Text(
-                    text = display ?: "Sin lectura",
+                    text = display,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -404,8 +399,8 @@ private fun WaterLevelCard(waterLevel: String?) {
             Text(
                 text = when (normalized) {
                     "low" -> "Revisar depósito"
-                    null -> "Esperando sensor"
-                    else -> "Disponible"
+                    "high" -> "Disponible"
+                    else -> "Lectura inválida"
                 },
                 style = MaterialTheme.typography.bodySmall,
                 textAlign = TextAlign.End,
@@ -480,7 +475,8 @@ private fun ControlCard(
     onLedPowerChange: (Int) -> Unit,
     onPumpRequest: () -> Unit
 ) {
-    val irrigationStatus = irrigationSafetyText(soilHumidity, waterLevel)
+    val irrigationDecision = ControlPolicy.irrigationDecision(soilHumidity, waterLevel)
+    val irrigationStatus = ControlPolicy.irrigationStatus(soilHumidity, waterLevel)
     var fanSlider by remember(fanPower) { mutableFloatStateOf(fanPower.toFloat()) }
     var ledSlider by remember(ledPower) { mutableFloatStateOf(ledPower.toFloat()) }
 
@@ -537,7 +533,7 @@ private fun ControlCard(
                 Button(
                     onClick = onPumpRequest,
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isUpdating
+                    enabled = !isUpdating && irrigationDecision.allowed
                 ) {
                     Text("Regar ahora · ${formatDuration(pumpDurationMs)}")
                 }
@@ -687,16 +683,6 @@ private fun InfoBanner(message: String) {
             modifier = Modifier.padding(16.dp),
             color = MaterialTheme.colorScheme.onSecondaryContainer
         )
-    }
-}
-
-private fun irrigationSafetyText(soilHumidity: Double?, waterLevel: String?): String {
-    return when {
-        soilHumidity == null -> "Bloqueado hasta recibir una lectura válida de humedad del suelo."
-        waterLevel?.lowercase() == "low" -> "Bloqueado porque el depósito tiene nivel de agua bajo."
-        soilHumidity >= 60.0 -> "Bloqueado: el suelo ya está húmedo (${soilHumidity.roundToInt()} %)."
-        soilHumidity <= 35.0 -> "Suelo seco: el riego está permitido."
-        else -> "Humedad dentro del rango aceptable. El riego manual sigue disponible."
     }
 }
 

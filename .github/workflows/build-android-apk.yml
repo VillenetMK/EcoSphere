@@ -37,16 +37,16 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x gradlew
 
-      - name: Build installable APK
-        run: ./gradlew :app:assembleDebug --stacktrace --no-daemon
+      - name: Test shared rules and build installable APK
+        run: ./gradlew :sharedCore:test :app:testDebugUnitTest :app:assembleDebug --stacktrace --no-daemon
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk EcoSphere-1.0-Android.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk EcoSphere-1.1.0-Android.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: EcoSphere-Android-APK
-          path: EcoSphere-1.0-Android.apk
+          path: EcoSphere-1.1.0-Android.apk
           if-no-files-found: error
           retention-days: 30

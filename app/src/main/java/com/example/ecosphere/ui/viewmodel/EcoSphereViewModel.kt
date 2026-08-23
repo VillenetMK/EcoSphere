@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.ecosphere.data.model.DeviceControl
 import com.example.ecosphere.data.repository.SensorRepository
+import com.example.ecosphere.shared.ControlPolicy
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -180,14 +181,14 @@ class EcoSphereViewModel(
     }
 
     fun setFanPower(power: Int) {
-        val safePower = power.coerceIn(0, 100)
+        val safePower = ControlPolicy.clampPower(power)
         updateControl("Ventilador ajustado al $safePower %") {
             repository.updateFanPower(safePower)
         }
     }
 
     fun setLedPower(power: Int) {
-        val safePower = power.coerceIn(0, 100)
+        val safePower = ControlPolicy.clampPower(power)
         updateControl("Iluminación ajustada al $safePower %") {
             repository.updateLedPower(safePower)
         }
@@ -195,35 +196,21 @@ class EcoSphereViewModel(
 
     fun requestPump() {
         val record = uiState.record
-        val soilHumidity = record?.soilHumidity
-        val waterLevel = record?.waterLevel?.lowercase()
-
-        when {
-            soilHumidity == null -> {
-                uiState = uiState.copy(
-                    controlMessage = "Riego manual denegado. No hay lectura válida de humedad del suelo."
-                )
-                return
-            }
-
-            soilHumidity >= 60.0 -> {
-                uiState = uiState.copy(
-                    controlMessage = "Suelo húmedo. Riego manual denegado. Humedad actual: ${soilHumidity.toInt()} %."
-                )
-                return
-            }
-
-            waterLevel == "low" -> {
-                uiState = uiState.copy(
-                    controlMessage = "Riego manual denegado. Nivel de agua bajo."
-                )
-                return
-            }
+        val decision = ControlPolicy.irrigationDecision(
+            soilHumidity = record?.soilHumidity,
+            waterLevel = record?.waterLevel
+        )
+        if (!decision.allowed) {
+            uiState = uiState.copy(controlMessage = decision.message)
+            return
         }
 
         val currentRequest = uiState.deviceControl?.pumpRequest ?: 0L
         updateControl(null) {
-            repository.requestPump(currentRequest = currentRequest, durationMs = 3000)
+            repository.requestPump(
+                currentRequest = currentRequest,
+                durationMs = ControlPolicy.PUMP_DURATION_MS
+            )
         }
     }
 

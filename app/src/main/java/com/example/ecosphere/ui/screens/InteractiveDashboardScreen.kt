@@ -49,12 +49,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.ecosphere.shared.ControlPolicy
 import com.example.ecosphere.ui.icons.DashboardControlIcons
 import com.example.ecosphere.ui.viewmodel.EcoSphereUiState
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
-
-private const val MANUAL_IRRIGATION_MAX_SOIL_HUMIDITY = 60.0
 
 private enum class DashboardDetail {
     CONNECTION,
@@ -87,26 +86,11 @@ fun InteractiveDashboardScreen(
     val scope = rememberCoroutineScope()
 
     fun requestManualIrrigation(): Boolean {
-        val soilHumidity = record?.soilHumidity
-        val waterLevel = record?.waterLevel?.lowercase()
-
-        val denialMessage = when {
-            soilHumidity == null ->
-                "Riego manual denegado. No hay lectura válida de humedad del suelo."
-
-            soilHumidity >= MANUAL_IRRIGATION_MAX_SOIL_HUMIDITY ->
-                "Suelo húmedo. Riego manual denegado. Humedad actual: ${formatNumber(soilHumidity)} %."
-
-            waterLevel == "low" ->
-                "Riego manual denegado. Nivel de agua bajo."
-
-            else -> null
-        }
-
-        if (denialMessage != null) {
+        val decision = ControlPolicy.irrigationDecision(record?.soilHumidity, record?.waterLevel)
+        if (!decision.allowed) {
             scope.launch {
                 snackbarHostState.currentSnackbarData?.dismiss()
-                snackbarHostState.showSnackbar(denialMessage)
+                snackbarHostState.showSnackbar(decision.message)
             }
             return false
         }
@@ -190,7 +174,7 @@ fun InteractiveDashboardScreen(
                 fanPower = control?.fanPower ?: 0,
                 ledPower = control?.ledPower ?: 0,
                 pumpRequest = control?.pumpRequest ?: 0L,
-                pumpDurationMs = control?.pumpDurationMs ?: 3000,
+                pumpDurationMs = control?.pumpDurationMs ?: ControlPolicy.PUMP_DURATION_MS,
                 soilHumidity = record?.soilHumidity,
                 waterLevel = record?.waterLevel,
                 isUpdating = uiState.isUpdatingControl,
@@ -458,6 +442,7 @@ private fun ControlCard(
 ) {
     var fanSlider by remember(fanPower) { mutableFloatStateOf(fanPower.toFloat()) }
     var ledSlider by remember(ledPower) { mutableFloatStateOf(ledPower.toFloat()) }
+    val irrigationDecision = ControlPolicy.irrigationDecision(soilHumidity, waterLevel)
     val irrigation = irrigationSafety(soilHumidity, waterLevel)
 
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
@@ -494,7 +479,11 @@ private fun ControlCard(
             HorizontalDivider()
             ControlHeader(DashboardControlIcons.Pump, "Riego manual") { onOpen(DashboardDetail.PUMP) }
             Text(irrigation, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Button(onClick = onPumpRequest, modifier = Modifier.fillMaxWidth(), enabled = !isUpdating) {
+            Button(
+                onClick = onPumpRequest,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isUpdating && irrigationDecision.allowed
+            ) {
                 Icon(DashboardControlIcons.Pump, null, Modifier.size(20.dp), tint = DashboardControlIcons.Green)
                 Spacer(Modifier.width(8.dp))
                 Text("Regar ahora · ${durationLabel(pumpDurationMs)}")
@@ -627,7 +616,7 @@ private fun DashboardDetailDialog(
                     DashboardDetail.SOIL_HUMIDITY -> {
                         DetailPair("Valor", record?.soilHumidity?.let { "${formatNumber(it)} %" } ?: "Sin lectura")
                         DetailPair("Riego", irrigationSafety(record?.soilHumidity, record?.waterLevel))
-                        DetailPair("Referencia", "35–60 % aceptable")
+                        DetailPair("Referencia", "35–<60 % aceptable")
                     }
                     DashboardDetail.LIGHT -> {
                         DetailPair("Valor", record?.lightLux?.let { "${formatNumber(it)} lx" } ?: "Sin lectura")
@@ -638,7 +627,7 @@ private fun DashboardDetailDialog(
                         DetailPair("Nivel", waterLevelDisplay(record?.waterLevel))
                         DetailPair("Sensor", "Nivel de agua horizontal")
                         DetailPair("Entrada", "GPIO32")
-                        Text("El riego queda protegido cuando el sensor reporta nivel bajo.")
+                        Text("El riego se bloquea con nivel bajo o una lectura desconocida.")
                     }
                     DashboardDetail.FAN -> {
                         DetailPair("Orden actual", "${control?.fanPower ?: 0} %")
@@ -655,7 +644,10 @@ private fun DashboardDetailDialog(
                     }
                     DashboardDetail.PUMP -> {
                         DetailPair("Estado", if (record?.pumpOn == true) "ENCENDIDA" else "APAGADA")
-                        DetailPair("Duración", durationLabel(control?.pumpDurationMs ?: 3000))
+                        DetailPair(
+                            "Duración",
+                            durationLabel(control?.pumpDurationMs ?: ControlPolicy.PUMP_DURATION_MS)
+                        )
                         DetailPair("Protección", irrigationSafety(record?.soilHumidity, record?.waterLevel))
                     }
                 }
@@ -668,7 +660,13 @@ private fun DashboardDetailDialog(
                 }
                 DashboardDetail.FAN -> TextButton(onClick = { onFanPowerChange(fanPower.roundToInt()) }, enabled = !autoMode && !uiState.isUpdatingControl) { Text("Aplicar") }
                 DashboardDetail.GROW_LED -> TextButton(onClick = { onLedPowerChange(ledPower.roundToInt()) }, enabled = !autoMode && !uiState.isUpdatingControl) { Text("Aplicar") }
-                DashboardDetail.PUMP -> TextButton(onClick = onPumpRequest, enabled = !uiState.isUpdatingControl) { Text("Regar ahora") }
+                DashboardDetail.PUMP -> TextButton(
+                    onClick = onPumpRequest,
+                    enabled = !uiState.isUpdatingControl && ControlPolicy.irrigationDecision(
+                        record?.soilHumidity,
+                        record?.waterLevel
+                    ).allowed
+                ) { Text("Regar ahora") }
                 else -> TextButton(onClick = onDismiss) { Text("Cerrar") }
             }
         },
@@ -719,21 +717,10 @@ private fun EmptyTelemetryCard() {
     }
 }
 
-private fun irrigationSafety(soilHumidity: Double?, waterLevel: String?): String = when {
-    soilHumidity == null -> "Bloqueado hasta recibir humedad del suelo."
-    waterLevel?.lowercase() == "low" -> "Bloqueado: nivel de agua bajo."
-    soilHumidity >= MANUAL_IRRIGATION_MAX_SOIL_HUMIDITY -> "Bloqueado: suelo húmedo (${soilHumidity.roundToInt()} %)."
-    soilHumidity <= 35.0 -> "Suelo seco: riego permitido."
-    else -> "Rango aceptable; riego manual disponible."
-}
+private fun irrigationSafety(soilHumidity: Double?, waterLevel: String?): String =
+    ControlPolicy.irrigationStatus(soilHumidity, waterLevel)
 
-private fun waterLevelDisplay(value: String?): String = when (value?.lowercase()) {
-    "high" -> "Nivel alto"
-    "medium" -> "Nivel medio"
-    "low" -> "Nivel bajo"
-    null -> "Sin lectura"
-    else -> value
-}
+private fun waterLevelDisplay(value: String?): String = ControlPolicy.waterLevelLabel(value)
 
 private fun durationLabel(ms: Int): String = if (ms % 1000 == 0) "${ms / 1000} s" else "$ms ms"
 

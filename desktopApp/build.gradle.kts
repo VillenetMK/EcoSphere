@@ -5,10 +5,16 @@ plugins {
 }
 
 group = "com.example.ecosphere"
-version = "1.0.0"
+version = "1.1.0"
 
 kotlin {
     jvmToolchain(17)
+}
+
+sourceSets {
+    main {
+        kotlin.srcDir("../sharedCore/src/main/kotlin")
+    }
 }
 
 dependencies {
@@ -29,7 +35,7 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb
             )
             packageName = "EcoSphere"
-            packageVersion = "1.0.0"
+            packageVersion = "1.1.0"
             description = "EcoSphere - Sistema inteligente de microclima"
             vendor = "EcoSphere"
             modules("java.net.http")
