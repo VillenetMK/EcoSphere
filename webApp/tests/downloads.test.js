@@ -12,7 +12,7 @@ test('la web ofrece instaladores oficiales para las tres plataformas', async () 
   const expected = [
     ['Windows', 'EcoSphere-1.4.3-Windows-x64.msi', 'ic_windows.svg'],
     ['Linux', 'EcoSphere-1.4.3-Linux-amd64.deb', 'ic_linux.svg'],
-    ['Android', 'EcoSphere-1.4.4-Android.apk', 'ic_android.svg'],
+    ['Android', 'EcoSphere-1.4.5-Android.apk', 'ic_android.svg'],
   ];
 
   for (const [platform, file, icon] of expected) {

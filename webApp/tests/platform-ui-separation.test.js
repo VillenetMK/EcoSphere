@@ -19,6 +19,11 @@ test('Android usa un shell y una autenticación exclusivamente móviles', async 
   assert.match(mainActivity, /ui\.mobile\.MobileEcoSphereApp/);
   assert.match(mainActivity, /ui\.mobile\.MobileAuthScreen/);
   assert.match(mobileShell, /NavigationBar/);
+  assert.match(mobileShell, /ModalNavigationDrawer/);
+  assert.match(mobileShell, /gesturesEnabled = true/);
+  assert.match(mobileShell, /"Panel principal"/);
+  assert.match(mobileShell, /"Registros históricos"/);
+  assert.match(mobileShell, /"Diagnóstico del sistema"/);
   assert.match(mobileShell, /MobileDestination\.ACCOUNT/);
   assert.doesNotMatch(mobileAuth, /ECOSPHERE CONTROL/);
   assert.doesNotMatch(mobileAuth, /La vida puede prosperar/);
