@@ -12,22 +12,28 @@ import java.util.Locale
 import java.util.TimeZone
 
 class SensorRepository(
-    private val api: SupabaseApi
+    private val api: SupabaseApi,
+    private val accessToken: () -> String?
 ) {
     private val apiKey = SupabaseConfig.API_KEY
-    private val authorization = "Bearer ${SupabaseConfig.API_KEY}"
+
+    private fun authorization(): String {
+        val token = accessToken()?.takeIf(String::isNotBlank)
+            ?: error("Tu sesión expiró. Inicia sesión nuevamente.")
+        return "Bearer $token"
+    }
 
     suspend fun getLatestRecord(): SensorRecord? {
         return api.getLatestRecord(
             apiKey = apiKey,
-            authorization = authorization
+            authorization = authorization()
         ).firstOrNull()
     }
 
     suspend fun getHistoryMonths(): List<HistoryMonthSummary> {
         return api.getHistoryMonths(
             apiKey = apiKey,
-            authorization = authorization
+            authorization = authorization()
         )
     }
 
@@ -39,7 +45,7 @@ class SensorRepository(
         val (fromUtc, toUtc) = monthBoundsUtc(monthKey)
         return api.getHistoryByMonth(
             apiKey = apiKey,
-            authorization = authorization,
+            authorization = authorization(),
             fromFilter = "gte.$fromUtc",
             toFilter = "lt.$toUtc",
             limit = limit,
@@ -50,7 +56,7 @@ class SensorRepository(
     suspend fun getDeviceControl(): DeviceControl? {
         return api.getDeviceControl(
             apiKey = apiKey,
-            authorization = authorization
+            authorization = authorization()
         ).firstOrNull()
     }
 
@@ -93,7 +99,7 @@ class SensorRepository(
     private suspend fun updateDeviceControl(body: Map<String, Any>): DeviceControl? {
         return api.updateDeviceControl(
             apiKey = apiKey,
-            authorization = authorization,
+            authorization = authorization(),
             body = body
         ).firstOrNull()
     }

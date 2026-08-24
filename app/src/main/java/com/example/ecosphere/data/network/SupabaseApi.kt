@@ -3,13 +3,23 @@ package com.example.ecosphere.data.network
 import com.example.ecosphere.data.model.DeviceControl
 import com.example.ecosphere.data.model.HistoryMonthSummary
 import com.example.ecosphere.data.model.SensorRecord
+import com.example.ecosphere.data.model.UsernameLoginResponse
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.PATCH
+import retrofit2.http.POST
 import retrofit2.http.Query
 
 interface SupabaseApi {
+
+    @POST("functions/v1/username-login")
+    suspend fun signInWithUsername(
+        @Header("apikey") apiKey: String,
+        @Header("Authorization") authorization: String,
+        @Header("Content-Type") contentType: String = "application/json",
+        @Body body: Map<String, String>
+    ): UsernameLoginResponse
 
     @GET("rest/v1/sensor_records?select=*&order=created_at.desc&limit=1")
     suspend fun getLatestRecord(

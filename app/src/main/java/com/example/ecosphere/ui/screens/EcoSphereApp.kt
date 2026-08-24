@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -15,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
@@ -43,6 +45,9 @@ private enum class EcoSphereDestination {
 @Composable
 fun EcoSphereApp(
     uiState: EcoSphereUiState,
+    profileName: String,
+    profileRole: String,
+    onSignOut: () -> Unit,
     onRefresh: () -> Unit,
     onRefreshHistory: () -> Unit,
     onSelectHistoryMonth: (String) -> Unit,
@@ -84,6 +89,9 @@ fun EcoSphereApp(
                     ModalDrawerSheet {
                         EcoSphereNavigation(
                             destination = destination,
+                            profileName = profileName,
+                            profileRole = profileRole,
+                            onSignOut = onSignOut,
                             onSelect = { selectDestination(it, closeDrawer = true) }
                         )
                     }
@@ -113,6 +121,9 @@ fun EcoSphereApp(
                 ) {
                     EcoSphereNavigation(
                         destination = destination,
+                        profileName = profileName,
+                        profileRole = profileRole,
+                        onSignOut = onSignOut,
                         onSelect = { selectDestination(it, closeDrawer = false) }
                     )
                 }
@@ -144,6 +155,9 @@ fun EcoSphereApp(
 @Composable
 private fun EcoSphereNavigation(
     destination: EcoSphereDestination,
+    profileName: String,
+    profileRole: String,
+    onSignOut: () -> Unit,
     onSelect: (EcoSphereDestination) -> Unit
 ) {
     Column(
@@ -184,6 +198,28 @@ private fun EcoSphereNavigation(
             selected = destination == EcoSphereDestination.DIAGNOSTICS,
             onClick = { onSelect(EcoSphereDestination.DIAGNOSTICS) }
         )
+
+        Spacer(modifier = Modifier.weight(1f))
+        Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 14.dp)) {
+            Text(
+                text = profileName.ifBlank { "Cuenta verificada" },
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = when (profileRole) {
+                    "admin" -> "Administrador"
+                    "operator" -> "Operador"
+                    else -> "Visualizador"
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) {
+                Text("Cerrar sesión")
+            }
+        }
     }
 }
 
