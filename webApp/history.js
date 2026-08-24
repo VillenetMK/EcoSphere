@@ -190,7 +190,9 @@ export function buildHistoryChart(records, metricField, maxPoints = 80) {
 
 function csvCell(value) {
   const text = value === null || value === undefined ? '' : String(value);
-  return `"${text.replaceAll('"', '""')}"`;
+  const opensSpreadsheetFormula = /^[\t\r\n ]*[=+\-@]/.test(text) || /^[\t\r\n]/.test(text);
+  const safeText = opensSpreadsheetFormula ? `'${text}` : text;
+  return `"${safeText.replaceAll('"', '""')}"`;
 }
 
 export function prepareHistoryExport(records, options = {}) {
