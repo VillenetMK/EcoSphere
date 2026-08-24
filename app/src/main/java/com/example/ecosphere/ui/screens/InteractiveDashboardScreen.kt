@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -48,9 +49,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.ecosphere.shared.ControlPolicy
 import com.example.ecosphere.ui.icons.DashboardControlIcons
+import com.example.ecosphere.ui.icons.EcoSphereIcons
 import com.example.ecosphere.ui.viewmodel.EcoSphereUiState
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -228,45 +231,98 @@ private fun SystemOverviewCard(
     onConnectionClick: () -> Unit,
     onModeClick: () -> Unit
 ) {
+    val connectionIcon = if (online) DashboardControlIcons.Online else DashboardControlIcons.Offline
+    val modeIcon = if (autoMode) DashboardControlIcons.AutoMode else DashboardControlIcons.ManualMode
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
             Row(
-                Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(Modifier.weight(1f)) {
-                    Text("Estado general", style = MaterialTheme.typography.labelLarge)
-                    Text(
-                        if (online) "Sistema conectado" else "Sistema sin conexión",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                IconButton(onClick = onConnectionClick) {
-                    Icon(
-                        if (online) DashboardControlIcons.Online else DashboardControlIcons.Offline,
-                        contentDescription = if (online) "ONLINE" else "OFFLINE",
-                        tint = DashboardControlIcons.Green
-                    )
-                }
-            }
-
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OverviewValue(
-                    Modifier.weight(1f).clickable(onClick = onModeClick),
-                    "Modo",
-                    if (autoMode) "Automático" else "Manual"
+                Text(
+                    "Estado general",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
-                OverviewValue(Modifier.weight(1f), "Último ESP32", lastSeenAt)
+                Surface(
+                    modifier = Modifier.clickable(onClick = onConnectionClick),
+                    shape = RoundedCornerShape(100.dp),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = .78f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            connectionIcon,
+                            contentDescription = if (online) "Sistema conectado" else "Sistema sin conexión",
+                            modifier = Modifier.size(18.dp),
+                            tint = DashboardControlIcons.Green
+                        )
+                        Text(
+                            text = if (online) "Conectado" else "Sin conexión",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
-            OverviewValue(Modifier.fillMaxWidth(), "Última telemetría", lastReadingAt)
 
-            OutlinedButton(onClick = onRefresh, modifier = Modifier.fillMaxWidth(), enabled = !isLoading) {
+            Text(
+                text = if (online) "Sistema conectado" else "Sistema sin conexión",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.ExtraBold,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OverviewValue(
+                    modifier = Modifier.weight(1f),
+                    icon = modeIcon,
+                    title = "Modo",
+                    value = if (autoMode) "Automático" else "Manual",
+                    onClick = onModeClick
+                )
+                OverviewValue(
+                    modifier = Modifier.weight(1f),
+                    icon = EcoSphereIcons.Esp32,
+                    title = "Último ESP32",
+                    value = lastSeenAt
+                )
+            }
+
+            OverviewValue(
+                modifier = Modifier.fillMaxWidth(),
+                icon = EcoSphereIcons.History,
+                title = "Última telemetría",
+                value = lastReadingAt
+            )
+
+            OutlinedButton(
+                onClick = {
+                    DashboardControlIcons.triggerRefreshAnimation()
+                    onRefresh()
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                enabled = !isLoading,
+                shape = RoundedCornerShape(16.dp)
+            ) {
                 Icon(
                     DashboardControlIcons.Refresh,
                     contentDescription = null,
@@ -274,22 +330,58 @@ private fun SystemOverviewCard(
                     tint = DashboardControlIcons.Green
                 )
                 Spacer(Modifier.width(8.dp))
-                Text(if (isLoading) "Actualizando..." else "Actualizar datos")
+                Text(
+                    text = if (isLoading) "Actualizando..." else "Actualizar datos",
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }
 }
 
 @Composable
-private fun OverviewValue(modifier: Modifier, title: String, value: String) {
+private fun OverviewValue(
+    modifier: Modifier,
+    icon: ImageVector,
+    title: String,
+    value: String,
+    onClick: (() -> Unit)? = null
+) {
+    val interactiveModifier = if (onClick == null) modifier else modifier.clickable(onClick = onClick)
+
     Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = .70f)
+        modifier = interactiveModifier.heightIn(min = 88.dp),
+        shape = RoundedCornerShape(18.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = .78f)
     ) {
-        Column(Modifier.padding(12.dp)) {
-            Text(title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+        Column(
+            modifier = Modifier.padding(13.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(21.dp),
+                    tint = DashboardControlIcons.Green
+                )
+                Text(
+                    title,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
         }
     }
 }
