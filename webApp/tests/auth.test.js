@@ -63,6 +63,14 @@ test('la portada comunica el equilibrio entre vida y tecnología', async () => {
   assert.match(html, /cada ecosistema prospere de forma autónoma/);
 });
 
+test('el acceso muestra primero el panel de inicio de sesión', async () => {
+  const source = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
+  assert.match(
+    source,
+    /if \(!profile\) \{\s*setProfileCompletionMode\(session\);\s*showPanel\('login'\);/,
+  );
+});
+
 test('el flujo administrativo exige AAL2 y usa las APIs TOTP oficiales', async () => {
   const source = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
   assert.match(source, /profile\.role === 'admin'/);

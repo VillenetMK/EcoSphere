@@ -274,7 +274,7 @@ async function resolveSession(session, onAccessGranted) {
   const profile = await loadMyProfile();
   if (!profile) {
     setProfileCompletionMode(session);
-    showPanel('register');
+    showPanel('login');
     setMessage('Completa tus datos obligatorios para finalizar el registro.', 'info');
     return false;
   }
