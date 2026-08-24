@@ -96,6 +96,7 @@ jobs:
     needs: [ windows, linux, android ]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           pattern: release-*
@@ -112,8 +113,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: v1.1.0
         run: |
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" dist/* --clobber
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$RELEASE_TAG" dist/* --target "$GITHUB_SHA" --title "EcoSphere 1.1.0" --notes "Instaladores oficiales de EcoSphere para Windows, Linux y Android."
+            gh release create "$RELEASE_TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "EcoSphere 1.1.0" --notes "Instaladores oficiales de EcoSphere para Windows, Linux y Android."
           fi
