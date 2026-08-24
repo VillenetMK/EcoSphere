@@ -28,10 +28,13 @@
       </nav>
 
       <button id="installBtn" class="install-btn" hidden>Instalar EcoSphere</button>
-      <div class="version">EcoSphere Web 1.1.0</div>
+      <div class="version">EcoSphere Web 1.1.1</div>
     </aside>
 
     <main class="main">
+      <div id="errorBox" class="error-box" hidden></div>
+      <div id="toast" class="toast" hidden></div>
+
       <section id="dashboard" class="screen active">
         <header class="topbar">
           <div>
@@ -39,9 +42,6 @@
             <p>Estado y control del microclima</p>
           </div>
         </header>
-
-        <div id="errorBox" class="error-box" hidden></div>
-        <div id="toast" class="toast" hidden></div>
 
         <article class="status-panel">
           <div class="eyebrow">Estado general</div>
@@ -52,7 +52,7 @@
             <div class="status-cell"><span>Humedad suelo</span><strong id="soilStatusValue">Sin registro</strong></div>
           </div>
           <div class="status-cell wide"><span>Última telemetría</span><strong id="lastTelemetry">Sin registro</strong></div>
-          <button id="refreshBtn" class="outline-btn"><span class="refresh-symbol">↻</span> Actualizar datos</button>
+          <button id="refreshBtn" class="outline-btn"><span class="refresh-symbol" aria-hidden="true">↻</span> <span id="refreshBtnLabel">Actualizar datos</span></button>
         </article>
 
         <h3>Lecturas ambientales</h3>
@@ -94,8 +94,20 @@
       </section>
 
       <section id="diagnostics" class="screen">
-        <header class="topbar"><div><h2>Diagnóstico del sistema</h2><p>Estado inferido a partir de la telemetría disponible</p></div></header>
-        <div id="diagnosticsList" class="diagnostics"></div>
+        <header class="topbar"><div><h2>Diagnóstico del sistema</h2><p>Conectividad, vigencia de datos y condición operativa por separado</p></div></header>
+        <article id="diagnosticSummary" class="diagnostic-summary severity-unknown" aria-live="polite">
+          <div class="diagnostic-summary-copy">
+            <span class="diagnostic-summary-kicker">Estado general</span>
+            <h3 id="diagnosticSummaryTitle">Evaluando el sistema…</h3>
+            <p id="diagnosticSummaryDetail">Esperando la primera consulta de telemetría.</p>
+          </div>
+          <div id="diagnosticSummaryCounts" class="diagnostic-summary-counts"></div>
+          <div class="diagnostic-actions">
+            <button id="diagnosticsRefreshBtn" class="secondary-btn"><span class="refresh-symbol" aria-hidden="true">↻</span> <span id="diagnosticsRefreshLabel">Actualizar diagnóstico</span></button>
+            <button id="copyDiagnosticsBtn" class="secondary-btn">Copiar reporte técnico</button>
+          </div>
+        </article>
+        <div id="diagnosticGroups" class="diagnostic-groups"></div>
       </section>
     </main>
   </div>

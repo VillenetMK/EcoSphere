@@ -6,6 +6,7 @@ import {
   isDeviceOnline,
   waterLevelLabel,
 } from './control-policy.js';
+import { buildDiagnosticModel, technicalReport } from './diagnostics.js';
 
 const BASE_URL = 'https://kslzmrddrhfyyrxyfmbw.supabase.co';
 const API_KEY = 'sb_publishable_oHQqSvres8b5l0qgcpXJ2w_9A33lfg3';
@@ -17,6 +18,7 @@ let busy = false;
 let deferredInstallPrompt = null;
 let activeScreen = 'dashboard';
 let refreshing = false;
+let currentDiagnosticModel = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -155,25 +157,39 @@ function renderHistory() {
 }
 
 function renderDiagnostics() {
-  const rows = [
-    ['ESP32', onlineNow(deviceControl) ? 'OK' : 'SIN CONEXIÓN', deviceControl?.last_seen_at ? formatDate(deviceControl.last_seen_at) : 'Sin heartbeat'],
-    ['BME280', latestRecord?.temperature != null && latestRecord?.air_humidity != null ? 'OK' : 'SIN CONFIRMAR', 'Temperatura y humedad del aire'],
-    ['BH1750', latestRecord?.light_lux != null ? 'OK' : 'SIN CONFIRMAR', 'Sensor de iluminación'],
-    ['Humedad de suelo', latestRecord?.soil_humidity != null ? 'OK' : 'SIN CONFIRMAR', latestRecord?.soil_humidity != null ? `${Math.round(latestRecord.soil_humidity)} %` : 'Sin lectura'],
-    [
-      'Nivel de agua',
-      ['high', 'low'].includes(String(latestRecord?.water_level ?? '').toLowerCase()) ? 'OK' : 'SIN CONFIRMAR',
-      waterLevelLabel(latestRecord?.water_level),
-    ],
-    ['Ventilador', 'ESTADO', `${latestRecord?.fan_power ?? deviceControl?.fan_power ?? 0} %`],
-    ['LED Grow', 'ESTADO', `${latestRecord?.led_power ?? deviceControl?.led_power ?? 0} %`],
-    ['Bomba', 'ESTADO', latestRecord?.pump_on ? 'Encendida' : 'Apagada'],
-  ];
-  $('diagnosticsList').innerHTML = rows.map(([name, status, detail]) => `
-    <article class="diag-row">
-      <div><strong>${escapeHtml(name)}</strong><small>${escapeHtml(detail)}</small></div>
-      <span class="diag-status">${escapeHtml(status)}</span>
-    </article>
+  currentDiagnosticModel = buildDiagnosticModel(latestRecord, deviceControl);
+  const model = currentDiagnosticModel;
+  const summary = $('diagnosticSummary');
+  summary.className = `diagnostic-summary severity-${model.severity}`;
+  $('diagnosticSummaryTitle').textContent = model.headline;
+  $('diagnosticSummaryDetail').textContent = model.summary;
+  $('diagnosticSummaryCounts').innerHTML = [
+    ['Críticos', model.counts.critical, 'critical'],
+    ['Advertencias', model.counts.warning, 'warning'],
+    ['Sin datos', model.counts.unknown, 'unknown'],
+  ].map(([label, count, severity]) => `
+    <span class="summary-count severity-${severity}"><strong>${count}</strong> ${escapeHtml(label)}</span>
+  `).join('');
+
+  $('diagnosticGroups').innerHTML = model.groups.map(group => `
+    <section class="diagnostic-group diagnostic-group-${escapeHtml(group.id)}" aria-labelledby="diagnostic-${escapeHtml(group.id)}-title">
+      <header class="diagnostic-group-header">
+        <h3 id="diagnostic-${escapeHtml(group.id)}-title">${escapeHtml(group.title)}</h3>
+        <p>${escapeHtml(group.description)}</p>
+      </header>
+      <div class="diagnostic-cards">
+        ${group.items.map(entry => `
+          <article class="diag-card severity-${escapeHtml(entry.severity)}">
+            <div class="diag-card-head">
+              <strong>${escapeHtml(entry.name)}</strong>
+              <span class="diag-status">${escapeHtml(entry.status)}</span>
+            </div>
+            <p class="diag-reading">${escapeHtml(entry.reading)}</p>
+            <p class="diag-detail">${escapeHtml(entry.detail)}</p>
+          </article>
+        `).join('')}
+      </div>
+    </section>
   `).join('');
 }
 
@@ -211,10 +227,16 @@ function setBusy(value) {
 }
 
 function setRefreshLoading(value) {
-  const btn = $('refreshBtn');
-  btn.disabled = value;
-  btn.classList.toggle('loading', value);
-  btn.lastChild.textContent = value ? ' Actualizando...' : ' Actualizar datos';
+  [
+    ['refreshBtn', 'refreshBtnLabel', 'Actualizar datos'],
+    ['diagnosticsRefreshBtn', 'diagnosticsRefreshLabel', 'Actualizar diagnóstico'],
+  ].forEach(([buttonId, labelId, idleLabel]) => {
+    const button = $(buttonId);
+    if (!button) return;
+    button.disabled = value;
+    button.classList.toggle('loading', value);
+    $(labelId).textContent = value ? 'Actualizando...' : idleLabel;
+  });
 }
 
 async function updateControl(body) {
@@ -231,6 +253,25 @@ async function updateControl(body) {
 }
 
 $('refreshBtn').addEventListener('click', () => refresh({ manual: true }));
+$('diagnosticsRefreshBtn').addEventListener('click', () => refresh({ manual: true }));
+$('copyDiagnosticsBtn').addEventListener('click', async () => {
+  if (!currentDiagnosticModel) return;
+  const report = technicalReport(currentDiagnosticModel);
+  try {
+    await navigator.clipboard.writeText(report);
+    toast('Reporte técnico copiado.');
+  } catch {
+    const textarea = document.createElement('textarea');
+    textarea.value = report;
+    textarea.setAttribute('readonly', '');
+    textarea.className = 'copy-helper';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand('copy');
+    textarea.remove();
+    toast(copied ? 'Reporte técnico copiado.' : 'No se pudo copiar el reporte.');
+  }
+});
 
 $('autoMode').addEventListener('change', event => {
   updateControl({ auto_mode: event.target.checked });
