@@ -45,17 +45,17 @@ jobs:
         run: |
           mkdir -p dist
           npm run --prefix webApp build
-          cp webApp/index.html webApp/styles.css dist/
+          cp webApp/index.html webApp/styles.css webApp/android-auth-return.js dist/
           cp webApp/manifest.webmanifest webApp/sw.js webApp/icon.svg dist/
           cp webApp/icon-192.png webApp/icon-512.png dist/
           cp -R webApp/icons dist/
           touch dist/.nojekyll
           cd dist
-          zip -r ../EcoSphere-1.6.1-Web.zip .
+          zip -r ../EcoSphere-1.6.4-Web.zip .
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: EcoSphere-Web-PWA
-          path: EcoSphere-1.6.1-Web.zip
+          path: EcoSphere-1.6.4-Web.zip
           if-no-files-found: error
           retention-days: 30
       - name: Upload Pages artifact
