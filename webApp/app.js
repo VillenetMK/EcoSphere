@@ -34,6 +34,39 @@ let historyMetric = 'soil_humidity';
 
 const $ = (id) => document.getElementById(id);
 
+const ICON_BASE = './icons';
+const HISTORY_METRIC_ICONS = {
+  soil_humidity: 'ic_soil_humidity',
+  temperature: 'ic_temperature',
+  air_humidity: 'ic_air_humidity',
+  light_lux: 'ic_light',
+};
+const DIAGNOSTIC_ICONS = {
+  ESP32: 'ic_esp32',
+  'Telemetría': 'ic_history',
+  BME280: 'ic_temperature',
+  BH1750: 'ic_light',
+  'Humedad de suelo': 'ic_soil_humidity',
+  'Nivel de agua': 'ic_water_level',
+  Ventilador: 'ic_fan',
+  'LED Grow': 'ic_grow_led',
+  Bomba: 'ic_pump',
+};
+const SEVERITY_ICONS = {
+  critical: 'ic_error',
+  warning: 'ic_warning',
+  unknown: 'ic_info',
+  normal: 'ic_ok',
+};
+
+function iconPath(name) {
+  return `${ICON_BASE}/${name}.svg`;
+}
+
+function iconMarkup(name, className = 'ui-icon') {
+  return `<img class="${className}" src="${iconPath(name)}" alt="" aria-hidden="true" />`;
+}
+
 function headers(extra = {}) {
   return {
     apikey: API_KEY,
@@ -121,9 +154,12 @@ function renderAll() {
 
 function renderDashboard() {
   const online = onlineNow(deviceControl);
+  const auto = !!deviceControl?.auto_mode;
   $('systemStatus').textContent = online ? 'Sistema conectado' : 'Sistema sin conexión';
-  $('modeValue').textContent = deviceControl?.auto_mode ? 'Automático' : 'Manual';
+  $('modeValue').textContent = auto ? 'Automático' : 'Manual';
+  $('modeIcon').src = iconPath(auto ? 'ic_auto_mode' : 'ic_manual_mode');
   $('espValue').textContent = online ? 'Online' : 'Offline';
+  $('espIcon').src = iconPath(online ? 'ic_online' : 'ic_offline');
   $('soilStatusValue').textContent = latestRecord?.soil_humidity != null ? `${Math.round(latestRecord.soil_humidity)} %` : 'Sin registro';
   $('lastTelemetry').textContent = formatDate(latestRecord?.created_at);
 
@@ -133,7 +169,6 @@ function renderDashboard() {
   $('lightValue').textContent = formatNumber(latestRecord?.light_lux, 'lux');
   $('waterValue').textContent = waterLevelLabel(latestRecord?.water_level);
 
-  const auto = !!deviceControl?.auto_mode;
   $('autoMode').checked = auto;
   $('autoMode').disabled = busy || !deviceControl;
   $('modeHint').textContent = auto ? 'El ESP32 controla los actuadores' : 'Control manual habilitado';
@@ -175,13 +210,13 @@ function renderHistory() {
     : 'Todavía no se han recibido registros para analizar.';
 
   $('historySummary').innerHTML = [
-    ['Registros cargados', analysis.total, `Rango temporal: ${analysis.rangeLabel}`],
-    ['Datos disponibles', `${analysis.completeness} %`, `${analysis.completeRecords} registros completos`],
-    ['Agua baja', analysis.lowWaterRecords, analysis.lowWaterRecords ? 'Riego bloqueado en esos registros' : 'Sin eventos detectados'],
-    ['Saltos del suelo', analysis.abruptChanges, analysis.abruptChanges ? 'Cambios ≥ 40 puntos en ≤ 15 s' : 'Sin variaciones bruscas'],
-  ].map(([label, value, detail]) => `
+    ['ic_history', 'Registros cargados', analysis.total, `Rango temporal: ${analysis.rangeLabel}`],
+    ['ic_info', 'Datos disponibles', `${analysis.completeness} %`, `${analysis.completeRecords} registros completos`],
+    ['ic_water_level', 'Agua baja', analysis.lowWaterRecords, analysis.lowWaterRecords ? 'Riego bloqueado en esos registros' : 'Sin eventos detectados'],
+    ['ic_soil_humidity', 'Saltos del suelo', analysis.abruptChanges, analysis.abruptChanges ? 'Cambios ≥ 40 puntos en ≤ 15 s' : 'Sin variaciones bruscas'],
+  ].map(([icon, label, value, detail]) => `
     <article class="history-summary-card">
-      <span>${escapeHtml(label)}</span>
+      <div class="history-summary-label">${iconMarkup(icon, 'ui-icon summary-icon')}<span>${escapeHtml(label)}</span></div>
       <strong>${escapeHtml(value)}</strong>
       <small>${escapeHtml(detail)}</small>
     </article>
@@ -223,6 +258,7 @@ function renderHistoryChart(records) {
     ? '--'
     : `${Number(value).toFixed(chart.metric.decimals)} ${chart.metric.unit}`;
   $('historyChartTitle').textContent = chart.metric.label;
+  $('historyChartIcon').src = iconPath(HISTORY_METRIC_ICONS[chart.metric.field] ?? 'ic_history');
   $('historyChartStats').innerHTML = [
     ['Mínimo', format(chart.min)],
     ['Promedio', format(chart.average)],
@@ -272,8 +308,8 @@ function renderDiagnostics() {
         ${group.items.map(entry => `
           <article class="diag-card severity-${escapeHtml(entry.severity)}">
             <div class="diag-card-head">
-              <strong>${escapeHtml(entry.name)}</strong>
-              <span class="diag-status">${escapeHtml(entry.status)}</span>
+              <div class="diag-card-name">${iconMarkup(DIAGNOSTIC_ICONS[entry.name] ?? 'ic_info', 'ui-icon diag-name-icon')}<strong>${escapeHtml(entry.name)}</strong></div>
+              <span class="diag-status">${iconMarkup(SEVERITY_ICONS[entry.severity] ?? 'ic_info', 'ui-icon diag-status-icon')}${escapeHtml(entry.status)}</span>
             </div>
             <p class="diag-reading">${escapeHtml(entry.reading)}</p>
             <p class="diag-detail">${escapeHtml(entry.detail)}</p>
