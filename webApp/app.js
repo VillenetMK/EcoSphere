@@ -31,6 +31,7 @@ let historyPageSize = HISTORY_CONFIG.defaultPageSize;
 let historyMetric = 'soil_humidity';
 let refreshTimer = null;
 let currentProfile = null;
+let controllerStatus = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -97,6 +98,19 @@ async function apiPatch(path, body) {
   return response.json();
 }
 
+async function apiPost(path, body = {}) {
+  const response = await fetch(`${SUPABASE_URL}/${path}`, {
+    method: 'POST',
+    headers: await headers({
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    }),
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+  return response.json();
+}
+
 async function loadLatest() {
   const [records, controls] = await Promise.all([
     apiGet('rest/v1/sensor_records?select=*&order=created_at.desc&limit=1'),
@@ -111,6 +125,15 @@ async function loadHistory() {
   lastHistoryLoadedAt = Date.now();
 }
 
+async function loadControllerStatus() {
+  if (currentProfile?.role !== 'admin') {
+    controllerStatus = null;
+    return;
+  }
+  const result = await apiPost('rest/v1/rpc/controller_admin_status');
+  controllerStatus = result[0] ?? null;
+}
+
 async function refresh({ manual = false } = {}) {
   if (refreshing) return;
   refreshing = true;
@@ -119,6 +142,9 @@ async function refresh({ manual = false } = {}) {
     await loadLatest();
     if (activeScreen === 'history' && (manual || Date.now() - lastHistoryLoadedAt >= 30000)) {
       await loadHistory();
+    }
+    if (activeScreen === 'diagnostics' && currentProfile?.role === 'admin') {
+      await loadControllerStatus();
     }
     hideError();
     renderAll();
@@ -344,6 +370,25 @@ function renderDiagnostics() {
       </div>
     </section>
   `).join('');
+
+  const pairingPanel = $('controllerPairingPanel');
+  const isAdmin = currentProfile?.role === 'admin';
+  pairingPanel.hidden = !isAdmin;
+  if (isAdmin) {
+    const statusLabel = controllerStatus?.controller_status === 'active'
+      ? 'Controlador activo'
+      : 'Aún no hay un controlador seguro vinculado';
+    const identity = controllerStatus?.hardware_uid_masked
+      ? ` · ${controllerStatus.hardware_uid_masked}`
+      : '';
+    const firmware = controllerStatus?.firmware_version
+      ? ` · firmware ${controllerStatus.firmware_version}`
+      : '';
+    $('controllerStatusTitle').textContent = statusLabel;
+    $('controllerStatusDetail').textContent = controllerStatus?.secure_mode
+      ? `Modo seguro habilitado${identity}${firmware}`
+      : `Modo de transición activo${identity}${firmware}`;
+  }
 }
 
 function escapeHtml(value) {
@@ -503,6 +548,27 @@ $('historyExportDownloadBtn').addEventListener('click', () => {
   toast(`${selection.records.length} registros exportados en CSV.`);
 });
 $('diagnosticsRefreshBtn').addEventListener('click', () => refresh({ manual: true }));
+$('controllerPairingForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (currentProfile?.role !== 'admin') return;
+  const input = $('controllerPairingCode');
+  const code = input.value.trim();
+  const button = $('replaceControllerBtn');
+  button.disabled = true;
+  try {
+    const result = await apiPost('rest/v1/rpc/replace_active_controller', {
+      p_pairing_code: code,
+    });
+    controllerStatus = result[0] ?? controllerStatus;
+    input.value = '';
+    await refresh({ manual: true });
+    toast('Controlador reemplazado. El sistema conservará su historial y configuración.');
+  } catch (error) {
+    toast(error.message || 'No se pudo vincular el controlador.');
+  } finally {
+    button.disabled = false;
+  }
+});
 $('copyDiagnosticsBtn').addEventListener('click', async () => {
   if (!currentDiagnosticModel) return;
   const report = technicalReport(currentDiagnosticModel);
@@ -566,6 +632,10 @@ document.querySelectorAll('.nav-item').forEach(button => {
       try { await loadHistory(); renderHistory(); }
       catch (error) { showError(error.message || 'Error cargando historial'); }
     }
+    if (activeScreen === 'diagnostics' && currentProfile?.role === 'admin') {
+      try { await loadControllerStatus(); renderDiagnostics(); }
+      catch (error) { showError(error.message || 'Error cargando el controlador'); }
+    }
   });
 });
 
@@ -607,6 +677,7 @@ function stopApplication() {
   latestRecord = null;
   deviceControl = null;
   historyRecords = [];
+  controllerStatus = null;
   currentProfile = null;
 }
 

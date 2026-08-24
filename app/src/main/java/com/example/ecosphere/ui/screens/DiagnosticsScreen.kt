@@ -16,12 +16,18 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,6 +35,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.ecosphere.data.model.DeviceControl
+import com.example.ecosphere.data.model.ControllerAdminStatus
 import com.example.ecosphere.data.model.SensorRecord
 import com.example.ecosphere.ui.icons.EcoSphereIcons
 import java.text.SimpleDateFormat
@@ -54,13 +61,24 @@ private data class DiagnosticEntry(
 fun DiagnosticsScreen(
     record: SensorRecord?,
     control: DeviceControl?,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    isAdmin: Boolean = false,
+    controllerStatus: ControllerAdminStatus? = null,
+    isReplacingController: Boolean = false,
+    controllerMessage: String? = null,
+    onRefreshController: () -> Unit = {},
+    onReplaceController: (String) -> Unit = {}
 ) {
+    var pairingCode by rememberSaveable { mutableStateOf("") }
     val entries = buildDiagnostics(record, control)
     val errors = entries.count { it.level == DiagnosticLevel.ERROR }
     val warnings = entries.count { it.level == DiagnosticLevel.WARNING }
     val online = control?.isOnlineNow() == true
     val telemetryFresh = telemetryAgeMs(record?.createdAt)?.let { it in 0..15_000L } == true
+
+    LaunchedEffect(isAdmin) {
+        if (isAdmin) onRefreshController()
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -131,6 +149,66 @@ fun DiagnosticsScreen(
             }
 
             entries.forEach { DiagnosticCard(it) }
+
+            if (isAdmin) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("Controlador ESP32 reemplazable", fontWeight = FontWeight.Bold)
+                        Text(
+                            if (controllerStatus?.controllerStatus == "active") {
+                                "Activo ${controllerStatus.hardwareUidMasked.orEmpty()}${controllerStatus.firmwareVersion?.let { " · firmware $it" }.orEmpty()}"
+                            } else {
+                                "Aún no hay un controlador seguro vinculado."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            if (controllerStatus?.secureMode == true) "Modo seguro habilitado" else "Modo de transición activo",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        OutlinedTextField(
+                            value = pairingCode,
+                            onValueChange = { pairingCode = it.uppercase().take(14) },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Código mostrado por el ESP32") },
+                            placeholder = { Text("ABCD-EF12-3456") },
+                            singleLine = true,
+                            enabled = !isReplacingController
+                        )
+                        Button(
+                            onClick = {
+                                onReplaceController(pairingCode)
+                                pairingCode = ""
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isReplacingController && pairingCode.isNotBlank()
+                        ) {
+                            Text(if (isReplacingController) "Vinculando…" else "Usar como reemplazo")
+                        }
+                        if (!controllerMessage.isNullOrBlank()) {
+                            Text(
+                                controllerMessage,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Text(
+                            "El controlador anterior pasa a reserva. El panel, las órdenes y el historial no cambian.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
 
             Card(
                 modifier = Modifier.fillMaxWidth(),

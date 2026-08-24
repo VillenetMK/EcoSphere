@@ -64,7 +64,9 @@ class MainActivity : ComponentActivity() {
                         onAutoModeChange = ecoSphereViewModel::setAutoMode,
                         onFanPowerChange = ecoSphereViewModel::setFanPower,
                         onLedPowerChange = ecoSphereViewModel::setLedPower,
-                        onPumpRequest = ecoSphereViewModel::requestPump
+                        onPumpRequest = ecoSphereViewModel::requestPump,
+                        onRefreshController = ecoSphereViewModel::refreshControllerStatus,
+                        onReplaceController = ecoSphereViewModel::replaceActiveController
                     )
                 } else {
                     NativeAuthScreen(

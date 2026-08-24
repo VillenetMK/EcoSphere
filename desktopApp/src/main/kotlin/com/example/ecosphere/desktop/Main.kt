@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import com.example.ecosphere.shared.ControlPolicy
+import com.example.ecosphere.shared.ControllerAdminStatus
 import com.example.ecosphere.shared.DeviceControl
 import com.example.ecosphere.shared.EcoSphereConfig
 import com.example.ecosphere.shared.SensorRecord
@@ -101,6 +102,27 @@ private class EcoSphereApi(
         val res = client.send(req, HttpResponse.BodyHandlers.ofString())
         require(res.statusCode() in 200..299) { "HTTP ${res.statusCode()}: ${res.body()}" }
         parseList<DeviceControl>(res.body()).firstOrNull()
+    }
+
+    suspend fun controllerAdminStatus(): ControllerAdminStatus? = withContext(Dispatchers.IO) {
+        val req = requestBuilder("rest/v1/rpc/controller_admin_status")
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString("{}"))
+            .build()
+        val res = client.send(req, HttpResponse.BodyHandlers.ofString())
+        require(res.statusCode() in 200..299) { "HTTP ${res.statusCode()}: ${res.body()}" }
+        parseList<ControllerAdminStatus>(res.body()).firstOrNull()
+    }
+
+    suspend fun replaceActiveController(pairingCode: String): ControllerAdminStatus? = withContext(Dispatchers.IO) {
+        val json = gson.toJson(mapOf("p_pairing_code" to pairingCode.trim()))
+        val req = requestBuilder("rest/v1/rpc/replace_active_controller")
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(json))
+            .build()
+        val res = client.send(req, HttpResponse.BodyHandlers.ofString())
+        require(res.statusCode() in 200..299) { "HTTP ${res.statusCode()}: ${res.body()}" }
+        parseList<ControllerAdminStatus>(res.body()).firstOrNull()
     }
 
     suspend fun setAutoMode(enabled: Boolean) = patchControl(mapOf("auto_mode" to enabled))
@@ -217,6 +239,9 @@ private fun EcoSphereDesktopApp(
     var loading by remember { mutableStateOf(true) }
     var actionBusy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var controllerStatus by remember { mutableStateOf<ControllerAdminStatus?>(null) }
+    var controllerBusy by remember { mutableStateOf(false) }
+    var controllerMessage by remember { mutableStateOf<String?>(null) }
 
     suspend fun refresh(loadHistory: Boolean = false) {
         try {
@@ -243,6 +268,14 @@ private fun EcoSphereDesktopApp(
 
     LaunchedEffect(destination) {
         if (destination == Destination.HISTORY) refresh(loadHistory = true)
+        if (destination == Destination.DIAGNOSTICS && profileRole == "admin") {
+            try {
+                controllerStatus = api.controllerAdminStatus()
+                controllerMessage = null
+            } catch (e: Exception) {
+                controllerMessage = e.message ?: "No se pudo consultar el controlador"
+            }
+        }
     }
 
     Scaffold(
@@ -318,7 +351,35 @@ private fun EcoSphereDesktopApp(
                     )
 
                     Destination.HISTORY -> HistoryScreen(history, loading, error)
-                    Destination.DIAGNOSTICS -> DiagnosticsScreen(record, control, error)
+                    Destination.DIAGNOSTICS -> DiagnosticsScreen(
+                        record = record,
+                        control = control,
+                        error = error,
+                        isAdmin = profileRole == "admin",
+                        controllerStatus = controllerStatus,
+                        controllerBusy = controllerBusy,
+                        controllerMessage = controllerMessage,
+                        onReplaceController = { pairingCode ->
+                            scope.launch {
+                                if (pairingCode.replace("-", "").length != 12) {
+                                    controllerMessage = "Ingresa el código completo del ESP32."
+                                } else {
+                                    controllerBusy = true
+                                    controllerMessage = null
+                                    try {
+                                        controllerStatus = api.replaceActiveController(pairingCode)
+                                            ?: api.controllerAdminStatus()
+                                        control = api.deviceControl()
+                                        controllerMessage = "Controlador reemplazado sin perder historial ni configuración."
+                                    } catch (e: Exception) {
+                                        controllerMessage = e.message ?: "No se pudo reemplazar el controlador"
+                                    } finally {
+                                        controllerBusy = false
+                                    }
+                                }
+                            }
+                        }
+                    )
                 }
             }
         }
@@ -377,7 +438,7 @@ private fun NavigationPane(
                 Text("Cerrar sesión")
             }
             Spacer(Modifier.height(12.dp))
-            Text("EcoSphere Desktop 1.3.0", color = Muted, fontSize = 11.sp)
+            Text("EcoSphere Desktop 1.4.0", color = Muted, fontSize = 11.sp)
         }
     }
 }
@@ -725,8 +786,18 @@ private fun HistoryScreen(history: List<SensorRecord>, loading: Boolean, error: 
 }
 
 @Composable
-private fun DiagnosticsScreen(record: SensorRecord?, control: DeviceControl?, error: String?) {
+private fun DiagnosticsScreen(
+    record: SensorRecord?,
+    control: DeviceControl?,
+    error: String?,
+    isAdmin: Boolean,
+    controllerStatus: ControllerAdminStatus?,
+    controllerBusy: Boolean,
+    controllerMessage: String?,
+    onReplaceController: (String) -> Unit
+) {
     val online = control?.isOnlineNow() == true
+    var pairingCode by remember { mutableStateOf("") }
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(28.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -744,6 +815,58 @@ private fun DiagnosticsScreen(record: SensorRecord?, control: DeviceControl?, er
         DiagnosticRow("Ventilador", "ESTADO", "${record?.fanPower ?: control?.fanPower ?: 0} %")
         DiagnosticRow("LED Grow", "ESTADO", "${record?.ledPower ?: control?.ledPower ?: 0} %")
         DiagnosticRow("Bomba", "ESTADO", if (record?.pumpOn == true) "Encendida" else "Apagada")
+
+        if (isAdmin) {
+            Surface(Modifier.fillMaxWidth(), color = AppSurface, shape = RoundedCornerShape(14.dp)) {
+                Column(
+                    Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text("Controlador ESP32 reemplazable", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text(
+                        if (controllerStatus?.controllerStatus == "active") {
+                            "Activo ${controllerStatus.hardwareUidMasked.orEmpty()}${controllerStatus.firmwareVersion?.let { " · firmware $it" }.orEmpty()}"
+                        } else {
+                            "Aún no hay un controlador seguro vinculado."
+                        },
+                        color = Muted,
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        if (controllerStatus?.secureMode == true) "Modo seguro habilitado" else "Modo de transición activo",
+                        color = EcoGreen,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    OutlinedTextField(
+                        value = pairingCode,
+                        onValueChange = { pairingCode = it.uppercase().take(14) },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Código mostrado por el ESP32") },
+                        placeholder = { Text("ABCD-EF12-3456") },
+                        singleLine = true,
+                        enabled = !controllerBusy
+                    )
+                    Button(
+                        onClick = {
+                            onReplaceController(pairingCode)
+                            pairingCode = ""
+                        },
+                        enabled = !controllerBusy && pairingCode.isNotBlank()
+                    ) {
+                        Text(if (controllerBusy) "Vinculando…" else "Usar como reemplazo")
+                    }
+                    if (!controllerMessage.isNullOrBlank()) {
+                        Text(controllerMessage, color = Muted, fontSize = 12.sp)
+                    }
+                    Text(
+                        "El controlador anterior pasa a reserva. El panel, las órdenes y el historial no cambian.",
+                        color = Muted,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        }
     }
 }
 

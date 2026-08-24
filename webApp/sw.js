@@ -1,4 +1,4 @@
-const CACHE = 'ecosphere-web-v1.5.1-mobile-dashboard';
+const CACHE = 'ecosphere-web-v1.6.0-replaceable-controller';
 const ASSETS = [
   './',
   './index.html',

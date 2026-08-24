@@ -55,7 +55,9 @@ fun EcoSphereApp(
     onAutoModeChange: (Boolean) -> Unit,
     onFanPowerChange: (Int) -> Unit,
     onLedPowerChange: (Int) -> Unit,
-    onPumpRequest: () -> Unit
+    onPumpRequest: () -> Unit,
+    onRefreshController: () -> Unit,
+    onReplaceController: (String) -> Unit
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -107,7 +109,10 @@ fun EcoSphereApp(
                     onAutoModeChange = onAutoModeChange,
                     onFanPowerChange = onFanPowerChange,
                     onLedPowerChange = onLedPowerChange,
-                    onPumpRequest = onPumpRequest
+                    onPumpRequest = onPumpRequest,
+                    profileRole = profileRole,
+                    onRefreshController = onRefreshController,
+                    onReplaceController = onReplaceController
                 )
             }
         } else {
@@ -144,7 +149,10 @@ fun EcoSphereApp(
                         onAutoModeChange = onAutoModeChange,
                         onFanPowerChange = onFanPowerChange,
                         onLedPowerChange = onLedPowerChange,
-                        onPumpRequest = onPumpRequest
+                        onPumpRequest = onPumpRequest,
+                        profileRole = profileRole,
+                        onRefreshController = onRefreshController,
+                        onReplaceController = onReplaceController
                     )
                 }
             }
@@ -255,7 +263,10 @@ private fun DestinationContent(
     onAutoModeChange: (Boolean) -> Unit,
     onFanPowerChange: (Int) -> Unit,
     onLedPowerChange: (Int) -> Unit,
-    onPumpRequest: () -> Unit
+    onPumpRequest: () -> Unit,
+    profileRole: String,
+    onRefreshController: () -> Unit,
+    onReplaceController: (String) -> Unit
 ) {
     when (destination) {
         EcoSphereDestination.DASHBOARD -> AdaptiveDashboardScreen(
@@ -283,7 +294,13 @@ private fun DestinationContent(
         EcoSphereDestination.DIAGNOSTICS -> DiagnosticsScreen(
             record = uiState.record,
             control = uiState.deviceControl,
-            onRefresh = onRefresh
+            onRefresh = onRefresh,
+            isAdmin = profileRole == "admin",
+            controllerStatus = uiState.controllerStatus,
+            isReplacingController = uiState.isReplacingController,
+            controllerMessage = uiState.controllerMessage,
+            onRefreshController = onRefreshController,
+            onReplaceController = onReplaceController
         )
     }
 }
