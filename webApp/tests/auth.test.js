@@ -98,6 +98,7 @@ test('el registro social no muestra el correo completo de la sesión', async () 
   const source = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
   assert.match(html, /placeholder="Ejemplo: usuario@ejemplo\.com"/);
   assert.match(source, /emailInput\.value = ''/);
-  assert.match(source, /Correo verificado mediante/);
+  assert.match(source, /\? 'usuario@ejemplo\.com'/);
+  assert.doesNotMatch(source, /Correo verificado mediante/);
   assert.match(source, /profileCompletionSession\?\.user\?\.email/);
 });
