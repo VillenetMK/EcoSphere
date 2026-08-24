@@ -1,4 +1,4 @@
-const CACHE = 'ecosphere-web-v1.5.0';
+const CACHE = 'ecosphere-web-v1.5.0-oauth-icons';
 const ASSETS = [
   './',
   './index.html',
@@ -16,6 +16,8 @@ const ASSETS = [
   './icons/ic_error.svg',
   './icons/ic_esp32.svg',
   './icons/ic_fan.svg',
+  './icons/ic_github.svg',
+  './icons/ic_google.svg',
   './icons/ic_grow_led.svg',
   './icons/ic_history.svg',
   './icons/ic_info.svg',
