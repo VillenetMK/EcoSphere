@@ -27,7 +27,8 @@ export function normalizePhone(value) {
 
 export function validateIdentityFields(values) {
   const username = normalizeUsername(values.username);
-  const fullName = String(values.fullName ?? '').trim().replace(/\s+/g, ' ');
+  const firstName = String(values.firstName ?? '').trim().replace(/\s+/g, ' ');
+  const lastName = String(values.lastName ?? '').trim().replace(/\s+/g, ' ');
   const dni = normalizeDni(values.dni);
   const phone = normalizePhone(values.phone);
   const email = String(values.email ?? '').trim().toLowerCase();
@@ -36,8 +37,12 @@ export function validateIdentityFields(values) {
   if (!/^[A-Za-z][A-Za-z0-9._-]{2,31}$/.test(username)) {
     errors.username = 'Usa entre 3 y 32 caracteres: letras, números, punto, guion o guion bajo.';
   }
-  if (fullName.length < 5 || fullName.length > 160 || fullName.split(' ').length < 2) {
-    errors.fullName = 'Ingresa nombres y apellidos completos.';
+  const personNamePattern = /^[\p{L}][\p{L} .'’-]*[\p{L}]$/u;
+  if (firstName.length < 2 || firstName.length > 80 || !personNamePattern.test(firstName)) {
+    errors.firstName = 'Ingresa tus nombres usando sólo letras, espacios, apóstrofes o guiones.';
+  }
+  if (lastName.length < 2 || lastName.length > 80 || !personNamePattern.test(lastName)) {
+    errors.lastName = 'Ingresa tus apellidos usando sólo letras, espacios, apóstrofes o guiones.';
   }
   if (!/^\d{8}$/.test(dni)) errors.dni = 'El DNI debe tener exactamente 8 dígitos.';
   if (!/^\+[1-9]\d{7,14}$/.test(phone)) errors.phone = 'Ingresa un teléfono válido; por ejemplo, +51 999 999 999.';
@@ -48,7 +53,7 @@ export function validateIdentityFields(values) {
   return {
     valid: Object.keys(errors).length === 0,
     errors,
-    values: { username, fullName, dni, phone, email },
+    values: { username, firstName, lastName, dni, phone, email },
   };
 }
 
@@ -113,7 +118,8 @@ function setProfileCompletionMode(session) {
 function registrationValues() {
   return {
     username: document.getElementById('registerUsername').value,
-    fullName: document.getElementById('registerFullName').value,
+    firstName: document.getElementById('registerFirstName').value,
+    lastName: document.getElementById('registerLastName').value,
     dni: document.getElementById('registerDni').value,
     phone: document.getElementById('registerPhone').value,
     email: profileCompletionSession?.user?.email ?? document.getElementById('registerEmail').value,
@@ -157,7 +163,8 @@ async function completePendingProfile(session) {
 
   const { error } = await supabase.rpc('complete_user_profile', {
     p_username: pending.username,
-    p_full_name: pending.fullName,
+    p_first_name: pending.firstName,
+    p_last_name: pending.lastName,
     p_dni: pending.dni,
     p_phone: pending.phone,
     p_expected_email: pending.email,
@@ -175,7 +182,9 @@ async function loadMyProfile() {
 
 function showPending(profile) {
   showPanel('pending');
-  document.getElementById('pendingName').textContent = profile?.full_name || 'Tu cuenta';
+  const displayName = profile?.full_name
+    || [profile?.first_name, profile?.last_name].filter(Boolean).join(' ');
+  document.getElementById('pendingName').textContent = displayName || 'Tu cuenta';
   document.getElementById('pendingStatus').textContent = profile?.status === 'blocked'
     ? 'La cuenta está bloqueada. Comunícate con el administrador.'
     : 'El registro está completo y espera aprobación del administrador.';
