@@ -30,8 +30,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Test shared browser rules
-        run: node --test webApp/tests/control-policy.test.js
+      - name: Test browser rules and diagnostics
+        run: node --test webApp/tests/*.test.js
       - name: Configure GitHub Pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/configure-pages@v5
@@ -40,16 +40,16 @@ jobs:
       - name: Prepare PWA bundle
         run: |
           mkdir -p dist
-          cp webApp/index.html webApp/styles.css webApp/app.js webApp/control-policy.js dist/
+          cp webApp/index.html webApp/styles.css webApp/app.js webApp/control-policy.js webApp/diagnostics.js dist/
           cp webApp/manifest.webmanifest webApp/sw.js webApp/icon.svg dist/
           cp webApp/icon-192.png webApp/icon-512.png dist/
           touch dist/.nojekyll
           cd dist
-          zip -r ../EcoSphere-1.1.0-Web-PWA.zip .
+          zip -r ../EcoSphere-1.1.1-Web-PWA.zip .
       - uses: actions/upload-artifact@v4
         with:
           name: EcoSphere-Web-PWA
-          path: EcoSphere-1.1.0-Web-PWA.zip
+          path: EcoSphere-1.1.1-Web-PWA.zip
           if-no-files-found: error
           retention-days: 30
       - name: Upload Pages artifact
