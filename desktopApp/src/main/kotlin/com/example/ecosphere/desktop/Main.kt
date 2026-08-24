@@ -438,7 +438,7 @@ private fun NavigationPane(
                 Text("Cerrar sesión")
             }
             Spacer(Modifier.height(12.dp))
-            Text("EcoSphere Desktop 1.4.2", color = Muted, fontSize = 11.sp)
+            Text("EcoSphere Desktop 1.4.3", color = Muted, fontSize = 11.sp)
         }
     }
 }
