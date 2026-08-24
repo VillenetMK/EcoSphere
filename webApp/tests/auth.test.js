@@ -63,6 +63,13 @@ test('la portada comunica la visión de llevar vida a cualquier lugar', async ()
   assert.match(html, /cada ecosistema prospere de forma autónoma/);
 });
 
+test('la portada equilibra la jerarquía tipográfica en escritorio y móvil', async () => {
+  const styles = await readFile(new URL('../styles.css', import.meta.url), 'utf8');
+  assert.match(styles, /grid-template-columns:minmax\(380px,46%\) minmax\(480px,54%\)/);
+  assert.match(styles, /\.auth-brand-copy h1\{[^}]*font-size:clamp\(44px,3\.5vw,60px\)[^}]*text-wrap:balance/);
+  assert.match(styles, /@media\(max-width:560px\)\{[^}]*\.auth-brand-panel\{padding:22px 20px\}/);
+});
+
 test('el acceso muestra primero el panel de inicio de sesión', async () => {
   const source = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
   assert.match(
