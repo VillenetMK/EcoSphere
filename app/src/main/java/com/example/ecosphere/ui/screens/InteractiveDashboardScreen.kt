@@ -81,6 +81,7 @@ fun InteractiveDashboardScreen(
     val record = uiState.record
     val control = uiState.deviceControl
     val online = control?.isOnlineNow() == true
+    val telemetryCurrent = online && ControlPolicy.isTelemetryFresh(record?.createdAt)
     var detail by remember { mutableStateOf<DashboardDetail?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -157,12 +158,13 @@ fun InteractiveDashboardScreen(
                 )
             }
 
-            SectionTitle("Estado del sistema", "Estado reportado por el ESP32")
+            SectionTitle("Estado del sistema", "Señales de salida del ESP32; no confirman conexión física")
             ActuatorStatus(
-                fanOn = record?.fanOn == true,
+                telemetryCurrent = telemetryCurrent,
+                fanOn = record?.fanOn,
                 fanPower = record?.fanPower,
-                pumpOn = record?.pumpOn == true,
-                ledOn = record?.ledOn == true,
+                pumpOn = record?.pumpOn,
+                ledOn = record?.ledOn,
                 ledPower = record?.ledPower,
                 autoMode = record?.autoMode ?: control?.autoMode ?: false,
                 onOpen = { detail = it }
@@ -388,23 +390,24 @@ private fun SensorCard(
 
 @Composable
 private fun ActuatorStatus(
-    fanOn: Boolean,
+    telemetryCurrent: Boolean,
+    fanOn: Boolean?,
     fanPower: Int?,
-    pumpOn: Boolean,
-    ledOn: Boolean,
+    pumpOn: Boolean?,
+    ledOn: Boolean?,
     ledPower: Int?,
     autoMode: Boolean,
     onOpen: (DashboardDetail) -> Unit
 ) {
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.padding(18.dp)) {
-            StatusLine(DashboardControlIcons.Fan, "Ventilador", if (fanOn) "ENCENDIDO${fanPower?.let { " · $it %" } ?: ""}" else "APAGADO") { onOpen(DashboardDetail.FAN) }
+            StatusLine(DashboardControlIcons.Fan, "Ventilador", if (telemetryCurrent) ControlPolicy.actuatorPwmLabel(fanOn, fanPower) else "SIN CONFIRMAR") { onOpen(DashboardDetail.FAN) }
             HorizontalDivider(Modifier.padding(vertical = 10.dp))
-            StatusLine(DashboardControlIcons.Pump, "Bomba de riego", if (pumpOn) "ENCENDIDA" else "APAGADA") { onOpen(DashboardDetail.PUMP) }
+            StatusLine(DashboardControlIcons.Pump, "Bomba de riego", if (telemetryCurrent) ControlPolicy.actuatorSwitchLabel(pumpOn) else "SIN CONFIRMAR") { onOpen(DashboardDetail.PUMP) }
             HorizontalDivider(Modifier.padding(vertical = 10.dp))
-            StatusLine(DashboardControlIcons.GrowLed, "LED grow", if (ledOn) "ENCENDIDO${ledPower?.let { " · $it %" } ?: ""}" else "APAGADO") { onOpen(DashboardDetail.GROW_LED) }
+            StatusLine(DashboardControlIcons.GrowLed, "LED grow", if (telemetryCurrent) ControlPolicy.actuatorPwmLabel(ledOn, ledPower) else "SIN CONFIRMAR") { onOpen(DashboardDetail.GROW_LED) }
             HorizontalDivider(Modifier.padding(vertical = 10.dp))
-            StatusLine(if (autoMode) DashboardControlIcons.AutoMode else DashboardControlIcons.ManualMode, "Control", if (autoMode) "AUTOMÁTICO" else "MANUAL") { onOpen(DashboardDetail.MODE) }
+            StatusLine(if (autoMode) DashboardControlIcons.AutoMode else DashboardControlIcons.ManualMode, "Control", if (!telemetryCurrent) "SIN CONFIRMAR" else if (autoMode) "AUTOMÁTICO" else "MANUAL") { onOpen(DashboardDetail.MODE) }
         }
     }
 }
@@ -555,6 +558,7 @@ private fun DashboardDetailDialog(
     val record = uiState.record
     val control = uiState.deviceControl
     val online = control?.isOnlineNow() == true
+    val telemetryCurrent = online && ControlPolicy.isTelemetryFresh(record?.createdAt)
     val autoMode = control?.autoMode == true
     var fanPower by remember(detail, control?.fanPower) { mutableFloatStateOf((control?.fanPower ?: 0).toFloat()) }
     var ledPower by remember(detail, control?.ledPower) { mutableFloatStateOf((control?.ledPower ?: 0).toFloat()) }
@@ -600,7 +604,7 @@ private fun DashboardDetailDialog(
                     }
                     DashboardDetail.MODE -> {
                         DetailPair("Configurado", if (autoMode) "AUTOMÁTICO" else "MANUAL")
-                        DetailPair("Reportado por ESP32", when (record?.autoMode) { true -> "AUTOMÁTICO"; false -> "MANUAL"; null -> "Sin dato" })
+                        DetailPair("Reportado por ESP32", if (!telemetryCurrent) "SIN CONFIRMAR" else when (record?.autoMode) { true -> "AUTOMÁTICO"; false -> "MANUAL"; null -> "Sin dato" })
                         Text(if (autoMode) "Los sliders manuales quedan bloqueados." else "Puedes ajustar ventilador y LED manualmente.")
                     }
                     DashboardDetail.TEMPERATURE -> {
@@ -631,19 +635,24 @@ private fun DashboardDetailDialog(
                     }
                     DashboardDetail.FAN -> {
                         DetailPair("Orden actual", "${control?.fanPower ?: 0} %")
-                        DetailPair("Reportado", if (record?.fanOn == true) "ENCENDIDO · ${record.fanPower ?: 0} %" else "APAGADO")
+                        DetailPair("Salida ESP32", if (telemetryCurrent) ControlPolicy.actuatorPwmLabel(record?.fanOn, record?.fanPower) else "SIN CONFIRMAR")
+                        DetailPair("Ventilador físico", "SIN CONFIRMAR")
+                        Text("El ESP32 no tiene sensor de corriente ni RPM; la salida PWM no demuestra que el ventilador esté conectado o girando.")
                         Slider(fanPower, { fanPower = it }, valueRange = 0f..100f, steps = 19, enabled = !autoMode && !uiState.isUpdatingControl)
                         Text("Nueva potencia: ${fanPower.roundToInt()} %")
                     }
                     DashboardDetail.GROW_LED -> {
                         DetailPair("Orden actual", "${control?.ledPower ?: 0} %")
-                        DetailPair("Reportado", if (record?.ledOn == true) "ENCENDIDO · ${record.ledPower ?: 0} %" else "APAGADO")
+                        DetailPair("Salida ESP32", if (telemetryCurrent) ControlPolicy.actuatorPwmLabel(record?.ledOn, record?.ledPower) else "SIN CONFIRMAR")
+                        DetailPair("Tira LED física", "SIN CONFIRMAR")
                         DetailPair("Alimentación", "Configurable según el LED instalado")
+                        Text("Sin medición de corriente o tensión, la app no puede confirmar que la tira LED esté conectada o encendida.")
                         Slider(ledPower, { ledPower = it }, valueRange = 0f..100f, steps = 19, enabled = !autoMode && !uiState.isUpdatingControl)
                         Text("Nueva intensidad: ${ledPower.roundToInt()} %")
                     }
                     DashboardDetail.PUMP -> {
-                        DetailPair("Estado", if (record?.pumpOn == true) "ENCENDIDA" else "APAGADA")
+                        DetailPair("Salida ESP32", if (telemetryCurrent) ControlPolicy.actuatorSwitchLabel(record?.pumpOn) else "SIN CONFIRMAR")
+                        DetailPair("Bomba física", "SIN CONFIRMAR")
                         DetailPair(
                             "Duración",
                             durationLabel(control?.pumpDurationMs ?: ControlPolicy.PUMP_DURATION_MS)

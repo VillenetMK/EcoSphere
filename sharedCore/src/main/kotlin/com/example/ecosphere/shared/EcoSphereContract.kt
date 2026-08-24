@@ -142,6 +142,29 @@ object ControlPolicy {
         else -> "Sin lectura válida"
     }
 
+    fun actuatorPwmLabel(reportedOn: Boolean?, reportedPower: Int?): String {
+        if (reportedOn == null && reportedPower == null) return "SIN REGISTRO"
+        val power = (reportedPower ?: if (reportedOn == true) 100 else 0).coerceIn(0, 100)
+        return "SALIDA PWM $power %"
+    }
+
+    fun actuatorSwitchLabel(reportedOn: Boolean?): String = when (reportedOn) {
+        true -> "SALIDA ACTIVA"
+        false -> "SALIDA INACTIVA"
+        null -> "SIN REGISTRO"
+    }
+
+    fun isTelemetryFresh(
+        createdAt: String?,
+        nowMillis: Long = System.currentTimeMillis(),
+        timeoutMs: Long = ONLINE_TIMEOUT_MS
+    ): Boolean {
+        if (createdAt.isNullOrBlank()) return false
+        val createdAtMillis = parseSupabaseUtcMillis(createdAt) ?: return false
+        val ageMs = nowMillis - createdAtMillis
+        return ageMs in -CLOCK_SKEW_TOLERANCE_MS..timeoutMs
+    }
+
     fun isDeviceOnline(
         esp32Online: Boolean,
         lastSeenAt: String?,

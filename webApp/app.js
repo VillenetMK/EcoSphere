@@ -1,9 +1,12 @@
 import {
   CONTROL_POLICY,
+  actuatorPwmLabel,
+  actuatorSwitchLabel,
   clampPower,
   irrigationDecision,
   irrigationStatus,
   isDeviceOnline,
+  isTelemetryFresh,
   waterLevelLabel,
 } from './control-policy.js';
 import { buildDiagnosticModel, technicalReport } from './diagnostics.js';
@@ -201,24 +204,21 @@ function renderDashboard() {
   $('lightValue').textContent = formatNumber(latestRecord?.light_lux, 'lux');
   $('waterValue').textContent = waterLevelLabel(latestRecord?.water_level);
 
-  const reportedMode = latestRecord?.auto_mode;
-  $('fanState').textContent = latestRecord?.fan_on == null
-    ? 'SIN REGISTRO'
-    : latestRecord.fan_on
-      ? `ENCENDIDO${latestRecord.fan_power != null ? ` · ${latestRecord.fan_power} %` : ''}`
-      : 'APAGADO';
-  $('pumpState').textContent = latestRecord?.pump_on == null
-    ? 'SIN REGISTRO'
-    : latestRecord.pump_on ? 'ENCENDIDA' : 'APAGADA';
-  $('ledState').textContent = latestRecord?.led_on == null
-    ? 'SIN REGISTRO'
-    : latestRecord.led_on
-      ? `ENCENDIDO${latestRecord.led_power != null ? ` · ${latestRecord.led_power} %` : ''}`
-      : 'APAGADO';
+  const telemetryCurrent = online && isTelemetryFresh(latestRecord);
+  const reportedMode = telemetryCurrent ? latestRecord?.auto_mode : null;
+  $('fanState').textContent = telemetryCurrent
+    ? actuatorPwmLabel(latestRecord?.fan_on, latestRecord?.fan_power)
+    : 'SIN CONFIRMAR';
+  $('pumpState').textContent = telemetryCurrent
+    ? actuatorSwitchLabel(latestRecord?.pump_on)
+    : 'SIN CONFIRMAR';
+  $('ledState').textContent = telemetryCurrent
+    ? actuatorPwmLabel(latestRecord?.led_on, latestRecord?.led_power)
+    : 'SIN CONFIRMAR';
   $('controlState').textContent = reportedMode == null
-    ? 'SIN REGISTRO'
+    ? telemetryCurrent ? 'SIN REGISTRO' : 'SIN CONFIRMAR'
     : reportedMode ? 'AUTOMÁTICO' : 'MANUAL';
-  $('reportedModeIcon').src = iconPath(reportedMode ? 'ic_auto_mode' : 'ic_manual_mode');
+  $('reportedModeIcon').src = iconPath(reportedMode == null ? 'ic_offline' : reportedMode ? 'ic_auto_mode' : 'ic_manual_mode');
 
   $('autoMode').checked = auto;
   const canOperate = ['operator', 'admin'].includes(currentProfile?.role);

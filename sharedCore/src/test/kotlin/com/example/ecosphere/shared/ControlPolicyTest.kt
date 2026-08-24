@@ -62,4 +62,23 @@ class ControlPolicyTest {
         assertFalse(control.isOnlineNow(nowMillis = lastSeenMillis + 30_001L))
         assertFalse(control.copy(esp32Online = false).isOnlineNow(nowMillis = lastSeenMillis))
     }
+
+    @Test
+    fun `telemetry freshness respects the same timeout`() {
+        val createdAt = "2026-08-23T20:00:00.000Z"
+        val timestamp = 1_787_515_200_000L
+
+        assertTrue(ControlPolicy.isTelemetryFresh(createdAt, timestamp + 29_999L))
+        assertFalse(ControlPolicy.isTelemetryFresh(createdAt, timestamp + 30_001L))
+        assertFalse(ControlPolicy.isTelemetryFresh(null, timestamp))
+    }
+
+    @Test
+    fun `actuator labels describe controller outputs without claiming physical presence`() {
+        assertEquals("SALIDA PWM 100 %", ControlPolicy.actuatorPwmLabel(true, 100))
+        assertEquals("SALIDA PWM 0 %", ControlPolicy.actuatorPwmLabel(false, 0))
+        assertEquals("SIN REGISTRO", ControlPolicy.actuatorPwmLabel(null, null))
+        assertEquals("SALIDA ACTIVA", ControlPolicy.actuatorSwitchLabel(true))
+        assertEquals("SALIDA INACTIVA", ControlPolicy.actuatorSwitchLabel(false))
+    }
 }

@@ -438,7 +438,7 @@ private fun NavigationPane(
                 Text("Cerrar sesión")
             }
             Spacer(Modifier.height(12.dp))
-            Text("EcoSphere Desktop 1.4.0", color = Muted, fontSize = 11.sp)
+            Text("EcoSphere Desktop 1.4.1", color = Muted, fontSize = 11.sp)
         }
     }
 }
@@ -495,7 +495,7 @@ private fun Dashboard(
             }
         }
 
-        DashboardSectionTitle("Estado del sistema", "Estado reportado por el ESP32")
+        DashboardSectionTitle("Estado del sistema", "Señales de salida del ESP32; no confirman conexión física")
         ActuatorStatusPanel(record, control)
 
         DashboardSectionTitle("Control remoto", "Órdenes enviadas a través de Supabase")
@@ -588,38 +588,27 @@ private fun EmptyTelemetryCard() {
 
 @Composable
 private fun ActuatorStatusPanel(record: SensorRecord?, control: DeviceControl?) {
+    val telemetryCurrent = control?.isOnlineNow() == true && ControlPolicy.isTelemetryFresh(record?.createdAt)
     Surface(Modifier.fillMaxWidth(), color = AppSurface2, shape = RoundedCornerShape(20.dp)) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 5.dp)) {
             ActuatorStatusRow(
                 "Ventilador",
-                when (record?.fanOn) {
-                    true -> "ENCENDIDO${record.fanPower?.let { " · $it %" } ?: ""}"
-                    false -> "APAGADO"
-                    null -> "SIN REGISTRO"
-                }
+                if (telemetryCurrent) ControlPolicy.actuatorPwmLabel(record?.fanOn, record?.fanPower) else "SIN CONFIRMAR"
             )
             HorizontalDivider(color = Color(0xFF354039))
             ActuatorStatusRow(
                 "Bomba de riego",
-                when (record?.pumpOn) {
-                    true -> "ENCENDIDA"
-                    false -> "APAGADA"
-                    null -> "SIN REGISTRO"
-                }
+                if (telemetryCurrent) ControlPolicy.actuatorSwitchLabel(record?.pumpOn) else "SIN CONFIRMAR"
             )
             HorizontalDivider(color = Color(0xFF354039))
             ActuatorStatusRow(
                 "LED grow",
-                when (record?.ledOn) {
-                    true -> "ENCENDIDO${record.ledPower?.let { " · $it %" } ?: ""}"
-                    false -> "APAGADO"
-                    null -> "SIN REGISTRO"
-                }
+                if (telemetryCurrent) ControlPolicy.actuatorPwmLabel(record?.ledOn, record?.ledPower) else "SIN CONFIRMAR"
             )
             HorizontalDivider(color = Color(0xFF354039))
             ActuatorStatusRow(
                 "Control",
-                when (record?.autoMode ?: control?.autoMode) {
+                if (!telemetryCurrent) "SIN CONFIRMAR" else when (record?.autoMode ?: control?.autoMode) {
                     true -> "AUTOMÁTICO"
                     false -> "MANUAL"
                     null -> "SIN REGISTRO"
@@ -797,6 +786,7 @@ private fun DiagnosticsScreen(
     onReplaceController: (String) -> Unit
 ) {
     val online = control?.isOnlineNow() == true
+    val telemetryCurrent = online && ControlPolicy.isTelemetryFresh(record?.createdAt)
     var pairingCode by remember { mutableStateOf("") }
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(28.dp),
@@ -812,9 +802,21 @@ private fun DiagnosticsScreen(
         DiagnosticRow("BH1750", if (record?.lightLux != null) "OK" else "SIN CONFIRMAR", "Sensor de iluminación")
         DiagnosticRow("Humedad de suelo", if (record?.soilHumidity != null) "OK" else "SIN CONFIRMAR", record?.soilHumidity?.let { "${it.roundToInt()} %" } ?: "Sin lectura")
         DiagnosticRow("Nivel de agua", if (record?.waterLevel != null) "OK" else "SIN CONFIRMAR", waterLabel(record?.waterLevel))
-        DiagnosticRow("Ventilador", "ESTADO", "${record?.fanPower ?: control?.fanPower ?: 0} %")
-        DiagnosticRow("LED Grow", "ESTADO", "${record?.ledPower ?: control?.ledPower ?: 0} %")
-        DiagnosticRow("Bomba", "ESTADO", if (record?.pumpOn == true) "Encendida" else "Apagada")
+        DiagnosticRow(
+            "Ventilador",
+            if (telemetryCurrent) "SALIDA ESP32" else "SIN CONFIRMAR",
+            if (telemetryCurrent) "${ControlPolicy.actuatorPwmLabel(record?.fanOn, record?.fanPower)} · conexión física no verificable" else "Sin telemetría actual"
+        )
+        DiagnosticRow(
+            "LED Grow",
+            if (telemetryCurrent) "SALIDA ESP32" else "SIN CONFIRMAR",
+            if (telemetryCurrent) "${ControlPolicy.actuatorPwmLabel(record?.ledOn, record?.ledPower)} · conexión física no verificable" else "Sin telemetría actual"
+        )
+        DiagnosticRow(
+            "Bomba",
+            if (telemetryCurrent) "SALIDA ESP32" else "SIN CONFIRMAR",
+            if (telemetryCurrent) "${ControlPolicy.actuatorSwitchLabel(record?.pumpOn)} · conexión física no verificable" else "Sin telemetría actual"
+        )
 
         if (isAdmin) {
             Surface(Modifier.fillMaxWidth(), color = AppSurface, shape = RoundedCornerShape(14.dp)) {

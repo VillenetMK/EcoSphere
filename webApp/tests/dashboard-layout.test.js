@@ -29,6 +29,8 @@ test('el panel principal conserva la estructura de la app móvil', async () => {
 
   assert.match(dashboard, /Sistema inteligente de microclima/);
   assert.match(dashboard, /Cuando el ESP32 vuelva a enviar datos/);
+  assert.match(dashboard, /no confirman conexión física/);
+  assert.doesNotMatch(dashboard, /Estado reportado por el ESP32/);
   assert.doesNotMatch(dashboard, /Control y estado del sistema/);
 });
 
@@ -46,4 +48,7 @@ test('el estado reportado y los controles remotos permanecen separados', async (
   assert.match(html, /id="fanPower"/);
   assert.match(html, /id="ledPower"/);
   assert.match(html, /id="pumpBtn"/);
+  assert.match(app, /isTelemetryFresh\(latestRecord\)/);
+  assert.match(app, /actuatorPwmLabel/);
+  assert.doesNotMatch(app, /`ENCENDIDO/);
 });

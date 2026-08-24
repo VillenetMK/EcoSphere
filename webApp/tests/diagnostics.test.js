@@ -79,11 +79,13 @@ test('sensores sin valores se identifican como sin datos, no como OK', () => {
   assert.equal(model.counts.unknown, 2);
 });
 
-test('los actuadores muestran un estado concreto cuando la telemetría es reciente', () => {
+test('los actuadores muestran la salida lógica sin afirmar conexión física', () => {
   const model = buildDiagnosticModel(freshRecord(), onlineControl, NOW);
-  assert.equal(findItem(model, 'Ventilador').status, 'APAGADO');
-  assert.equal(findItem(model, 'LED Grow').status, 'ENCENDIDO');
-  assert.equal(findItem(model, 'Bomba').status, 'APAGADO');
+  assert.equal(findItem(model, 'Ventilador').status, 'SALIDA INACTIVA');
+  assert.equal(findItem(model, 'LED Grow').status, 'SALIDA ACTIVA');
+  assert.equal(findItem(model, 'Bomba').status, 'SALIDA INACTIVA');
+  assert.match(findItem(model, 'LED Grow').reading, /SALIDA PWM 25 %/);
+  assert.match(findItem(model, 'LED Grow').detail, /no puede confirmar que el equipo esté conectado/i);
 });
 
 test('el reporte técnico incluye resumen y grupos sin credenciales', () => {

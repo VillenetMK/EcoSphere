@@ -439,6 +439,7 @@ private fun buildDiagnostics(record: SensorRecord?, control: DeviceControl?): Li
         control?.fanPower ?: 0,
         record?.fanOn,
         record?.fanPower,
+        control?.autoMode == true,
         "Revisar GPIO25, MOSFET, alimentación, cableado y ventilador."
     )
 
@@ -448,17 +449,18 @@ private fun buildDiagnostics(record: SensorRecord?, control: DeviceControl?): Li
         control?.ledPower ?: 0,
         record?.ledOn,
         record?.ledPower,
+        control?.autoMode == true,
         "Revisar GPIO33, MOSFET, alimentación configurada para el LED instalado, cableado y LED grow."
     )
 
     entries += if (fresh && online) {
         DiagnosticEntry(
             "Bomba de riego",
-            DiagnosticLevel.OK,
+            DiagnosticLevel.INFO,
             if (record?.pumpOn == true) {
-                "El ESP32 reporta la bomba encendida."
+                "El ESP32 reporta su salida de bomba activa. Sin medición de corriente no se confirma que la bomba esté conectada o funcionando."
             } else {
-                "El ESP32 reporta la bomba apagada; la lógica de humedad y nivel sigue activa."
+                "El ESP32 reporta su salida de bomba inactiva; la lógica de humedad y nivel sigue activa."
             }
         )
     } else {
@@ -503,13 +505,14 @@ private fun actuatorStatus(
     requestedPower: Int,
     reportedOn: Boolean?,
     reportedPower: Int?,
+    autoMode: Boolean,
     hint: String
 ): DiagnosticEntry {
     if (!fresh) {
         return DiagnosticEntry(title, DiagnosticLevel.INFO, "Sin estado actual del ESP32; no se confirma el actuador.")
     }
 
-    if (requestedPower > 0 && reportedOn != true) {
+    if (!autoMode && requestedPower > 0 && reportedOn != true) {
         return DiagnosticEntry(
             title,
             DiagnosticLevel.ERROR,
@@ -517,7 +520,7 @@ private fun actuatorStatus(
         )
     }
 
-    if (requestedPower == 0 && reportedOn == true) {
+    if (!autoMode && requestedPower == 0 && reportedOn == true) {
         return DiagnosticEntry(
             title,
             DiagnosticLevel.WARNING,
@@ -525,7 +528,7 @@ private fun actuatorStatus(
         )
     }
 
-    if (requestedPower > 0 && reportedPower != null && abs(reportedPower - requestedPower) > 10) {
+    if (!autoMode && requestedPower > 0 && reportedPower != null && abs(reportedPower - requestedPower) > 10) {
         return DiagnosticEntry(
             title,
             DiagnosticLevel.WARNING,
@@ -535,11 +538,11 @@ private fun actuatorStatus(
 
     return DiagnosticEntry(
         title,
-        DiagnosticLevel.OK,
-        if (requestedPower > 0) {
-            "Orden y reporte coinciden aproximadamente en $requestedPower %."
+        DiagnosticLevel.INFO,
+        if (autoMode) {
+            "Modo automático: el ESP32 reporta ${ControlPolicy.actuatorPwmLabel(reportedOn, reportedPower)}. Sin sensor de corriente o RPM no se confirma la conexión ni el funcionamiento físico."
         } else {
-            "Ordenado y reportado apagado."
+            "Orden $requestedPower % y ${ControlPolicy.actuatorPwmLabel(reportedOn, reportedPower)}. Sin sensor de corriente o RPM no se confirma la conexión ni el funcionamiento físico."
         }
     )
 }

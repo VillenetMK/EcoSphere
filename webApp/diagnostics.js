@@ -1,6 +1,9 @@
 import {
   CONTROL_POLICY,
+  actuatorPwmLabel,
+  actuatorSwitchLabel,
   isDeviceOnline,
+  isTelemetryFresh,
   waterLevelLabel,
 } from './control-policy.js';
 
@@ -35,12 +38,7 @@ export function relativeAge(value, nowMillis = Date.now()) {
   return `hace ${days} ${days === 1 ? 'día' : 'días'}`;
 }
 
-export function isTelemetryFresh(record, nowMillis = Date.now()) {
-  const age = timestampAge(record?.created_at, nowMillis);
-  if (age === null) return false;
-  return age >= -CONTROL_POLICY.clockSkewToleranceMs &&
-    age <= CONTROL_POLICY.onlineTimeoutMs;
-}
+export { isTelemetryFresh } from './control-policy.js';
 
 function item(name, status, severity, reading, detail) {
   return { name, status, severity, reading, detail };
@@ -56,7 +54,7 @@ function sensorStatus({ name, hasReading, reading, fresh, missingDetail, staleDe
   return item(name, 'LECTURA DISPONIBLE', 'normal', reading, 'Lectura recibida dentro del intervalo esperado.');
 }
 
-function actuatorStatus(name, reading, hasReading, fresh) {
+function actuatorStatus(name, reading, hasReading, fresh, outputActive) {
   if (!hasReading) {
     return item(name, 'SIN DATOS', 'unknown', 'Sin estado registrado', 'No existe una lectura válida del actuador.');
   }
@@ -69,7 +67,13 @@ function actuatorStatus(name, reading, hasReading, fresh) {
       'Estado histórico: no se puede confirmar mientras la telemetría esté desactualizada.',
     );
   }
-  return item(name, reading.startsWith('Encendid') ? 'ENCENDIDO' : 'APAGADO', 'normal', reading, 'Estado confirmado por la telemetría reciente.');
+  return item(
+    name,
+    outputActive ? 'SALIDA ACTIVA' : 'SALIDA INACTIVA',
+    'normal',
+    reading,
+    'El ESP32 confirma su señal de salida. Sin sensor de corriente, tensión o RPM no puede confirmar que el equipo esté conectado ni funcionando.',
+  );
 }
 
 export function buildDiagnosticModel(record, control, nowMillis = Date.now()) {
@@ -161,15 +165,15 @@ export function buildDiagnosticModel(record, control, nowMillis = Date.now()) {
   const led = validNumber(record?.led_power);
   const pump = typeof record?.pump_on === 'boolean' ? record.pump_on : null;
   const actuators = [
-    actuatorStatus('Ventilador', fan === null ? 'Sin estado registrado' : `${fan > 0 ? 'Encendido' : 'Apagado'} · ${Math.round(fan)} %`, fan !== null, fresh),
-    actuatorStatus('LED Grow', led === null ? 'Sin estado registrado' : `${led > 0 ? 'Encendido' : 'Apagado'} · ${Math.round(led)} %`, led !== null, fresh),
-    actuatorStatus('Bomba', pump === null ? 'Sin estado registrado' : (pump ? 'Encendida' : 'Apagada'), pump !== null, fresh),
+    actuatorStatus('Ventilador', actuatorPwmLabel(record?.fan_on, fan), fan !== null || typeof record?.fan_on === 'boolean', fresh, record?.fan_on === true || (fan ?? 0) > 0),
+    actuatorStatus('LED Grow', actuatorPwmLabel(record?.led_on, led), led !== null || typeof record?.led_on === 'boolean', fresh, record?.led_on === true || (led ?? 0) > 0),
+    actuatorStatus('Bomba', actuatorSwitchLabel(pump), pump !== null, fresh, pump === true),
   ];
 
   const groups = [
     { id: 'connectivity', title: 'Conectividad', description: 'Disponibilidad del dispositivo y vigencia de los datos.', items: connectivity },
     { id: 'sensors', title: 'Sensores', description: 'Lecturas ambientales y condiciones que bloquean el riego.', items: sensors },
-    { id: 'actuators', title: 'Actuadores', description: 'Estado reportado por la telemetría, no órdenes pendientes.', items: actuators },
+    { id: 'actuators', title: 'Actuadores', description: 'Señales de salida reportadas; la conexión y el funcionamiento físicos no tienen retroalimentación.', items: actuators },
   ];
   const allItems = groups.flatMap(group => group.items);
   const counts = allItems.reduce((result, current) => {
@@ -198,7 +202,7 @@ export function buildDiagnosticModel(record, control, nowMillis = Date.now()) {
     severity = 'warning';
   } else {
     headline = 'Sistema operativo';
-    summary = 'Conectividad y telemetría confirmadas dentro del intervalo esperado.';
+    summary = 'Conectividad y telemetría confirmadas. Las salidas físicas continúan sin sensor de retroalimentación.';
     severity = 'normal';
   }
 

@@ -65,6 +65,31 @@ export function waterLevelLabel(value) {
   return 'Sin lectura válida';
 }
 
+export function actuatorPwmLabel(reportedOn, reportedPower) {
+  const hasReportedPower = reportedPower !== null && reportedPower !== undefined && reportedPower !== '';
+  const numericPower = hasReportedPower ? Number(reportedPower) : Number.NaN;
+  if (reportedOn == null && !hasReportedPower) return 'SIN REGISTRO';
+
+  const power = Number.isFinite(numericPower)
+    ? clampPower(numericPower)
+    : reportedOn === true ? 100 : 0;
+  return `SALIDA PWM ${power} %`;
+}
+
+export function actuatorSwitchLabel(reportedOn) {
+  if (reportedOn == null) return 'SIN REGISTRO';
+  return reportedOn ? 'SALIDA ACTIVA' : 'SALIDA INACTIVA';
+}
+
+export function isTelemetryFresh(record, nowMillis = Date.now()) {
+  if (!record?.created_at) return false;
+  const createdAtMillis = Date.parse(record.created_at);
+  if (Number.isNaN(createdAtMillis)) return false;
+  const age = nowMillis - createdAtMillis;
+  return age >= -CONTROL_POLICY.clockSkewToleranceMs &&
+    age <= CONTROL_POLICY.onlineTimeoutMs;
+}
+
 export function isDeviceOnline(control, nowMillis = Date.now()) {
   if (!control?.esp32_online || !control?.last_seen_at) return false;
   const lastSeenMillis = Date.parse(control.last_seen_at);

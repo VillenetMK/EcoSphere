@@ -59,6 +59,7 @@ fun DashboardScreen(
     val record = uiState.record
     val control = uiState.deviceControl
     val online = control?.isOnlineNow() ?: false
+    val telemetryCurrent = online && ControlPolicy.isTelemetryFresh(record?.createdAt)
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -124,14 +125,15 @@ fun DashboardScreen(
 
             SectionTitle(
                 title = "Estado del sistema",
-                subtitle = "Estado real reportado por los actuadores"
+                subtitle = "Señales de salida del ESP32; no confirman conexión física"
             )
 
             ActuatorStatusCard(
-                fanOn = record?.fanOn ?: false,
+                telemetryCurrent = telemetryCurrent,
+                fanOn = record?.fanOn,
                 fanPower = record?.fanPower,
-                pumpOn = record?.pumpOn ?: false,
-                ledOn = record?.ledOn ?: false,
+                pumpOn = record?.pumpOn,
+                ledOn = record?.ledOn,
                 ledPower = record?.ledPower,
                 autoMode = record?.autoMode ?: control?.autoMode ?: false
             )
@@ -412,10 +414,11 @@ private fun WaterLevelCard(waterLevel: String?) {
 
 @Composable
 private fun ActuatorStatusCard(
-    fanOn: Boolean,
+    telemetryCurrent: Boolean,
+    fanOn: Boolean?,
     fanPower: Int?,
-    pumpOn: Boolean,
-    ledOn: Boolean,
+    pumpOn: Boolean?,
+    ledOn: Boolean?,
     ledPower: Int?,
     autoMode: Boolean
 ) {
@@ -423,17 +426,17 @@ private fun ActuatorStatusCard(
         Column(modifier = Modifier.padding(18.dp)) {
             StatusLine(
                 "Ventilador",
-                if (fanOn) "ENCENDIDO${fanPower?.let { " · $it %" } ?: ""}" else "APAGADO"
+                if (telemetryCurrent) ControlPolicy.actuatorPwmLabel(fanOn, fanPower) else "SIN CONFIRMAR"
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
-            StatusLine("Bomba de riego", if (pumpOn) "ENCENDIDA" else "APAGADA")
+            StatusLine("Bomba de riego", if (telemetryCurrent) ControlPolicy.actuatorSwitchLabel(pumpOn) else "SIN CONFIRMAR")
             HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
             StatusLine(
                 "LED grow",
-                if (ledOn) "ENCENDIDO${ledPower?.let { " · $it %" } ?: ""}" else "APAGADO"
+                if (telemetryCurrent) ControlPolicy.actuatorPwmLabel(ledOn, ledPower) else "SIN CONFIRMAR"
             )
             HorizontalDivider(modifier = Modifier.padding(vertical = 10.dp))
-            StatusLine("Control", if (autoMode) "AUTOMÁTICO" else "MANUAL")
+            StatusLine("Control", if (!telemetryCurrent) "SIN CONFIRMAR" else if (autoMode) "AUTOMÁTICO" else "MANUAL")
         }
     }
 }

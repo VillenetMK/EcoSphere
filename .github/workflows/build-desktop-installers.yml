@@ -42,11 +42,11 @@ jobs:
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           $msi = Get-ChildItem -Path desktopApp/build/compose/binaries/main/msi -Filter *.msi -Recurse | Select-Object -First 1
           if (-not $msi) { throw 'MSI not found' }
-          Copy-Item $msi.FullName dist/EcoSphere-1.4.0-Windows-x64.msi
+          Copy-Item $msi.FullName dist/EcoSphere-1.4.1-Windows-x64.msi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: EcoSphere-Windows-Installer
-          path: dist/EcoSphere-1.4.0-Windows-x64.msi
+          path: dist/EcoSphere-1.4.1-Windows-x64.msi
           if-no-files-found: error
           retention-days: 30
 
@@ -73,10 +73,10 @@ jobs:
           mkdir -p dist
           DEB=$(find desktopApp/build/compose/binaries/main/deb -name '*.deb' | head -n 1)
           test -n "$DEB"
-          cp "$DEB" dist/EcoSphere-1.4.0-Linux-amd64.deb
+          cp "$DEB" dist/EcoSphere-1.4.1-Linux-amd64.deb
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: EcoSphere-Linux-Installer
-          path: dist/EcoSphere-1.4.0-Linux-amd64.deb
+          path: dist/EcoSphere-1.4.1-Linux-amd64.deb
           if-no-files-found: error
           retention-days: 30
