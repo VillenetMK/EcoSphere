@@ -1,4 +1,4 @@
-const CACHE = 'ecosphere-web-v1.5.0-oauth-icons';
+const CACHE = 'ecosphere-web-v1.5.0-oauth-profile-completion';
 const ASSETS = [
   './',
   './index.html',

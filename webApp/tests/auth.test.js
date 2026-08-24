@@ -70,11 +70,19 @@ test('la portada equilibra la jerarquía tipográfica en escritorio y móvil', a
   assert.match(styles, /@media\(max-width:560px\)\{[^}]*\.auth-brand-panel\{padding:22px 20px\}/);
 });
 
-test('el acceso muestra primero el panel de inicio de sesión', async () => {
+test('una identidad OAuth sin perfil abre el formulario obligatorio', async () => {
   const source = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
   assert.match(
     source,
-    /if \(!profile\) \{\s*setProfileCompletionMode\(session\);\s*showPanel\('login'\);/,
+    /if \(!profile\) \{\s*setProfileCompletionMode\(session\);\s*showPanel\('register'\);/,
+  );
+});
+
+test('sin una sesión activa la portada muestra primero el inicio de sesión', async () => {
+  const source = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
+  assert.match(
+    source,
+    /if \(!session\) \{\s*setProfileCompletionMode\(null\);\s*resetMfaState\(\);\s*showPanel\('login'\);/,
   );
 });
 
