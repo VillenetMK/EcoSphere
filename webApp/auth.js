@@ -96,7 +96,14 @@ function setProfileCompletionMode(session) {
   const enabled = Boolean(session);
   const emailInput = document.getElementById('registerEmail');
   emailInput.readOnly = enabled;
-  if (enabled) emailInput.value = String(session.user.email ?? '').toLowerCase();
+  emailInput.type = enabled ? 'text' : 'email';
+  emailInput.autocomplete = enabled ? 'off' : 'email';
+  emailInput.value = '';
+  const provider = String(session?.user?.app_metadata?.provider ?? '').toLowerCase();
+  const providerName = provider === 'github' ? 'GitHub' : provider === 'google' ? 'Google' : 'el proveedor';
+  emailInput.placeholder = enabled
+    ? `Correo verificado mediante ${providerName}`
+    : 'Ejemplo: usuario@ejemplo.com';
   document.getElementById('registerPasswordFields').hidden = enabled;
   document.getElementById('registerPasswordNote').hidden = enabled;
   document.getElementById('registerOAuthFields').hidden = enabled;
@@ -111,7 +118,7 @@ function registrationValues() {
     fullName: document.getElementById('registerFullName').value,
     dni: document.getElementById('registerDni').value,
     phone: document.getElementById('registerPhone').value,
-    email: document.getElementById('registerEmail').value,
+    email: profileCompletionSession?.user?.email ?? document.getElementById('registerEmail').value,
   };
 }
 
