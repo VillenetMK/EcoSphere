@@ -279,14 +279,25 @@ async function verifyMfaCode(code) {
 
 async function resolveSession(session, onAccessGranted) {
   if (!session) return false;
+  const intent = sessionStorage.getItem(OAUTH_INTENT_KEY);
+  const registrationIntent = ['register', 'oauth-register'].includes(intent);
   await completePendingProfile(session);
   const profile = await loadMyProfile();
+  if (!profile && !registrationIntent) {
+    clearPendingRegistration();
+    await supabase.auth.signOut();
+    setProfileCompletionMode(null);
+    showPanel('login');
+    setMessage('Esta cuenta aún no está registrada. Usa «Crear cuenta» para completar el alta.', 'error');
+    return false;
+  }
   if (!profile) {
     setProfileCompletionMode(session);
     showPanel('register');
     setMessage('Completa tus datos obligatorios para finalizar el registro.', 'info');
     return false;
   }
+  clearPendingRegistration();
   setProfileCompletionMode(null);
   if (profile.status !== 'approved') {
     showPending(profile);
@@ -361,6 +372,8 @@ export async function initializeAuth({ onAccessGranted, onSignedOut }) {
     setAuthBusy(true);
     setMessage('');
     try {
+      clearPendingRegistration();
+      sessionStorage.setItem(OAUTH_INTENT_KEY, 'password-login');
       const identifier = document.getElementById('loginIdentifier').value;
       const password = document.getElementById('loginPassword').value;
       const session = await signInWithIdentifier(identifier, password);
