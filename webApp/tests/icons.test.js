@@ -14,6 +14,8 @@ const iconNames = [
   'ic_error',
   'ic_esp32',
   'ic_fan',
+  'ic_github',
+  'ic_google',
   'ic_grow_led',
   'ic_history',
   'ic_info',
@@ -52,6 +54,8 @@ test('la PWA publica y almacena todos los iconos usados', async () => {
     assert.match(worker, new RegExp(`icons/${name}\\.svg`));
   }
   assert.match(html, /icons\/ic_dashboard\.svg/);
+  assert.equal((html.match(/icons\/ic_google\.svg/g) || []).length, 2);
+  assert.equal((html.match(/icons\/ic_github\.svg/g) || []).length, 2);
   assert.match(html, /icons\/ic_refresh_animated\.svg/);
   assert.match(app, /HISTORY_METRIC_ICONS/);
   assert.match(app, /DIAGNOSTIC_ICONS/);
