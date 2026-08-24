@@ -59,10 +59,16 @@
           <input id="registerUsername" type="text" autocomplete="username" maxlength="32" placeholder="Ejemplo: usuario123" required />
           <small data-field-error="username"></small>
         </label>
-        <label>Nombre y apellido completo
-          <input id="registerFullName" type="text" autocomplete="name" maxlength="160" required />
-          <small data-field-error="fullName"></small>
-        </label>
+        <div class="auth-form-grid">
+          <label>Nombres
+            <input id="registerFirstName" type="text" autocomplete="given-name" maxlength="80" required />
+            <small data-field-error="firstName"></small>
+          </label>
+          <label>Apellidos
+            <input id="registerLastName" type="text" autocomplete="family-name" maxlength="80" required />
+            <small data-field-error="lastName"></small>
+          </label>
+        </div>
         <div class="auth-form-grid">
           <label>DNI
             <input id="registerDni" type="text" inputmode="numeric" autocomplete="off" maxlength="8" required />

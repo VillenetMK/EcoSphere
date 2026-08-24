@@ -1,4 +1,4 @@
-const CACHE = 'ecosphere-web-v1.5.0-oauth-profile-completion';
+const CACHE = 'ecosphere-web-v1.5.0-split-profile-names';
 const ASSETS = [
   './',
   './index.html',
