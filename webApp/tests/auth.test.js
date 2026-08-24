@@ -115,13 +115,13 @@ test('el retorno OAuth de Android vuelve al APK y no renderiza el portal web', a
     'utf8',
   );
 
-  assert.match(html, /<script src="android-auth-return\\.js"><\\/script>/);
+  assert.match(html, /<script src="android-auth-return\.js"><\/script>/);
   assert.match(bridge, /ecosphere_client.*android/);
-  assert.match(bridge, /new URL\\('ecosphere:\\/\\/auth-callback'\\)/);
-  assert.match(bridge, /location\\.replace\\(callback\\.toString\\(\\)\\)/);
+  assert.match(bridge, /new URL\('ecosphere:\/\/auth-callback'\)/);
+  assert.match(bridge, /location\.replace\(callback\.toString\(\)\)/);
   assert.match(nativeSupabase, /ANDROID_OAUTH_RETURN_URL/);
-  assert.match(nativeSupabase, /\\?ecosphere_client=android/);
-  assert.match(nativeAuth, /redirectUrl = NativeSupabase\\.ANDROID_OAUTH_RETURN_URL/);
+  assert.match(nativeSupabase, /\?ecosphere_client=android/);
+  assert.match(nativeAuth, /redirectUrl = NativeSupabase\.ANDROID_OAUTH_RETURN_URL/);
 });
 
 test('el administrador reservado se crea aprobado sin inventar datos personales', async () => {
