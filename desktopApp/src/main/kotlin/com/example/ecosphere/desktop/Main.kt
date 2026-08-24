@@ -377,7 +377,7 @@ private fun NavigationPane(
                 Text("Cerrar sesión")
             }
             Spacer(Modifier.height(12.dp))
-            Text("EcoSphere Desktop 1.2.0", color = Muted, fontSize = 11.sp)
+            Text("EcoSphere Desktop 1.3.0", color = Muted, fontSize = 11.sp)
         }
     }
 }
@@ -400,14 +400,9 @@ private fun Dashboard(
         Modifier.fillMaxSize().verticalScroll(scroll).padding(28.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Text("Panel principal", fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                Text("Estado y control del microclima", color = Muted)
-            }
-            OutlinedButton(onClick = onRefresh, enabled = !loading) {
-                Text(if (loading) "Actualizando..." else "Actualizar datos")
-            }
+        Column {
+            Text("EcoSphere", fontSize = 30.sp, fontWeight = FontWeight.Bold)
+            Text("Sistema inteligente de microclima", color = Muted)
         }
 
         if (error != null) {
@@ -416,21 +411,33 @@ private fun Dashboard(
             }
         }
 
-        StatusPanel(record, control)
+        StatusPanel(
+            record = record,
+            control = control,
+            loading = loading,
+            onRefresh = onRefresh
+        )
 
-        Text("Lecturas ambientales", fontSize = 21.sp, fontWeight = FontWeight.SemiBold)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            MetricCard("Temperatura", format(record?.temperature, "°C"), "BME280", Modifier.weight(1f))
-            MetricCard("Humedad aire", format(record?.airHumidity, "%"), "BME280", Modifier.weight(1f))
-            MetricCard("Humedad suelo", format(record?.soilHumidity, "%"), "Sensor capacitivo", Modifier.weight(1f))
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            MetricCard("Iluminación", format(record?.lightLux, "lux"), "BH1750", Modifier.weight(1f))
-            MetricCard("Nivel de agua", waterLabel(record?.waterLevel), "Sensor horizontal GPIO32", Modifier.weight(1f))
-            Spacer(Modifier.weight(1f))
+        DashboardSectionTitle("Lecturas ambientales", "Toca cualquier tarjeta para abrir el detalle")
+        if (record == null) {
+            EmptyTelemetryCard()
+        } else {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                MetricCard("Temperatura", format(record.temperature, "°C"), "BME280", Modifier.weight(1f))
+                MetricCard("Humedad aire", format(record.airHumidity, "%"), "BME280", Modifier.weight(1f))
+                MetricCard("Humedad suelo", format(record.soilHumidity, "%"), "Sensor capacitivo", Modifier.weight(1f))
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                MetricCard("Iluminación", format(record.lightLux, "lux"), "BH1750", Modifier.weight(1f))
+                MetricCard("Nivel de agua", waterLabel(record.waterLevel), "Sensor horizontal GPIO32", Modifier.weight(1f))
+                Spacer(Modifier.weight(1f))
+            }
         }
 
-        Text("Control y estado del sistema", fontSize = 21.sp, fontWeight = FontWeight.SemiBold)
+        DashboardSectionTitle("Estado del sistema", "Estado reportado por el ESP32")
+        ActuatorStatusPanel(record, control)
+
+        DashboardSectionTitle("Control remoto", "Órdenes enviadas a través de Supabase")
         ControlPanel(
             control = control,
             record = record,
@@ -444,7 +451,12 @@ private fun Dashboard(
 }
 
 @Composable
-private fun StatusPanel(record: SensorRecord?, control: DeviceControl?) {
+private fun StatusPanel(
+    record: SensorRecord?,
+    control: DeviceControl?,
+    loading: Boolean,
+    onRefresh: () -> Unit
+) {
     val online = control?.isOnlineNow() == true
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -452,18 +464,125 @@ private fun StatusPanel(record: SensorRecord?, control: DeviceControl?) {
         shape = RoundedCornerShape(18.dp)
     ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Estado general", color = Color(0xFFD6FFE0), fontSize = 13.sp)
-            Text(
-                if (online) "Sistema conectado" else "Sistema sin conexión",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("Estado general", color = Color(0xFFD6FFE0), fontSize = 13.sp)
+                    Text(
+                        if (online) "Sistema conectado" else "Sistema sin conexión",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Surface(color = Color(0xFF103D25), shape = RoundedCornerShape(999.dp)) {
+                    Text(
+                        if (online) "ONLINE" else "OFFLINE",
+                        Modifier.padding(horizontal = 13.dp, vertical = 7.dp),
+                        color = EcoGreen,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                }
+            }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 SmallStatus("Modo", if (control?.autoMode == true) "Automático" else "Manual", Modifier.weight(1f))
-                SmallStatus("ESP32", if (online) "Online" else "Offline", Modifier.weight(1f))
-                SmallStatus("Humedad suelo", record?.soilHumidity?.let { "${it.roundToInt()} %" } ?: "Sin registro", Modifier.weight(1f))
+                SmallStatus("Último ESP32", formatDate(control?.lastSeenAt), Modifier.weight(1f))
             }
             SmallStatus("Última telemetría", formatDate(record?.createdAt), Modifier.fillMaxWidth())
+            OutlinedButton(onClick = onRefresh, enabled = !loading, modifier = Modifier.fillMaxWidth()) {
+                Text(if (loading) "Actualizando..." else "Actualizar datos")
+            }
+        }
+    }
+}
+
+@Composable
+private fun DashboardSectionTitle(title: String, subtitle: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(title, fontSize = 21.sp, fontWeight = FontWeight.SemiBold)
+        Text(subtitle, color = Muted, fontSize = 13.sp)
+    }
+}
+
+@Composable
+private fun EmptyTelemetryCard() {
+    Surface(Modifier.fillMaxWidth(), color = AppSurface2, shape = RoundedCornerShape(20.dp)) {
+        Column(
+            Modifier.padding(horizontal = 28.dp, vertical = 38.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Esperando telemetría", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "Cuando el ESP32 vuelva a enviar datos, las lecturas aparecerán aquí automáticamente.",
+                color = Muted,
+                fontSize = 16.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActuatorStatusPanel(record: SensorRecord?, control: DeviceControl?) {
+    Surface(Modifier.fillMaxWidth(), color = AppSurface2, shape = RoundedCornerShape(20.dp)) {
+        Column(Modifier.padding(horizontal = 20.dp, vertical = 5.dp)) {
+            ActuatorStatusRow(
+                "Ventilador",
+                when (record?.fanOn) {
+                    true -> "ENCENDIDO${record.fanPower?.let { " · $it %" } ?: ""}"
+                    false -> "APAGADO"
+                    null -> "SIN REGISTRO"
+                }
+            )
+            HorizontalDivider(color = Color(0xFF354039))
+            ActuatorStatusRow(
+                "Bomba de riego",
+                when (record?.pumpOn) {
+                    true -> "ENCENDIDA"
+                    false -> "APAGADA"
+                    null -> "SIN REGISTRO"
+                }
+            )
+            HorizontalDivider(color = Color(0xFF354039))
+            ActuatorStatusRow(
+                "LED grow",
+                when (record?.ledOn) {
+                    true -> "ENCENDIDO${record.ledPower?.let { " · $it %" } ?: ""}"
+                    false -> "APAGADO"
+                    null -> "SIN REGISTRO"
+                }
+            )
+            HorizontalDivider(color = Color(0xFF354039))
+            ActuatorStatusRow(
+                "Control",
+                when (record?.autoMode ?: control?.autoMode) {
+                    true -> "AUTOMÁTICO"
+                    false -> "MANUAL"
+                    null -> "SIN REGISTRO"
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ActuatorStatusRow(title: String, status: String) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 15.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, fontWeight = FontWeight.SemiBold)
+        Surface(color = Color(0xFF34463B), shape = RoundedCornerShape(999.dp)) {
+            Text(
+                status,
+                Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp
+            )
         }
     }
 }
@@ -507,8 +626,8 @@ private fun ControlPanel(
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column {
-                    Text("Modo automático", fontWeight = FontWeight.SemiBold)
-                    Text(if (manual) "Control manual habilitado" else "El ESP32 controla los actuadores", color = Muted, fontSize = 12.sp)
+                    Text("Modo de operación", fontWeight = FontWeight.SemiBold)
+                    Text(if (manual) "Control manual habilitado" else "El ESP32 decide según las lecturas", color = Muted, fontSize = 12.sp)
                 }
                 Switch(
                     checked = control?.autoMode == true,
@@ -518,7 +637,7 @@ private fun ControlPanel(
             }
 
             ControlSlider(
-                title = "Ventilador",
+                title = "Potencia del ventilador",
                 value = fanLocal,
                 enabled = manual && !actionBusy,
                 onValue = { fanLocal = it },
@@ -526,7 +645,7 @@ private fun ControlPanel(
             )
 
             ControlSlider(
-                title = "LED Grow",
+                title = "Intensidad LED grow",
                 value = ledLocal,
                 enabled = manual && !actionBusy,
                 onValue = { ledLocal = it },
@@ -535,7 +654,7 @@ private fun ControlPanel(
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column {
-                    Text("Bomba de riego", fontWeight = FontWeight.SemiBold)
+                    Text("Riego manual", fontWeight = FontWeight.SemiBold)
                     Text(
                         ControlPolicy.irrigationStatus(record?.soilHumidity, record?.waterLevel),
                         color = Muted,
@@ -547,7 +666,7 @@ private fun ControlPanel(
                     enabled = !actionBusy && control != null &&
                         ControlPolicy.irrigationDecision(record?.soilHumidity, record?.waterLevel).allowed
                 ) {
-                    Text("Regar 3 s")
+                    Text("Regar ahora · 3 s")
                 }
             }
         }

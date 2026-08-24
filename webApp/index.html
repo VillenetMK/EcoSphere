@@ -156,7 +156,7 @@
         <span id="currentUserRole">Acceso autorizado</span>
         <button type="button" data-auth-signout>Cerrar sesión</button>
       </div>
-      <div class="version">EcoSphere Web 1.5.0</div>
+      <div class="version">EcoSphere Web 1.5.1</div>
     </aside>
 
     <main class="main">
@@ -164,27 +164,38 @@
       <div id="toast" class="toast" hidden></div>
 
       <section id="dashboard" class="screen active">
-        <header class="topbar">
+        <header class="topbar dashboard-topbar">
           <div>
-            <h2>Panel principal</h2>
-            <p>Estado y control del microclima</p>
+            <h2>EcoSphere</h2>
+            <p>Sistema inteligente de microclima</p>
           </div>
         </header>
 
         <article class="status-panel">
-          <div class="eyebrow">Estado general</div>
-          <div class="status-title" id="systemStatus">Sistema sin conexión</div>
+          <div class="status-panel-heading">
+            <div>
+              <div class="eyebrow">Estado general</div>
+              <div class="status-title" id="systemStatus">Sistema sin conexión</div>
+            </div>
+            <img id="espIcon" class="ui-icon status-connection-icon" src="icons/ic_offline.svg" alt="" aria-hidden="true" />
+          </div>
           <div class="status-grid">
             <div class="status-cell"><span>Modo</span><div class="status-value"><img id="modeIcon" class="ui-icon" src="icons/ic_manual_mode.svg" alt="" aria-hidden="true" /><strong id="modeValue">Manual</strong></div></div>
-            <div class="status-cell"><span>ESP32</span><div class="status-value"><img id="espIcon" class="ui-icon" src="icons/ic_offline.svg" alt="" aria-hidden="true" /><strong id="espValue">Offline</strong></div></div>
-            <div class="status-cell"><span>Humedad suelo</span><div class="status-value"><img class="ui-icon" src="icons/ic_soil_humidity.svg" alt="" aria-hidden="true" /><strong id="soilStatusValue">Sin registro</strong></div></div>
+            <div class="status-cell"><span>Último ESP32</span><div class="status-value"><img class="ui-icon" src="icons/ic_history.svg" alt="" aria-hidden="true" /><strong id="lastEsp32">Sin registro</strong></div></div>
           </div>
           <div class="status-cell wide"><span>Última telemetría</span><div class="status-value"><img class="ui-icon" src="icons/ic_history.svg" alt="" aria-hidden="true" /><strong id="lastTelemetry">Sin registro</strong></div></div>
           <button id="refreshBtn" class="outline-btn"><img class="ui-icon refresh-symbol" src="icons/ic_refresh_animated.svg" alt="" aria-hidden="true" /><span id="refreshBtnLabel">Actualizar datos</span></button>
         </article>
 
-        <h3>Lecturas ambientales</h3>
-        <div class="metrics">
+        <header class="dashboard-section-heading">
+          <h3>Lecturas ambientales</h3>
+          <p>Toca cualquier tarjeta para abrir el detalle</p>
+        </header>
+        <article id="emptyTelemetry" class="empty-telemetry" hidden>
+          <strong>Esperando telemetría</strong>
+          <p>Cuando el ESP32 vuelva a enviar datos, las lecturas aparecerán aquí automáticamente.</p>
+        </article>
+        <div id="metricsGrid" class="metrics">
           <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_temperature.svg" alt="" aria-hidden="true" /><span>Temperatura</span></div><strong id="temperatureValue">--</strong><small>BME280</small></article>
           <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_air_humidity.svg" alt="" aria-hidden="true" /><span>Humedad aire</span></div><strong id="airHumidityValue">--</strong><small>BME280</small></article>
           <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_soil_humidity.svg" alt="" aria-hidden="true" /><span>Humedad suelo</span></div><strong id="soilHumidityValue">--</strong><small>Sensor capacitivo</small></article>
@@ -192,26 +203,40 @@
           <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_water_level.svg" alt="" aria-hidden="true" /><span>Nivel de agua</span></div><strong id="waterValue">Sin registro</strong><small>Sensor horizontal GPIO32</small></article>
         </div>
 
-        <h3>Control y estado del sistema</h3>
+        <header class="dashboard-section-heading">
+          <h3>Estado del sistema</h3>
+          <p>Estado reportado por el ESP32</p>
+        </header>
+        <article class="actuator-panel">
+          <div class="actuator-row"><div class="control-title"><img class="ui-icon control-icon" src="icons/ic_fan.svg" alt="" aria-hidden="true" /><strong>Ventilador</strong></div><span id="fanState" class="state-chip">SIN REGISTRO</span></div>
+          <div class="actuator-row"><div class="control-title"><img class="ui-icon control-icon" src="icons/ic_pump.svg" alt="" aria-hidden="true" /><strong>Bomba de riego</strong></div><span id="pumpState" class="state-chip">SIN REGISTRO</span></div>
+          <div class="actuator-row"><div class="control-title"><img class="ui-icon control-icon" src="icons/ic_grow_led.svg" alt="" aria-hidden="true" /><strong>LED grow</strong></div><span id="ledState" class="state-chip">SIN REGISTRO</span></div>
+          <div class="actuator-row"><div class="control-title"><img id="reportedModeIcon" class="ui-icon control-icon" src="icons/ic_manual_mode.svg" alt="" aria-hidden="true" /><strong>Control</strong></div><span id="controlState" class="state-chip">SIN REGISTRO</span></div>
+        </article>
+
+        <header class="dashboard-section-heading">
+          <h3>Control remoto</h3>
+          <p>Órdenes enviadas a través de Supabase</p>
+        </header>
         <article class="control-panel">
           <div class="control-row switch-row">
-            <div class="control-title"><img class="ui-icon control-icon" src="icons/ic_auto_mode.svg" alt="" aria-hidden="true" /><div><strong>Modo automático</strong><small id="modeHint">Control manual habilitado</small></div></div>
+            <div class="control-title"><img class="ui-icon control-icon" src="icons/ic_auto_mode.svg" alt="" aria-hidden="true" /><div><strong>Modo de operación</strong><small id="modeHint">Control manual habilitado</small></div></div>
             <label class="switch"><input id="autoMode" type="checkbox"/><span></span></label>
           </div>
 
           <div class="control-row block">
-            <div class="control-head"><div class="control-title"><img class="ui-icon control-icon" src="icons/ic_fan.svg" alt="" aria-hidden="true" /><strong>Ventilador</strong></div><span id="fanPowerLabel">0 %</span></div>
+            <div class="control-head"><div class="control-title"><img class="ui-icon control-icon" src="icons/ic_fan.svg" alt="" aria-hidden="true" /><strong>Potencia del ventilador</strong></div><span id="fanPowerLabel">0 %</span></div>
             <input id="fanPower" type="range" min="0" max="100" step="5" value="0" />
           </div>
 
           <div class="control-row block">
-            <div class="control-head"><div class="control-title"><img class="ui-icon control-icon" src="icons/ic_grow_led.svg" alt="" aria-hidden="true" /><strong>LED Grow</strong></div><span id="ledPowerLabel">0 %</span></div>
+            <div class="control-head"><div class="control-title"><img class="ui-icon control-icon" src="icons/ic_grow_led.svg" alt="" aria-hidden="true" /><strong>Intensidad LED grow</strong></div><span id="ledPowerLabel">0 %</span></div>
             <input id="ledPower" type="range" min="0" max="100" step="5" value="0" />
           </div>
 
           <div class="control-row pump-row">
-            <div class="control-title"><img class="ui-icon control-icon" src="icons/ic_pump.svg" alt="" aria-hidden="true" /><div><strong>Bomba de riego</strong><small id="pumpHint">Esperando telemetría</small></div></div>
-            <button id="pumpBtn" class="primary-btn"><img class="ui-icon button-icon dark-icon" src="icons/ic_pump.svg" alt="" aria-hidden="true" />Regar 3 s</button>
+            <div class="control-title"><img class="ui-icon control-icon" src="icons/ic_pump.svg" alt="" aria-hidden="true" /><div><strong>Riego manual</strong><small id="pumpHint">Esperando telemetría</small></div></div>
+            <button id="pumpBtn" class="primary-btn"><img class="ui-icon button-icon dark-icon" src="icons/ic_pump.svg" alt="" aria-hidden="true" />Regar ahora · 3 s</button>
           </div>
         </article>
       </section>
@@ -296,19 +321,19 @@
       </header>
 
       <div class="platform-downloads">
-        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/latest/download/EcoSphere-1.2.0-Windows-x64.msi">
+        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/latest/download/EcoSphere-1.3.0-Windows-x64.msi">
           <img class="platform-icon" src="icons/ic_windows.svg" alt="" aria-hidden="true" />
-          <div><strong>Windows</strong><span>Windows 10/11 · x64</span><small>Instalador MSI · versión 1.2.0</small></div>
+          <div><strong>Windows</strong><span>Windows 10/11 · x64</span><small>Instalador MSI · versión 1.3.0</small></div>
           <span class="platform-action">Descargar MSI</span>
         </a>
-        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/latest/download/EcoSphere-1.2.0-Linux-amd64.deb">
+        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/latest/download/EcoSphere-1.3.0-Linux-amd64.deb">
           <img class="platform-icon" src="icons/ic_linux.svg" alt="" aria-hidden="true" />
-          <div><strong>Linux</strong><span>Ubuntu/Debian · amd64</span><small>Paquete DEB · versión 1.2.0</small></div>
+          <div><strong>Linux</strong><span>Ubuntu/Debian · amd64</span><small>Paquete DEB · versión 1.3.0</small></div>
           <span class="platform-action">Descargar DEB</span>
         </a>
-        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/latest/download/EcoSphere-1.2.0-Android.apk">
+        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/latest/download/EcoSphere-1.3.0-Android.apk">
           <img class="platform-icon" src="icons/ic_android.svg" alt="" aria-hidden="true" />
-          <div><strong>Android</strong><span>Android 7 o posterior</span><small>Archivo APK · versión 1.2.0</small></div>
+          <div><strong>Android</strong><span>Android 7 o posterior</span><small>Archivo APK · versión 1.3.0</small></div>
           <span class="platform-action">Descargar APK</span>
         </a>
       </div>
