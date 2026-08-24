@@ -88,12 +88,25 @@ test('la portada equilibra la jerarquía tipográfica en escritorio y móvil', a
   assert.match(styles, /@media\(max-width:560px\)\{[^}]*\.auth-brand-panel\{padding:22px 20px\}/);
 });
 
-test('una identidad OAuth sin perfil abre el formulario obligatorio', async () => {
+test('iniciar sesión por OAuth nunca convierte el acceso en un registro', async () => {
   const source = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
-  assert.match(
-    source,
-    /if \(!profile\) \{\s*setProfileCompletionMode\(session\);\s*showPanel\('register'\);/,
+  assert.match(source, /const registrationIntent = \['register', 'oauth-register'\]\.includes\(intent\)/);
+  assert.match(source, /if \(!profile && !registrationIntent\) \{[\s\S]*?auth\.signOut\(\)[\s\S]*?showPanel\('login'\)/);
+  assert.match(source, /Esta cuenta aún no está registrada/);
+  assert.match(source, /if \(!profile\) \{\s*setProfileCompletionMode\(session\);\s*showPanel\('register'\);/);
+});
+
+test('el administrador reservado se crea aprobado sin inventar datos personales', async () => {
+  const migration = await readFile(
+    new URL('../../supabase/migrations/20260824085600_bootstrap_reserved_admin_profile.sql', import.meta.url),
+    'utf8',
   );
+  assert.match(migration, /join private\.reserved_usernames/);
+  assert.match(migration, /'VillenetADMIN'/);
+  assert.match(migration, /'approved',\s*'admin'/);
+  assert.match(migration, /role = 'admin' and dni is null/);
+  assert.match(migration, /role = 'admin' and phone is null/);
+  assert.doesNotMatch(migration, /[\w.+-]+@[\w.-]+/);
 });
 
 test('sin una sesión activa la portada muestra primero el inicio de sesión', async () => {
