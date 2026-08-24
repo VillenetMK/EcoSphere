@@ -1,4 +1,4 @@
-const CACHE = 'ecosphere-web-v1.6.2-controller-replacement';
+const CACHE = 'ecosphere-web-v1.6.3-platform-ui-separation';
 const ASSETS = [
   './',
   './index.html',
