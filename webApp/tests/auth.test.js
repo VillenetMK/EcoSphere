@@ -55,6 +55,14 @@ test('el registro contiene los campos obligatorios y los proveedores aprobados',
   assert.match(html, /id="loginIdentifier"/);
 });
 
+
+test('la portada comunica el equilibrio entre vida y tecnología', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  assert.match(html, /ECOSISTEMA INTELIGENTE/);
+  assert.match(html, /Donde la vida y la tecnología encuentran el equilibrio\./);
+  assert.match(html, /cada ecosistema prospere de forma autónoma/);
+});
+
 test('el flujo administrativo exige AAL2 y usa las APIs TOTP oficiales', async () => {
   const source = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
   assert.match(source, /profile\.role === 'admin'/);
