@@ -322,9 +322,19 @@ async function startOAuth(provider, intent) {
     sessionStorage.setItem(OAUTH_INTENT_KEY, 'oauth-login');
   }
 
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  if (session) {
+    const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' });
+    if (signOutError) throw signOutError;
+  }
+
   const { error } = await supabase.auth.signInWithOAuth({
     provider,
-    options: { redirectTo: callbackUrl() },
+    options: {
+      redirectTo: callbackUrl(),
+      queryParams: { prompt: 'select_account' },
+    },
   });
   if (error) throw error;
 }

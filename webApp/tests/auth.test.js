@@ -96,6 +96,13 @@ test('iniciar sesión por OAuth nunca convierte el acceso en un registro', async
   assert.match(source, /if \(!profile\) \{\s*setProfileCompletionMode\(session\);\s*showPanel\('register'\);/);
 });
 
+test('Google y GitHub siempre permiten elegir la cuenta antes de continuar', async () => {
+  const source = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
+  assert.match(source, /auth\.getSession\(\)/);
+  assert.match(source, /auth\.signOut\(\{ scope: 'local' \}\)/);
+  assert.match(source, /queryParams: \{ prompt: 'select_account' \}/);
+});
+
 test('el administrador reservado se crea aprobado sin inventar datos personales', async () => {
   const migration = await readFile(
     new URL('../../supabase/migrations/20260824085600_bootstrap_reserved_admin_profile.sql', import.meta.url),
