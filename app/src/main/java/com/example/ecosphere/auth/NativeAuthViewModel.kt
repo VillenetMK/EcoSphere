@@ -186,7 +186,10 @@ class NativeAuthViewModel(application: Application) : AndroidViewModel(applicati
                     PROVIDER_GITHUB -> Github
                     else -> error("Proveedor de acceso no permitido.")
                 }
-                supabase.auth.signInWith(oauthProvider) {
+                supabase.auth.signInWith(
+                    oauthProvider,
+                    redirectUrl = NativeSupabase.ANDROID_OAUTH_RETURN_URL
+                ) {
                     queryParams["prompt"] = "select_account"
                 }
             }
