@@ -1,4 +1,4 @@
-const CACHE = 'ecosphere-web-v1.6.1-actuator-output-semantics';
+const CACHE = 'ecosphere-web-v1.6.2-controller-replacement';
 const ASSETS = [
   './',
   './index.html',
