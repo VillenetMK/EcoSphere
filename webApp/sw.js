@@ -1,4 +1,4 @@
-const CACHE = 'ecosphere-web-v1.3.0';
+const CACHE = 'ecosphere-web-v1.4.0';
 const ASSETS = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const ASSETS = [
   './icon-192.png',
   './icon-512.png',
   './icons/ic_air_humidity.svg',
+  './icons/ic_android.svg',
   './icons/ic_auto_mode.svg',
   './icons/ic_dashboard.svg',
   './icons/ic_diagnostics.svg',
@@ -22,6 +23,7 @@ const ASSETS = [
   './icons/ic_history.svg',
   './icons/ic_info.svg',
   './icons/ic_light.svg',
+  './icons/ic_linux.svg',
   './icons/ic_manual_mode.svg',
   './icons/ic_offline.svg',
   './icons/ic_ok.svg',
@@ -31,7 +33,8 @@ const ASSETS = [
   './icons/ic_soil_humidity.svg',
   './icons/ic_temperature.svg',
   './icons/ic_warning.svg',
-  './icons/ic_water_level.svg'
+  './icons/ic_water_level.svg',
+  './icons/ic_windows.svg'
 ];
 
 self.addEventListener('install', event => {
