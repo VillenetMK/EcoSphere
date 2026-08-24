@@ -126,5 +126,5 @@ jobs:
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$RELEASE_TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "EcoSphere 1.4.1" --notes "Instaladores oficiales para Windows, Linux y Android. La interfaz distingue las señales de salida del ESP32 del funcionamiento físico de los actuadores y evita mostrar telemetría antigua como estado actual."
+            gh release create "$RELEASE_TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "EcoSphere 1.4.1" --notes "Instaladores oficiales para Windows, Linux y Android. La interfaz distingue las señales de salida del ESP32 del funcionamiento físico de los actuadores, evita mostrar telemetría antigua como estado actual y deja explícito cuándo falta confirmación física."
           fi

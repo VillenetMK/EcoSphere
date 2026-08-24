@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import com.example.ecosphere.data.model.DeviceControl
 import com.example.ecosphere.data.model.ControllerAdminStatus
 import com.example.ecosphere.data.model.SensorRecord
+import com.example.ecosphere.shared.ControlPolicy
 import com.example.ecosphere.ui.icons.EcoSphereIcons
 import java.text.SimpleDateFormat
 import java.util.Locale
