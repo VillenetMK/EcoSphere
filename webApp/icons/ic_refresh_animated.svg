@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+  <g id="refresh" stroke="#66FF7A" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+    <rect width="24" height="24" fill="transparent" stroke="none" pointer-events="all"/>
+    <path d="M19 8V4l-2 2a8 8 0 0 0-13.1 4"/>
+    <path d="M5 16v4l2-2a8 8 0 0 0 13.1-4"/>
+    <path d="M15.5 4H19v3.5M8.5 20H5v-3.5"/>
+    <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.65s" begin="refresh.click" restart="whenNotActive" fill="remove"/>
+  </g>
+</svg>

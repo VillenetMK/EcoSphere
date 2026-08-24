@@ -22,13 +22,13 @@
       </div>
 
       <nav>
-        <button class="nav-item active" data-screen="dashboard">Panel principal</button>
-        <button class="nav-item" data-screen="history">Registros históricos</button>
-        <button class="nav-item" data-screen="diagnostics">Diagnóstico del sistema</button>
+        <button class="nav-item active" data-screen="dashboard"><img class="ui-icon nav-icon" src="icons/ic_dashboard.svg" alt="" aria-hidden="true" />Panel principal</button>
+        <button class="nav-item" data-screen="history"><img class="ui-icon nav-icon" src="icons/ic_history.svg" alt="" aria-hidden="true" />Registros históricos</button>
+        <button class="nav-item" data-screen="diagnostics"><img class="ui-icon nav-icon" src="icons/ic_diagnostics.svg" alt="" aria-hidden="true" />Diagnóstico del sistema</button>
       </nav>
 
       <button id="installBtn" class="install-btn" hidden>Instalar EcoSphere</button>
-      <div class="version">EcoSphere Web 1.2.1</div>
+      <div class="version">EcoSphere Web 1.3.0</div>
     </aside>
 
     <main class="main">
@@ -47,43 +47,43 @@
           <div class="eyebrow">Estado general</div>
           <div class="status-title" id="systemStatus">Sistema sin conexión</div>
           <div class="status-grid">
-            <div class="status-cell"><span>Modo</span><strong id="modeValue">Manual</strong></div>
-            <div class="status-cell"><span>ESP32</span><strong id="espValue">Offline</strong></div>
-            <div class="status-cell"><span>Humedad suelo</span><strong id="soilStatusValue">Sin registro</strong></div>
+            <div class="status-cell"><span>Modo</span><div class="status-value"><img id="modeIcon" class="ui-icon" src="icons/ic_manual_mode.svg" alt="" aria-hidden="true" /><strong id="modeValue">Manual</strong></div></div>
+            <div class="status-cell"><span>ESP32</span><div class="status-value"><img id="espIcon" class="ui-icon" src="icons/ic_offline.svg" alt="" aria-hidden="true" /><strong id="espValue">Offline</strong></div></div>
+            <div class="status-cell"><span>Humedad suelo</span><div class="status-value"><img class="ui-icon" src="icons/ic_soil_humidity.svg" alt="" aria-hidden="true" /><strong id="soilStatusValue">Sin registro</strong></div></div>
           </div>
-          <div class="status-cell wide"><span>Última telemetría</span><strong id="lastTelemetry">Sin registro</strong></div>
-          <button id="refreshBtn" class="outline-btn"><span class="refresh-symbol" aria-hidden="true">↻</span> <span id="refreshBtnLabel">Actualizar datos</span></button>
+          <div class="status-cell wide"><span>Última telemetría</span><div class="status-value"><img class="ui-icon" src="icons/ic_history.svg" alt="" aria-hidden="true" /><strong id="lastTelemetry">Sin registro</strong></div></div>
+          <button id="refreshBtn" class="outline-btn"><img class="ui-icon refresh-symbol" src="icons/ic_refresh_animated.svg" alt="" aria-hidden="true" /><span id="refreshBtnLabel">Actualizar datos</span></button>
         </article>
 
         <h3>Lecturas ambientales</h3>
         <div class="metrics">
-          <article class="metric-card"><span>Temperatura</span><strong id="temperatureValue">--</strong><small>BME280</small></article>
-          <article class="metric-card"><span>Humedad aire</span><strong id="airHumidityValue">--</strong><small>BME280</small></article>
-          <article class="metric-card"><span>Humedad suelo</span><strong id="soilHumidityValue">--</strong><small>Sensor capacitivo</small></article>
-          <article class="metric-card"><span>Iluminación</span><strong id="lightValue">--</strong><small>BH1750</small></article>
-          <article class="metric-card"><span>Nivel de agua</span><strong id="waterValue">Sin registro</strong><small>Sensor horizontal GPIO32</small></article>
+          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_temperature.svg" alt="" aria-hidden="true" /><span>Temperatura</span></div><strong id="temperatureValue">--</strong><small>BME280</small></article>
+          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_air_humidity.svg" alt="" aria-hidden="true" /><span>Humedad aire</span></div><strong id="airHumidityValue">--</strong><small>BME280</small></article>
+          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_soil_humidity.svg" alt="" aria-hidden="true" /><span>Humedad suelo</span></div><strong id="soilHumidityValue">--</strong><small>Sensor capacitivo</small></article>
+          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_light.svg" alt="" aria-hidden="true" /><span>Iluminación</span></div><strong id="lightValue">--</strong><small>BH1750</small></article>
+          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_water_level.svg" alt="" aria-hidden="true" /><span>Nivel de agua</span></div><strong id="waterValue">Sin registro</strong><small>Sensor horizontal GPIO32</small></article>
         </div>
 
         <h3>Control y estado del sistema</h3>
         <article class="control-panel">
           <div class="control-row switch-row">
-            <div><strong>Modo automático</strong><small id="modeHint">Control manual habilitado</small></div>
+            <div class="control-title"><img class="ui-icon control-icon" src="icons/ic_auto_mode.svg" alt="" aria-hidden="true" /><div><strong>Modo automático</strong><small id="modeHint">Control manual habilitado</small></div></div>
             <label class="switch"><input id="autoMode" type="checkbox"/><span></span></label>
           </div>
 
           <div class="control-row block">
-            <div class="control-head"><strong>Ventilador</strong><span id="fanPowerLabel">0 %</span></div>
+            <div class="control-head"><div class="control-title"><img class="ui-icon control-icon" src="icons/ic_fan.svg" alt="" aria-hidden="true" /><strong>Ventilador</strong></div><span id="fanPowerLabel">0 %</span></div>
             <input id="fanPower" type="range" min="0" max="100" step="5" value="0" />
           </div>
 
           <div class="control-row block">
-            <div class="control-head"><strong>LED Grow</strong><span id="ledPowerLabel">0 %</span></div>
+            <div class="control-head"><div class="control-title"><img class="ui-icon control-icon" src="icons/ic_grow_led.svg" alt="" aria-hidden="true" /><strong>LED Grow</strong></div><span id="ledPowerLabel">0 %</span></div>
             <input id="ledPower" type="range" min="0" max="100" step="5" value="0" />
           </div>
 
           <div class="control-row pump-row">
-            <div><strong>Bomba de riego</strong><small id="pumpHint">Esperando telemetría</small></div>
-            <button id="pumpBtn" class="primary-btn">Regar 3 s</button>
+            <div class="control-title"><img class="ui-icon control-icon" src="icons/ic_pump.svg" alt="" aria-hidden="true" /><div><strong>Bomba de riego</strong><small id="pumpHint">Esperando telemetría</small></div></div>
+            <button id="pumpBtn" class="primary-btn"><img class="ui-icon button-icon dark-icon" src="icons/ic_pump.svg" alt="" aria-hidden="true" />Regar 3 s</button>
           </div>
         </article>
       </section>
@@ -92,8 +92,8 @@
         <header class="topbar history-topbar">
           <div><h2>Registros históricos</h2><p id="historyCount">Esperando registros históricos</p></div>
           <div class="history-actions">
-            <button id="historyRefreshBtn" class="secondary-btn"><span class="refresh-symbol" aria-hidden="true">↻</span> <span id="historyRefreshLabel">Actualizar historial</span></button>
-            <button id="historyExportBtn" class="secondary-btn">Exportar CSV</button>
+            <button id="historyRefreshBtn" class="secondary-btn"><img class="ui-icon refresh-symbol" src="icons/ic_refresh_animated.svg" alt="" aria-hidden="true" /><span id="historyRefreshLabel">Actualizar historial</span></button>
+            <button id="historyExportBtn" class="secondary-btn"><img class="ui-icon button-icon" src="icons/ic_history.svg" alt="" aria-hidden="true" />Exportar CSV</button>
           </div>
         </header>
 
@@ -105,7 +105,7 @@
 
         <article class="history-chart-panel">
           <header class="history-chart-header">
-            <div><span class="history-section-kicker">Tendencia</span><h3 id="historyChartTitle">Humedad del suelo</h3></div>
+            <div class="history-chart-title"><img id="historyChartIcon" class="ui-icon section-icon" src="icons/ic_soil_humidity.svg" alt="" aria-hidden="true" /><div><span class="history-section-kicker">Tendencia</span><h3 id="historyChartTitle">Humedad del suelo</h3></div></div>
             <label class="history-select-label">Métrica
               <select id="historyMetric">
                 <option value="soil_humidity" selected>Humedad del suelo</option>
@@ -147,8 +147,8 @@
           </div>
           <div id="diagnosticSummaryCounts" class="diagnostic-summary-counts"></div>
           <div class="diagnostic-actions">
-            <button id="diagnosticsRefreshBtn" class="secondary-btn"><span class="refresh-symbol" aria-hidden="true">↻</span> <span id="diagnosticsRefreshLabel">Actualizar diagnóstico</span></button>
-            <button id="copyDiagnosticsBtn" class="secondary-btn">Copiar reporte técnico</button>
+            <button id="diagnosticsRefreshBtn" class="secondary-btn"><img class="ui-icon refresh-symbol" src="icons/ic_refresh_animated.svg" alt="" aria-hidden="true" /><span id="diagnosticsRefreshLabel">Actualizar diagnóstico</span></button>
+            <button id="copyDiagnosticsBtn" class="secondary-btn"><img class="ui-icon button-icon" src="icons/ic_info.svg" alt="" aria-hidden="true" />Copiar reporte técnico</button>
           </div>
         </article>
         <div id="diagnosticGroups" class="diagnostic-groups"></div>
@@ -159,7 +159,7 @@
   <dialog id="historyExportDialog" class="history-export-dialog" aria-labelledby="historyExportTitle">
     <form id="historyExportForm" method="dialog">
       <header class="history-export-header">
-        <div><span class="history-section-kicker">Exportación personalizada</span><h2 id="historyExportTitle">Elegir datos del CSV</h2></div>
+        <div class="history-export-title"><img class="ui-icon section-icon" src="icons/ic_history.svg" alt="" aria-hidden="true" /><div><span class="history-section-kicker">Exportación personalizada</span><h2 id="historyExportTitle">Elegir datos del CSV</h2></div></div>
         <button class="dialog-close" type="submit" value="cancel" aria-label="Cerrar exportación">×</button>
       </header>
 
