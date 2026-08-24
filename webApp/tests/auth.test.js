@@ -103,6 +103,27 @@ test('Google y GitHub siempre permiten elegir la cuenta antes de continuar', asy
   assert.match(source, /queryParams: \{ prompt: 'select_account' \}/);
 });
 
+test('el retorno OAuth de Android vuelve al APK y no renderiza el portal web', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const bridge = await readFile(new URL('../android-auth-return.js', import.meta.url), 'utf8');
+  const nativeAuth = await readFile(
+    new URL('../../app/src/main/java/com/example/ecosphere/auth/NativeAuthViewModel.kt', import.meta.url),
+    'utf8',
+  );
+  const nativeSupabase = await readFile(
+    new URL('../../app/src/main/java/com/example/ecosphere/auth/NativeSupabase.kt', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(html, /<script src="android-auth-return\\.js"><\\/script>/);
+  assert.match(bridge, /ecosphere_client.*android/);
+  assert.match(bridge, /new URL\\('ecosphere:\\/\\/auth-callback'\\)/);
+  assert.match(bridge, /location\\.replace\\(callback\\.toString\\(\\)\\)/);
+  assert.match(nativeSupabase, /ANDROID_OAUTH_RETURN_URL/);
+  assert.match(nativeSupabase, /\\?ecosphere_client=android/);
+  assert.match(nativeAuth, /redirectUrl = NativeSupabase\\.ANDROID_OAUTH_RETURN_URL/);
+});
+
 test('el administrador reservado se crea aprobado sin inventar datos personales', async () => {
   const migration = await readFile(
     new URL('../../supabase/migrations/20260824085600_bootstrap_reserved_admin_profile.sql', import.meta.url),
