@@ -91,11 +91,11 @@ jobs:
           chmod +x gradlew
           ./gradlew :sharedCore:test :app:testDebugUnitTest :app:assembleDebug --stacktrace --no-daemon
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/EcoSphere-1.4.3-Android.apk
+          cp app/build/outputs/apk/debug/app-debug.apk dist/EcoSphere-1.4.4-Android.apk
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: release-android
-          path: dist/EcoSphere-1.4.3-Android.apk
+          path: dist/EcoSphere-1.4.4-Android.apk
           if-no-files-found: error
 
   release:
@@ -116,15 +116,15 @@ jobs:
         run: |
           test -s dist/EcoSphere-1.4.3-Windows-x64.msi
           test -s dist/EcoSphere-1.4.3-Linux-amd64.deb
-          test -s dist/EcoSphere-1.4.3-Android.apk
+          test -s dist/EcoSphere-1.4.4-Android.apk
           sha256sum dist/* > dist/SHA256SUMS.txt
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: v1.4.3
+          RELEASE_TAG: v1.4.4
         run: |
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$RELEASE_TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "EcoSphere 1.4.3" --notes "Instaladores oficiales para Windows, Linux y Android. Android recupera una experiencia móvil nativa con acceso sin formato de portal web, registro independiente, navegación inferior y pantalla de cuenta. Las interfaces web, móvil y de escritorio quedan separadas por plataforma."
+            gh release create "$RELEASE_TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "EcoSphere 1.4.4" --notes "Corrección de Android: después de iniciar sesión con Google o GitHub, el navegador vuelve automáticamente al APK nativo en vez de abrir el panel web. Se mantienen sin cambios las aplicaciones de Windows y Linux 1.4.3."
           fi

@@ -1,9 +1,10 @@
-const CACHE = 'ecosphere-web-v1.6.3-platform-ui-separation';
+const CACHE = 'ecosphere-web-v1.6.4-android-oauth-return';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
+  './android-auth-return.js',
   './manifest.webmanifest',
   './icon.svg',
   './icon-192.png',
