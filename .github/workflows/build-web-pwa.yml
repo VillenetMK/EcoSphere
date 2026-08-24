@@ -45,11 +45,11 @@ jobs:
           cp webApp/icon-192.png webApp/icon-512.png dist/
           touch dist/.nojekyll
           cd dist
-          zip -r ../EcoSphere-1.2.0-Web-PWA.zip .
+          zip -r ../EcoSphere-1.2.1-Web-PWA.zip .
       - uses: actions/upload-artifact@v4
         with:
           name: EcoSphere-Web-PWA
-          path: EcoSphere-1.2.0-Web-PWA.zip
+          path: EcoSphere-1.2.1-Web-PWA.zip
           if-no-files-found: error
           retention-days: 30
       - name: Upload Pages artifact

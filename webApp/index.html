@@ -28,7 +28,7 @@
       </nav>
 
       <button id="installBtn" class="install-btn" hidden>Instalar EcoSphere</button>
-      <div class="version">EcoSphere Web 1.2.0</div>
+      <div class="version">EcoSphere Web 1.2.1</div>
     </aside>
 
     <main class="main">
@@ -155,6 +155,57 @@
       </section>
     </main>
   </div>
+
+  <dialog id="historyExportDialog" class="history-export-dialog" aria-labelledby="historyExportTitle">
+    <form id="historyExportForm" method="dialog">
+      <header class="history-export-header">
+        <div><span class="history-section-kicker">Exportación personalizada</span><h2 id="historyExportTitle">Elegir datos del CSV</h2></div>
+        <button class="dialog-close" type="submit" value="cancel" aria-label="Cerrar exportación">×</button>
+      </header>
+
+      <div class="history-export-grid">
+        <label>Desde
+          <input id="historyExportFrom" type="datetime-local" step="1" />
+        </label>
+        <label>Hasta
+          <input id="historyExportTo" type="datetime-local" step="1" />
+        </label>
+        <label>Tipo de registros
+          <select id="historyExportStatus">
+            <option value="all">Todos los registros</option>
+            <option value="alerts">Sólo advertencias</option>
+            <option value="abrupt">Sólo variaciones bruscas</option>
+            <option value="low-water">Sólo nivel de agua bajo</option>
+            <option value="partial">Sólo datos parciales</option>
+            <option value="complete">Sólo registros completos</option>
+          </select>
+        </label>
+      </div>
+
+      <fieldset class="history-export-columns">
+        <legend>Columnas que se incluirán</legend>
+        <div class="history-export-columns-tools"><button id="historyExportAllColumns" type="button">Todas</button><button id="historyExportNoColumns" type="button">Ninguna</button></div>
+        <div class="history-export-choices">
+          <label><input type="checkbox" name="historyExportColumn" value="created_at" checked /> Fecha y hora</label>
+          <label><input type="checkbox" name="historyExportColumn" value="temperature" checked /> Temperatura</label>
+          <label><input type="checkbox" name="historyExportColumn" value="air_humidity" checked /> Humedad del aire</label>
+          <label><input type="checkbox" name="historyExportColumn" value="soil_humidity" checked /> Humedad del suelo</label>
+          <label><input type="checkbox" name="historyExportColumn" value="light_lux" checked /> Iluminación</label>
+          <label><input type="checkbox" name="historyExportColumn" value="water_level" checked /> Nivel de agua</label>
+          <label><input type="checkbox" name="historyExportColumn" value="fan_power" checked /> Ventilador</label>
+          <label><input type="checkbox" name="historyExportColumn" value="led_power" checked /> LED Grow</label>
+          <label><input type="checkbox" name="historyExportColumn" value="pump_on" checked /> Bomba</label>
+          <label><input type="checkbox" name="historyExportColumn" value="history_status" checked /> Evaluación</label>
+        </div>
+      </fieldset>
+
+      <div id="historyExportPreview" class="history-export-preview" aria-live="polite"></div>
+      <footer class="history-export-footer">
+        <button class="secondary-btn" type="submit" value="cancel">Cancelar</button>
+        <button id="historyExportDownloadBtn" class="primary-btn" type="button">Descargar selección</button>
+      </footer>
+    </form>
+  </dialog>
 
   <script type="module" src="app.js"></script>
 </body>
