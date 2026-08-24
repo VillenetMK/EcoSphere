@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" color="#66FF7A" fill="none">
+  <defs>
+    <mask id="tux-cutouts">
+      <rect width="48" height="48" fill="white"/>
+      <ellipse cx="24" cy="15.5" rx="7.5" ry="6.5" fill="black"/>
+      <ellipse cx="24" cy="31.5" rx="8" ry="10.5" fill="black"/>
+    </mask>
+  </defs>
+  <path fill="currentColor" mask="url(#tux-cutouts)" d="M24 4.5c-7.8 0-12.1 6.9-10.7 16.4C8.5 24.8 5.5 30.7 5.5 36.2c0 4.4 3.4 7.3 7.5 7.3 3.8 0 6.6-1.9 11-1.9s7.2 1.9 11 1.9c4.1 0 7.5-2.9 7.5-7.3 0-5.5-3-11.4-7.8-15.3C36.1 11.4 31.8 4.5 24 4.5Z"/>
+  <circle cx="21" cy="15" r="1.5" fill="currentColor"/>
+  <circle cx="27" cy="15" r="1.5" fill="currentColor"/>
+  <path fill="currentColor" d="m19.8 19 4.2 3.3 4.2-3.3-4.2-1.8-4.2 1.8Z"/>
+</svg>

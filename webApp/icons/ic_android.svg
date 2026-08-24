@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" color="#66FF7A" fill="none">
+  <defs>
+    <mask id="android-eyes">
+      <rect width="48" height="48" fill="white"/>
+      <circle cx="18" cy="27" r="2" fill="black"/>
+      <circle cx="30" cy="27" r="2" fill="black"/>
+    </mask>
+  </defs>
+  <path fill="currentColor" mask="url(#android-eyes)" d="M7 36v-7c0-9.4 7.6-17 17-17s17 7.6 17 17v7H7Z"/>
+  <path d="m16.5 14-4-5M31.5 14l4-5" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+</svg>

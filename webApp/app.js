@@ -23,7 +23,6 @@ let latestRecord = null;
 let deviceControl = null;
 let historyRecords = [];
 let busy = false;
-let deferredInstallPrompt = null;
 let activeScreen = 'dashboard';
 let refreshing = false;
 let currentDiagnosticModel = null;
@@ -539,23 +538,14 @@ document.querySelectorAll('.nav-item').forEach(button => {
   });
 });
 
-window.addEventListener('beforeinstallprompt', event => {
-  event.preventDefault();
-  deferredInstallPrompt = event;
-  $('installBtn').hidden = false;
+const downloadsDialog = $('downloadsDialog');
+$('downloadsBtn').addEventListener('click', () => {
+  if (typeof downloadsDialog.showModal === 'function') downloadsDialog.showModal();
+  else downloadsDialog.setAttribute('open', '');
 });
-
-$('installBtn').addEventListener('click', async () => {
-  if (!deferredInstallPrompt) return;
-  deferredInstallPrompt.prompt();
-  await deferredInstallPrompt.userChoice;
-  deferredInstallPrompt = null;
-  $('installBtn').hidden = true;
-});
-
-window.addEventListener('appinstalled', () => {
-  deferredInstallPrompt = null;
-  $('installBtn').hidden = true;
+$('downloadsCloseBtn').addEventListener('click', () => downloadsDialog.close());
+downloadsDialog.addEventListener('click', event => {
+  if (event.target === downloadsDialog) downloadsDialog.close();
 });
 
 if ('serviceWorker' in navigator) {
