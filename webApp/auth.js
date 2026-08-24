@@ -99,10 +99,8 @@ function setProfileCompletionMode(session) {
   emailInput.type = enabled ? 'text' : 'email';
   emailInput.autocomplete = enabled ? 'off' : 'email';
   emailInput.value = '';
-  const provider = String(session?.user?.app_metadata?.provider ?? '').toLowerCase();
-  const providerName = provider === 'github' ? 'GitHub' : provider === 'google' ? 'Google' : 'el proveedor';
   emailInput.placeholder = enabled
-    ? `Correo verificado mediante ${providerName}`
+    ? 'usuario@ejemplo.com'
     : 'Ejemplo: usuario@ejemplo.com';
   document.getElementById('registerPasswordFields').hidden = enabled;
   document.getElementById('registerPasswordNote').hidden = enabled;
