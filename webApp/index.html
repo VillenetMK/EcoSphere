@@ -28,7 +28,7 @@
       </nav>
 
       <button id="installBtn" class="install-btn" hidden>Instalar EcoSphere</button>
-      <div class="version">EcoSphere Web 1.1.1</div>
+      <div class="version">EcoSphere Web 1.2.0</div>
     </aside>
 
     <main class="main">
@@ -89,8 +89,52 @@
       </section>
 
       <section id="history" class="screen">
-        <header class="topbar"><div><h2>Registros históricos</h2><p id="historyCount">Últimos registros</p></div></header>
-        <div class="table-wrap"><table><thead><tr><th>Fecha</th><th>Temperatura</th><th>H. aire</th><th>H. suelo</th><th>Luz</th><th>Agua</th></tr></thead><tbody id="historyBody"></tbody></table></div>
+        <header class="topbar history-topbar">
+          <div><h2>Registros históricos</h2><p id="historyCount">Esperando registros históricos</p></div>
+          <div class="history-actions">
+            <button id="historyRefreshBtn" class="secondary-btn"><span class="refresh-symbol" aria-hidden="true">↻</span> <span id="historyRefreshLabel">Actualizar historial</span></button>
+            <button id="historyExportBtn" class="secondary-btn">Exportar CSV</button>
+          </div>
+        </header>
+
+        <article id="historyNotice" class="history-notice severity-unknown" aria-live="polite">
+          <div><strong id="historyNoticeTitle">Evaluando el historial…</strong><p id="historyNoticeDetail">Esperando la primera consulta.</p></div>
+        </article>
+
+        <div id="historySummary" class="history-summary"></div>
+
+        <article class="history-chart-panel">
+          <header class="history-chart-header">
+            <div><span class="history-section-kicker">Tendencia</span><h3 id="historyChartTitle">Humedad del suelo</h3></div>
+            <label class="history-select-label">Métrica
+              <select id="historyMetric">
+                <option value="soil_humidity" selected>Humedad del suelo</option>
+                <option value="temperature">Temperatura</option>
+                <option value="air_humidity">Humedad del aire</option>
+                <option value="light_lux">Iluminación</option>
+              </select>
+            </label>
+          </header>
+          <div id="historyChartStats" class="history-chart-stats"></div>
+          <div id="historyChart" class="history-chart"></div>
+        </article>
+
+        <div class="history-table-header">
+          <div><h3>Detalle de registros</h3><p id="historyPageStatus">Sin registros</p></div>
+          <label class="history-select-label">Filas por página
+            <select id="historyPageSize">
+              <option value="25" selected>25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+            </select>
+          </label>
+        </div>
+        <div class="table-wrap history-table-wrap"><table class="history-table"><thead><tr><th>Fecha</th><th>Temperatura</th><th>H. aire</th><th>H. suelo</th><th>Luz</th><th>Agua</th><th>Evaluación</th></tr></thead><tbody id="historyBody"></tbody></table></div>
+        <div class="history-pagination">
+          <button id="historyPrevBtn" class="secondary-btn">Anterior</button>
+          <span id="historyPageNumber">Página 1 de 1</span>
+          <button id="historyNextBtn" class="secondary-btn">Siguiente</button>
+        </div>
       </section>
 
       <section id="diagnostics" class="screen">
