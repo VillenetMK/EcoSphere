@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,9 +17,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -47,17 +43,15 @@ import kotlinx.coroutines.launch
 
 private val MobileNavigationGreen = Color(0xFF66FF7A)
 private val MobileNavigationSurface = Color(0xFF101914)
-private val MobileNavigationIndicator = Color(0xFF203729)
 
 private enum class MobileDestination(
-    val compactLabel: String,
     val menuLabel: String,
     val icon: ImageVector
 ) {
-    DASHBOARD("Inicio", "Panel principal", EcoSphereIcons.Dashboard),
-    HISTORY("Historial", "Registros históricos", EcoSphereIcons.History),
-    DIAGNOSTICS("Diagnóstico", "Diagnóstico del sistema", EcoSphereIcons.Diagnostics),
-    ACCOUNT("Cuenta", "Cuenta", EcoSphereIcons.Settings)
+    DASHBOARD("Panel principal", EcoSphereIcons.Dashboard),
+    HISTORY("Registros históricos", EcoSphereIcons.History),
+    DIAGNOSTICS("Diagnóstico del sistema", EcoSphereIcons.Diagnostics),
+    ACCOUNT("Cuenta", EcoSphereIcons.Settings)
 }
 
 @Composable
@@ -119,9 +113,7 @@ fun MobileEcoSphereApp(
                     )
                     Spacer(Modifier.height(8.dp))
 
-                    MobileDestination.entries
-                        .filter { it != MobileDestination.ACCOUNT }
-                        .forEach { item ->
+                    MobileDestination.entries.forEach { item ->
                             NavigationDrawerItem(
                                 selected = item == destination,
                                 onClick = {
@@ -155,40 +147,7 @@ fun MobileEcoSphereApp(
     ) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
-            containerColor = MaterialTheme.colorScheme.background,
-            bottomBar = {
-                NavigationBar(
-                    modifier = Modifier.navigationBarsPadding(),
-                    containerColor = MobileNavigationSurface,
-                    tonalElevation = 0.dp
-                ) {
-                    MobileDestination.entries.forEach { item ->
-                        val selected = item == destination
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = { destinationName = item.name },
-                            icon = {
-                                Icon(
-                                    imageVector = item.icon,
-                                    contentDescription = item.compactLabel,
-                                    tint = Color.Unspecified
-                                )
-                            },
-                            label = {
-                                Text(
-                                    text = item.compactLabel,
-                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
-                                )
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedTextColor = MobileNavigationGreen,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                indicatorColor = MobileNavigationIndicator
-                            )
-                        )
-                    }
-                }
-            }
+            containerColor = MaterialTheme.colorScheme.background
         ) { innerPadding ->
             Column(
                 modifier = Modifier
