@@ -156,7 +156,7 @@
         <span id="currentUserRole">Acceso autorizado</span>
         <button type="button" data-auth-signout>Cerrar sesión</button>
       </div>
-      <div class="version">EcoSphere Web 1.5.1</div>
+      <div class="version">EcoSphere Web 1.6.0</div>
     </aside>
 
     <main class="main">
@@ -305,6 +305,22 @@
           </div>
         </article>
         <div id="diagnosticGroups" class="diagnostic-groups"></div>
+        <section id="controllerPairingPanel" class="controller-pairing-panel" hidden>
+          <div class="controller-pairing-copy">
+            <span class="history-section-kicker">Sólo administradores · requiere autenticador</span>
+            <h3>Controlador ESP32 reemplazable</h3>
+            <strong id="controllerStatusTitle">Consultando controlador…</strong>
+            <p id="controllerStatusDetail">El historial y las órdenes pertenecen al sistema, no a una placa específica.</p>
+          </div>
+          <form id="controllerPairingForm" class="controller-pairing-form">
+            <label for="controllerPairingCode">Código mostrado por el ESP32</label>
+            <div>
+              <input id="controllerPairingCode" name="controllerPairingCode" type="text" inputmode="text" autocomplete="off" maxlength="14" placeholder="ABCD-EF12-3456" required />
+              <button id="replaceControllerBtn" class="primary-btn" type="submit">Usar como reemplazo</button>
+            </div>
+            <small>El controlador anterior pasará a reserva y dejará de enviar datos.</small>
+          </form>
+        </section>
       </section>
     </main>
   </div>
@@ -321,19 +337,19 @@
       </header>
 
       <div class="platform-downloads">
-        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/latest/download/EcoSphere-1.3.0-Windows-x64.msi">
+        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/latest/download/EcoSphere-1.4.0-Windows-x64.msi">
           <img class="platform-icon" src="icons/ic_windows.svg" alt="" aria-hidden="true" />
-          <div><strong>Windows</strong><span>Windows 10/11 · x64</span><small>Instalador MSI · versión 1.3.0</small></div>
+          <div><strong>Windows</strong><span>Windows 10/11 · x64</span><small>Instalador MSI · versión 1.4.0</small></div>
           <span class="platform-action">Descargar MSI</span>
         </a>
-        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/latest/download/EcoSphere-1.3.0-Linux-amd64.deb">
+        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/latest/download/EcoSphere-1.4.0-Linux-amd64.deb">
           <img class="platform-icon" src="icons/ic_linux.svg" alt="" aria-hidden="true" />
-          <div><strong>Linux</strong><span>Ubuntu/Debian · amd64</span><small>Paquete DEB · versión 1.3.0</small></div>
+          <div><strong>Linux</strong><span>Ubuntu/Debian · amd64</span><small>Paquete DEB · versión 1.4.0</small></div>
           <span class="platform-action">Descargar DEB</span>
         </a>
-        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/latest/download/EcoSphere-1.3.0-Android.apk">
+        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/latest/download/EcoSphere-1.4.0-Android.apk">
           <img class="platform-icon" src="icons/ic_android.svg" alt="" aria-hidden="true" />
-          <div><strong>Android</strong><span>Android 7 o posterior</span><small>Archivo APK · versión 1.3.0</small></div>
+          <div><strong>Android</strong><span>Android 7 o posterior</span><small>Archivo APK · versión 1.4.0</small></div>
           <span class="platform-action">Descargar APK</span>
         </a>
       </div>

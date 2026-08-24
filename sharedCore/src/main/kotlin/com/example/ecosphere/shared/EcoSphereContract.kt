@@ -51,6 +51,15 @@ data class DeviceControl(
     )
 }
 
+data class ControllerAdminStatus(
+    @SerializedName("controller_id") val controllerId: Long? = null,
+    @SerializedName("hardware_uid_masked") val hardwareUidMasked: String? = null,
+    @SerializedName("controller_status") val controllerStatus: String = "not_paired",
+    @SerializedName("firmware_version") val firmwareVersion: String? = null,
+    @SerializedName("last_seen_at") val lastSeenAt: String? = null,
+    @SerializedName("secure_mode") val secureMode: Boolean = false
+)
+
 data class HistoryMonthSummary(
     @SerializedName("month_key") val monthKey: String,
     @SerializedName("first_record") val firstRecord: String? = null,

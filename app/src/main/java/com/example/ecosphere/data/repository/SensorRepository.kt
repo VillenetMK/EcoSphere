@@ -1,6 +1,7 @@
 package com.example.ecosphere.data.repository
 
 import com.example.ecosphere.data.model.DeviceControl
+import com.example.ecosphere.data.model.ControllerAdminStatus
 import com.example.ecosphere.data.model.HistoryMonthSummary
 import com.example.ecosphere.data.model.SensorRecord
 import com.example.ecosphere.data.network.SupabaseApi
@@ -57,6 +58,21 @@ class SensorRepository(
         return api.getDeviceControl(
             apiKey = apiKey,
             authorization = authorization()
+        ).firstOrNull()
+    }
+
+    suspend fun getControllerAdminStatus(): ControllerAdminStatus? {
+        return api.getControllerAdminStatus(
+            apiKey = apiKey,
+            authorization = authorization()
+        ).firstOrNull()
+    }
+
+    suspend fun replaceActiveController(pairingCode: String): ControllerAdminStatus? {
+        return api.replaceActiveController(
+            apiKey = apiKey,
+            authorization = authorization(),
+            body = mapOf("p_pairing_code" to pairingCode.trim())
         ).firstOrNull()
     }
 

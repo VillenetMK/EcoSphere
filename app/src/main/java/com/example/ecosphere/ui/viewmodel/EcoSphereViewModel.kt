@@ -173,6 +173,46 @@ class EcoSphereViewModel(
         refreshDashboard()
     }
 
+    fun refreshControllerStatus() {
+        viewModelScope.launch {
+            try {
+                uiState = uiState.copy(
+                    controllerStatus = repository.getControllerAdminStatus(),
+                    controllerMessage = null
+                )
+            } catch (e: Exception) {
+                uiState = uiState.copy(
+                    controllerMessage = e.message ?: "No se pudo consultar el controlador"
+                )
+            }
+        }
+    }
+
+    fun replaceActiveController(pairingCode: String) {
+        if (pairingCode.replace("-", "").length != 12) {
+            uiState = uiState.copy(controllerMessage = "Ingresa el código completo del ESP32.")
+            return
+        }
+
+        viewModelScope.launch {
+            uiState = uiState.copy(isReplacingController = true, controllerMessage = null)
+            try {
+                val status = repository.replaceActiveController(pairingCode)
+                uiState = uiState.copy(
+                    isReplacingController = false,
+                    controllerStatus = status ?: repository.getControllerAdminStatus(),
+                    deviceControl = repository.getDeviceControl(),
+                    controllerMessage = "Controlador reemplazado sin perder historial ni configuración."
+                )
+            } catch (e: Exception) {
+                uiState = uiState.copy(
+                    isReplacingController = false,
+                    controllerMessage = e.message ?: "No se pudo reemplazar el controlador"
+                )
+            }
+        }
+    }
+
     fun setAutoMode(enabled: Boolean) {
         val message = if (enabled) "Modo automático activado" else "Modo automático desactivado"
         updateControl(message) {
