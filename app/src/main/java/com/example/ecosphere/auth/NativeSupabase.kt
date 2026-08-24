@@ -8,6 +8,9 @@ import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
 
 object NativeSupabase {
+    const val ANDROID_OAUTH_RETURN_URL =
+        "https://villenetmk.github.io/EcoSphere/?ecosphere_client=android"
+
     val client = createSupabaseClient(
         supabaseUrl = EcoSphereConfig.SUPABASE_URL,
         supabaseKey = EcoSphereConfig.SUPABASE_PUBLISHABLE_KEY
