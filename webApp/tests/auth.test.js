@@ -23,7 +23,8 @@ test('normaliza DNI y teléfonos peruanos sin inventar dígitos', () => {
 test('acepta una identidad completa y rechaza datos incompletos', () => {
   const valid = validateIdentityFields({
     username: 'VillenetADMIN',
-    fullName: 'Gabriel Villenet Montero',
+    firstName: 'María José',
+    lastName: 'Pérez de la Cruz',
     dni: '12345678',
     phone: '999888777',
     email: 'usuario@example.com',
@@ -31,9 +32,9 @@ test('acepta una identidad completa y rechaza datos incompletos', () => {
   assert.equal(valid.valid, true);
   assert.equal(valid.values.phone, '+51999888777');
 
-  const invalid = validateIdentityFields({ username: 'x', fullName: 'Gabriel', dni: '123', phone: '99', email: 'correo' });
+  const invalid = validateIdentityFields({ username: 'x', firstName: '1', lastName: '', dni: '123', phone: '99', email: 'correo' });
   assert.equal(invalid.valid, false);
-  assert.deepEqual(Object.keys(invalid.errors).sort(), ['dni', 'email', 'fullName', 'phone', 'username']);
+  assert.deepEqual(Object.keys(invalid.errors).sort(), ['dni', 'email', 'firstName', 'lastName', 'phone', 'username']);
 });
 
 test('exige una contraseña larga y su confirmación exacta', () => {
@@ -44,7 +45,7 @@ test('exige una contraseña larga y su confirmación exacta', () => {
 
 test('el registro contiene los campos obligatorios y los proveedores aprobados', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
-  for (const id of ['registerUsername', 'registerFullName', 'registerDni', 'registerPhone', 'registerEmail', 'registerPassword', 'registerPasswordConfirmation']) {
+  for (const id of ['registerUsername', 'registerFirstName', 'registerLastName', 'registerDni', 'registerPhone', 'registerEmail', 'registerPassword', 'registerPasswordConfirmation']) {
     assert.match(html, new RegExp(`id="${id}"`));
   }
   assert.match(html, /data-oauth-provider="google"/);
@@ -53,6 +54,23 @@ test('el registro contiene los campos obligatorios y los proveedores aprobados',
   assert.match(html, /id="mfaCode"/);
   assert.match(html, /Google Authenticator/);
   assert.match(html, /id="loginIdentifier"/);
+});
+
+test('nombres y apellidos se guardan por separado sin pedir contraseña en OAuth', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
+  const migration = await readFile(
+    new URL('../../supabase/migrations/20260824084354_separate_profile_names.sql', import.meta.url),
+    'utf8',
+  );
+  assert.match(html, /id="registerFirstName"[^>]*autocomplete="given-name"/);
+  assert.match(html, /id="registerLastName"[^>]*autocomplete="family-name"/);
+  assert.match(source, /p_first_name: pending\.firstName/);
+  assert.match(source, /p_last_name: pending\.lastName/);
+  assert.match(source, /registerPasswordFields'\)\.hidden = enabled/);
+  assert.match(migration, /add column first_name text/);
+  assert.match(migration, /add column last_name text/);
+  assert.match(migration, /user_profiles_name_consistency/);
 });
 
 
