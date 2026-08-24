@@ -15,6 +15,7 @@ test('Android usa un shell y una autenticación exclusivamente móviles', async 
   const mainActivity = await source('app/src/main/java/com/example/ecosphere/MainActivity.kt');
   const mobileShell = await source('app/src/main/java/com/example/ecosphere/ui/mobile/MobileEcoSphereApp.kt');
   const mobileAuth = await source('app/src/main/java/com/example/ecosphere/ui/mobile/MobileAuthScreen.kt');
+  const dashboard = await source('app/src/main/java/com/example/ecosphere/ui/screens/InteractiveDashboardScreen.kt');
 
   assert.match(mainActivity, /ui\.mobile\.MobileEcoSphereApp/);
   assert.match(mainActivity, /ui\.mobile\.MobileAuthScreen/);
@@ -28,6 +29,12 @@ test('Android usa un shell y una autenticación exclusivamente móviles', async 
   assert.doesNotMatch(mobileShell, /filter \{ it != MobileDestination\.ACCOUNT/);
   assert.doesNotMatch(mobileAuth, /ECOSPHERE CONTROL/);
   assert.doesNotMatch(mobileAuth, /La vida puede prosperar/);
+  assert.match(dashboard, /EcoSphereIcons\.Esp32/);
+  assert.match(dashboard, /EcoSphereIcons\.History/);
+  assert.match(dashboard, /DashboardControlIcons\.ManualMode/);
+  assert.match(dashboard, /DashboardControlIcons\.AutoMode/);
+  assert.match(dashboard, /DashboardControlIcons\.triggerRefreshAnimation/);
+  assert.match(dashboard, /heightIn\(min = 88\.dp\)/);
 });
 
 test('cada plataforma conserva una entrada visual independiente', async () => {
