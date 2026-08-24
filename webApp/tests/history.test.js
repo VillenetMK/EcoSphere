@@ -106,3 +106,19 @@ test('el CSV contiene únicamente las columnas seleccionadas', () => {
   assert.match(csv, /Humedad suelo %/);
   assert.doesNotMatch(csv, /Temperatura|Evaluación|Nivel de agua/);
 });
+
+test('neutraliza fórmulas y caracteres de control en celdas CSV', () => {
+  const prefixes = ['=', '+', '-', '@', '\t', '\r', '\n', '  ='];
+  for (const prefix of prefixes) {
+    const csv = historyCsv([record(0, { water_level: `${prefix}HYPERLINK("https://example.invalid")` })], {
+      columns: ['water_level'],
+    });
+    const exportedCell = csv.split('\r\n')[1];
+    assert.ok(exportedCell.startsWith('"\''), `prefijo no neutralizado: ${JSON.stringify(prefix)}`);
+  }
+});
+
+test('mantiene sin cambios el contenido CSV legítimo', () => {
+  const csv = historyCsv([record(0, { water_level: 'low' })], { columns: ['water_level'] });
+  assert.equal(csv.split('\r\n')[1], '"low"');
+});
