@@ -13,6 +13,7 @@ import {
   buildHistoryChart,
   historyCsv,
   paginateHistory,
+  prepareHistoryExport,
 } from './history.js';
 
 const BASE_URL = 'https://kslzmrddrhfyyrxyfmbw.supabase.co';
@@ -212,7 +213,7 @@ function renderHistory() {
 function historyReading(value, unit, decimals = 1) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return '<span class="missing-reading">Sin dato</span>';
-}
+  }
   return `${escapeHtml(Number(value).toFixed(decimals))} ${escapeHtml(unit)}`;
 }
 
@@ -367,14 +368,73 @@ $('historyExportBtn').addEventListener('click', () => {
     toast('No hay registros para exportar.');
     return;
   }
-  const blob = new Blob([`\ufeff${historyCsv(historyRecords)}`], { type: 'text/csv;charset=utf-8' });
+  const analysis = analyzeHistory(historyRecords);
+  $('historyExportFrom').value = localDateTimeInput(analysis.oldestAt);
+  $('historyExportTo').value = localDateTimeInput(analysis.newestAt, true);
+  $('historyExportStatus').value = 'all';
+  document.querySelectorAll('input[name="historyExportColumn"]').forEach(input => { input.checked = true; });
+  updateHistoryExportPreview();
+  const dialog = $('historyExportDialog');
+  if (typeof dialog.showModal === 'function') dialog.showModal();
+  else dialog.setAttribute('open', '');
+});
+
+function localDateTimeInput(value, roundUp = false) {
+  if (value === null || value === undefined) return '';
+  const date = new Date(Number(value) + (roundUp ? 1000 : 0));
+  if (Number.isNaN(date.getTime())) return '';
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 19);
+}
+
+function historyExportOptions() {
+  const fromValue = $('historyExportFrom').value;
+  const toValue = $('historyExportTo').value;
+  return {
+    from: fromValue ? new Date(fromValue).toISOString() : null,
+    to: toValue ? new Date(toValue).toISOString() : null,
+    status: $('historyExportStatus').value,
+    columns: [...document.querySelectorAll('input[name="historyExportColumn"]:checked')].map(input => input.value),
+  };
+}
+
+function updateHistoryExportPreview() {
+  const options = historyExportOptions();
+  const selection = prepareHistoryExport(historyRecords, options);
+  const preview = $('historyExportPreview');
+  if (!selection.columns.length) {
+    preview.innerHTML = '<strong>Selecciona al menos una columna.</strong><span>No se generará ningún archivo hasta elegirla.</span>';
+  } else if (!selection.records.length) {
+    preview.innerHTML = '<strong>No hay registros con esos filtros.</strong><span>Cambia el rango o el tipo de registro.</span>';
+  } else {
+    preview.innerHTML = `<strong>${selection.records.length} registros listos</strong><span>${selection.columns.length} columnas serán incluidas en el CSV.</span>`;
+  }
+  $('historyExportDownloadBtn').disabled = !selection.records.length || !selection.columns.length;
+}
+
+$('historyExportForm').addEventListener('input', updateHistoryExportPreview);
+$('historyExportForm').addEventListener('change', updateHistoryExportPreview);
+$('historyExportAllColumns').addEventListener('click', () => {
+  document.querySelectorAll('input[name="historyExportColumn"]').forEach(input => { input.checked = true; });
+  updateHistoryExportPreview();
+});
+$('historyExportNoColumns').addEventListener('click', () => {
+  document.querySelectorAll('input[name="historyExportColumn"]').forEach(input => { input.checked = false; });
+  updateHistoryExportPreview();
+});
+$('historyExportDownloadBtn').addEventListener('click', () => {
+  const options = historyExportOptions();
+  const selection = prepareHistoryExport(historyRecords, options);
+  if (!selection.records.length || !selection.columns.length) return;
+  const blob = new Blob([`\ufeff${historyCsv(historyRecords, options)}`], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
   link.download = `EcoSphere-historial-${new Date().toISOString().slice(0, 10)}.csv`;
   link.click();
-  URL.revokeObjectURL(url);
-  toast('Historial exportado en CSV.');
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+  $('historyExportDialog').close();
+  toast(`${selection.records.length} registros exportados en CSV.`);
 });
 $('diagnosticsRefreshBtn').addEventListener('click', () => refresh({ manual: true }));
 $('copyDiagnosticsBtn').addEventListener('click', async () => {

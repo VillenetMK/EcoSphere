@@ -12,6 +12,19 @@ export const HISTORY_METRICS = Object.freeze([
   { field: 'light_lux', label: 'Iluminación', unit: 'lux', decimals: 1 },
 ]);
 
+export const HISTORY_EXPORT_COLUMNS = Object.freeze([
+  { field: 'created_at', label: 'Fecha ISO' },
+  { field: 'temperature', label: 'Temperatura °C' },
+  { field: 'air_humidity', label: 'Humedad aire %' },
+  { field: 'soil_humidity', label: 'Humedad suelo %' },
+  { field: 'light_lux', label: 'Iluminación lux' },
+  { field: 'water_level', label: 'Nivel de agua' },
+  { field: 'fan_power', label: 'Ventilador %' },
+  { field: 'led_power', label: 'LED Grow %' },
+  { field: 'pump_on', label: 'Bomba encendida' },
+  { field: 'history_status', label: 'Evaluación' },
+]);
+
 const SENSOR_FIELDS = ['temperature', 'air_humidity', 'soil_humidity', 'light_lux'];
 const VALID_WATER_LEVELS = new Set(['high', 'low']);
 
@@ -180,24 +193,38 @@ function csvCell(value) {
   return `"${text.replaceAll('"', '""')}"`;
 }
 
-export function historyCsv(records) {
+export function prepareHistoryExport(records, options = {}) {
   const analyzed = analyzeHistory(records);
-  const headers = [
-    'Fecha ISO', 'Temperatura °C', 'Humedad aire %', 'Humedad suelo %',
-    'Iluminación lux', 'Nivel de agua', 'Ventilador %', 'LED Grow %',
-    'Bomba encendida', 'Evaluación',
-  ];
-  const rows = analyzed.records.map(record => [
-    record.created_at,
-    record.temperature,
-    record.air_humidity,
-    record.soil_humidity,
-    record.light_lux,
-    record.water_level,
-    record.fan_power,
-    record.led_power,
-    record.pump_on,
-    record.historyStatus.label,
-  ]);
+  const requestedColumns = Array.isArray(options.columns)
+    ? new Set(options.columns)
+    : new Set(HISTORY_EXPORT_COLUMNS.map(column => column.field));
+  const columns = HISTORY_EXPORT_COLUMNS.filter(column => requestedColumns.has(column.field));
+  const from = options.from ? timestamp(options.from) : null;
+  const to = options.to ? timestamp(options.to) : null;
+  const inclusiveTo = to === null ? null : to + 999;
+  const status = options.status ?? 'all';
+  const filteredRecords = analyzed.records.filter(record => {
+    const recordedAt = timestamp(record.created_at);
+    if (from !== null && (recordedAt === null || recordedAt < from)) return false;
+    if (inclusiveTo !== null && (recordedAt === null || recordedAt > inclusiveTo)) return false;
+    if (status === 'alerts' && record.historyStatus.severity !== 'warning') return false;
+    if (status === 'abrupt' && record.historyStatus.code !== 'abrupt-soil-change') return false;
+    if (status === 'low-water' && String(record.water_level ?? '').toLowerCase() !== 'low') return false;
+    if (status === 'partial' && record.availableReadings === 5) return false;
+    if (status === 'complete' && record.availableReadings !== 5) return false;
+    return true;
+  });
+  return { records: filteredRecords, columns };
+}
+
+function exportValue(record, field) {
+  if (field === 'history_status') return record.historyStatus.label;
+  return record[field];
+}
+
+export function historyCsv(records, options = {}) {
+  const selection = prepareHistoryExport(records, options);
+  const headers = selection.columns.map(column => column.label);
+  const rows = selection.records.map(record => selection.columns.map(column => exportValue(record, column.field)));
   return [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n');
 }

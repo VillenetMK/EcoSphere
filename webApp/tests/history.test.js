@@ -6,6 +6,7 @@ import {
   historyCsv,
   isAbruptSoilChange,
   paginateHistory,
+  prepareHistoryExport,
 } from '../history.js';
 
 const NOW = Date.parse('2026-08-23T20:00:00.000Z');
@@ -76,4 +77,32 @@ test('exporta CSV con evaluación y sin claves de acceso', () => {
   assert.match(csv, /Fecha ISO/);
   assert.match(csv, /AGUA BAJA/);
   assert.doesNotMatch(csv, /apikey|Bearer|sb_publishable/);
+});
+
+test('permite elegir rango, tipo de registro y columnas para exportar', () => {
+  const records = [
+    record(10, { soil_humidity: 100 }),
+    record(5, { soil_humidity: 0 }),
+    record(0, { water_level: 'high', temperature: 23, air_humidity: 50, light_lux: 300 }),
+  ];
+  const selection = prepareHistoryExport(records, {
+    from: record(5).created_at,
+    to: record(10).created_at,
+    status: 'abrupt',
+    columns: ['created_at', 'soil_humidity', 'history_status'],
+  });
+  assert.equal(selection.records.length, 2);
+  assert.deepEqual(selection.columns.map(column => column.field), ['created_at', 'soil_humidity', 'history_status']);
+});
+
+test('filtra por nivel bajo aunque la evaluación priorice una variación brusca', () => {
+  const records = [record(10, { soil_humidity: 100 }), record(5, { soil_humidity: 0 })];
+  assert.equal(prepareHistoryExport(records, { status: 'low-water' }).records.length, 2);
+});
+
+test('el CSV contiene únicamente las columnas seleccionadas', () => {
+  const csv = historyCsv([record(0)], { columns: ['created_at', 'soil_humidity'] });
+  assert.match(csv, /Fecha ISO/);
+  assert.match(csv, /Humedad suelo %/);
+  assert.doesNotMatch(csv, /Temperatura|Evaluación|Nivel de agua/);
 });
