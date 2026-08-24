@@ -7,6 +7,13 @@ import {
   waterLevelLabel,
 } from './control-policy.js';
 import { buildDiagnosticModel, technicalReport } from './diagnostics.js';
+import {
+  HISTORY_CONFIG,
+  analyzeHistory,
+  buildHistoryChart,
+  historyCsv,
+  paginateHistory,
+} from './history.js';
 
 const BASE_URL = 'https://kslzmrddrhfyyrxyfmbw.supabase.co';
 const API_KEY = 'sb_publishable_oHQqSvres8b5l0qgcpXJ2w_9A33lfg3';
@@ -19,6 +26,10 @@ let deferredInstallPrompt = null;
 let activeScreen = 'dashboard';
 let refreshing = false;
 let currentDiagnosticModel = null;
+let lastHistoryLoadedAt = 0;
+let historyPage = 1;
+let historyPageSize = HISTORY_CONFIG.defaultPageSize;
+let historyMetric = 'soil_humidity';
 
 const $ = (id) => document.getElementById(id);
 
@@ -60,6 +71,7 @@ async function loadLatest() {
 
 async function loadHistory() {
   historyRecords = await apiGet('rest/v1/sensor_records?select=*&order=created_at.desc&limit=200');
+  lastHistoryLoadedAt = Date.now();
 }
 
 async function refresh({ manual = false } = {}) {
@@ -68,7 +80,9 @@ async function refresh({ manual = false } = {}) {
   if (manual) setRefreshLoading(true);
   try {
     await loadLatest();
-    if (activeScreen === 'history') await loadHistory();
+    if (activeScreen === 'history' && (manual || Date.now() - lastHistoryLoadedAt >= 30000)) {
+      await loadHistory();
+    }
     hideError();
     renderAll();
   } catch (error) {
@@ -143,17 +157,93 @@ function renderDashboard() {
 }
 
 function renderHistory() {
-  $('historyCount').textContent = `Últimos ${historyRecords.length} registros`;
-  $('historyBody').innerHTML = historyRecords.map(row => `
+  const analysis = analyzeHistory(historyRecords);
+  const pagination = paginateHistory(analysis.records, historyPage, historyPageSize);
+  historyPage = pagination.page;
+  $('historyCount').textContent = historyRecords.length
+    ? `${analysis.total} registros · última lectura ${analysis.newestAgeLabel}`
+    : 'Esperando registros históricos';
+
+  const notice = $('historyNotice');
+  notice.className = `history-notice ${analysis.stale ? 'severity-warning' : 'severity-normal'}`;
+  $('historyNoticeTitle').textContent = analysis.stale ? 'Historial sin datos recientes' : 'Historial actualizado';
+  $('historyNoticeDetail').textContent = analysis.total
+    ? analysis.stale
+      ? `La última lectura llegó ${analysis.newestAgeLabel}. Este historial sirve para análisis, pero no representa el estado actual.`
+      : 'Las lecturas más recientes están dentro del intervalo esperado.'
+    : 'Todavía no se han recibido registros para analizar.';
+
+  $('historySummary').innerHTML = [
+    ['Registros cargados', analysis.total, `Rango temporal: ${analysis.rangeLabel}`],
+    ['Datos disponibles', `${analysis.completeness} %`, `${analysis.completeRecords} registros completos`],
+    ['Agua baja', analysis.lowWaterRecords, analysis.lowWaterRecords ? 'Riego bloqueado en esos registros' : 'Sin eventos detectados'],
+    ['Saltos del suelo', analysis.abruptChanges, analysis.abruptChanges ? 'Cambios ≥ 40 puntos en ≤ 15 s' : 'Sin variaciones bruscas'],
+  ].map(([label, value, detail]) => `
+    <article class="history-summary-card">
+      <span>${escapeHtml(label)}</span>
+      <strong>${escapeHtml(value)}</strong>
+      <small>${escapeHtml(detail)}</small>
+    </article>
+  `).join('');
+
+  renderHistoryChart(analysis.records);
+  $('historyBody').innerHTML = pagination.items.map(row => `
     <tr>
-      <td>${escapeHtml(formatDate(row.created_at))}</td>
-      <td>${escapeHtml(formatNumber(row.temperature, '°C'))}</td>
-      <td>${escapeHtml(formatNumber(row.air_humidity, '%'))}</td>
-      <td>${escapeHtml(formatNumber(row.soil_humidity, '%'))}</td>
-      <td>${escapeHtml(formatNumber(row.light_lux, 'lx'))}</td>
+      <td class="history-date">${escapeHtml(formatDate(row.created_at))}</td>
+      <td>${historyReading(row.temperature, '°C')}</td>
+      <td>${historyReading(row.air_humidity, '%')}</td>
+      <td>${historyReading(row.soil_humidity, '%', 0)}</td>
+      <td>${historyReading(row.light_lux, 'lux')}</td>
       <td>${escapeHtml(waterLevelLabel(row.water_level))}</td>
+      <td>
+        <span class="history-row-status severity-${escapeHtml(row.historyStatus.severity)}">${escapeHtml(row.historyStatus.label)}</span>
+        <small class="history-row-detail">${escapeHtml(row.historyStatus.detail)}</small>
+      </td>
     </tr>
   `).join('');
+  $('historyPageStatus').textContent = analysis.total
+    ? `Mostrando ${pagination.from}–${pagination.to} de ${analysis.total}`
+    : 'Sin registros';
+  $('historyPageNumber').textContent = `Página ${pagination.page} de ${pagination.pageCount}`;
+  $('historyPrevBtn').disabled = pagination.page <= 1;
+  $('historyNextBtn').disabled = pagination.page >= pagination.pageCount;
+}
+
+function historyReading(value, unit, decimals = 1) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return '<span class="missing-reading">Sin dato</span>';
+}
+  return `${escapeHtml(Number(value).toFixed(decimals))} ${escapeHtml(unit)}`;
+}
+
+function renderHistoryChart(records) {
+  const chart = buildHistoryChart(records, historyMetric);
+  const format = value => value === null
+    ? '--'
+    : `${Number(value).toFixed(chart.metric.decimals)} ${chart.metric.unit}`;
+  $('historyChartTitle').textContent = chart.metric.label;
+  $('historyChartStats').innerHTML = [
+    ['Mínimo', format(chart.min)],
+    ['Promedio', format(chart.average)],
+    ['Máximo', format(chart.max)],
+  ].map(([label, value]) => `<span><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></span>`).join('');
+
+  if (!chart.points.length) {
+    $('historyChart').innerHTML = '<div class="history-chart-empty"><strong>Sin datos para esta métrica</strong><span>Selecciona otra lectura para visualizar su tendencia.</span></div>';
+    return;
+  }
+  const points = chart.points.map(point => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(' ');
+  const first = chart.points[0];
+  const last = chart.points.at(-1);
+  $('historyChart').innerHTML = `
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Tendencia de ${escapeHtml(chart.metric.label)}">
+      <line x1="4" y1="12" x2="96" y2="12" class="chart-grid-line" />
+      <line x1="4" y1="52" x2="96" y2="52" class="chart-grid-line" />
+      <line x1="4" y1="92" x2="96" y2="92" class="chart-grid-line" />
+      <polyline points="${points}" class="chart-line" />
+    </svg>
+    <div class="history-chart-axis"><span>${escapeHtml(formatDate(first.createdAt))}</span><span>${escapeHtml(formatDate(last.createdAt))}</span></div>
+  `;
 }
 
 function renderDiagnostics() {
@@ -229,6 +319,7 @@ function setBusy(value) {
 function setRefreshLoading(value) {
   [
     ['refreshBtn', 'refreshBtnLabel', 'Actualizar datos'],
+    ['historyRefreshBtn', 'historyRefreshLabel', 'Actualizar historial'],
     ['diagnosticsRefreshBtn', 'diagnosticsRefreshLabel', 'Actualizar diagnóstico'],
   ].forEach(([buttonId, labelId, idleLabel]) => {
     const button = $(buttonId);
@@ -253,6 +344,38 @@ async function updateControl(body) {
 }
 
 $('refreshBtn').addEventListener('click', () => refresh({ manual: true }));
+$('historyRefreshBtn').addEventListener('click', () => refresh({ manual: true }));
+$('historyMetric').addEventListener('change', event => {
+  historyMetric = event.target.value;
+  renderHistory();
+});
+$('historyPageSize').addEventListener('change', event => {
+  historyPageSize = Number(event.target.value);
+  historyPage = 1;
+  renderHistory();
+});
+$('historyPrevBtn').addEventListener('click', () => {
+  historyPage -= 1;
+  renderHistory();
+});
+$('historyNextBtn').addEventListener('click', () => {
+  historyPage += 1;
+  renderHistory();
+});
+$('historyExportBtn').addEventListener('click', () => {
+  if (!historyRecords.length) {
+    toast('No hay registros para exportar.');
+    return;
+  }
+  const blob = new Blob([`\ufeff${historyCsv(historyRecords)}`], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `EcoSphere-historial-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+  toast('Historial exportado en CSV.');
+});
 $('diagnosticsRefreshBtn').addEventListener('click', () => refresh({ manual: true }));
 $('copyDiagnosticsBtn').addEventListener('click', async () => {
   if (!currentDiagnosticModel) return;
