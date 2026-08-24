@@ -1,4 +1,4 @@
-const CACHE = 'ecosphere-web-v1.5.0-oauth-account-picker';
+const CACHE = 'ecosphere-web-v1.5.1-mobile-dashboard';
 const ASSETS = [
   './',
   './index.html',

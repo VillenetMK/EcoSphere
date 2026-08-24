@@ -161,16 +161,38 @@ function renderDashboard() {
   $('systemStatus').textContent = online ? 'Sistema conectado' : 'Sistema sin conexión';
   $('modeValue').textContent = auto ? 'Automático' : 'Manual';
   $('modeIcon').src = iconPath(auto ? 'ic_auto_mode' : 'ic_manual_mode');
-  $('espValue').textContent = online ? 'Online' : 'Offline';
+  $('lastEsp32').textContent = formatDate(deviceControl?.last_seen_at);
   $('espIcon').src = iconPath(online ? 'ic_online' : 'ic_offline');
-  $('soilStatusValue').textContent = latestRecord?.soil_humidity != null ? `${Math.round(latestRecord.soil_humidity)} %` : 'Sin registro';
   $('lastTelemetry').textContent = formatDate(latestRecord?.created_at);
+
+  const hasTelemetry = latestRecord !== null;
+  $('emptyTelemetry').hidden = hasTelemetry;
+  $('metricsGrid').hidden = !hasTelemetry;
 
   $('temperatureValue').textContent = formatNumber(latestRecord?.temperature, '°C');
   $('airHumidityValue').textContent = formatNumber(latestRecord?.air_humidity, '%');
   $('soilHumidityValue').textContent = formatNumber(latestRecord?.soil_humidity, '%');
   $('lightValue').textContent = formatNumber(latestRecord?.light_lux, 'lux');
   $('waterValue').textContent = waterLevelLabel(latestRecord?.water_level);
+
+  const reportedMode = latestRecord?.auto_mode;
+  $('fanState').textContent = latestRecord?.fan_on == null
+    ? 'SIN REGISTRO'
+    : latestRecord.fan_on
+      ? `ENCENDIDO${latestRecord.fan_power != null ? ` · ${latestRecord.fan_power} %` : ''}`
+      : 'APAGADO';
+  $('pumpState').textContent = latestRecord?.pump_on == null
+    ? 'SIN REGISTRO'
+    : latestRecord.pump_on ? 'ENCENDIDA' : 'APAGADA';
+  $('ledState').textContent = latestRecord?.led_on == null
+    ? 'SIN REGISTRO'
+    : latestRecord.led_on
+      ? `ENCENDIDO${latestRecord.led_power != null ? ` · ${latestRecord.led_power} %` : ''}`
+      : 'APAGADO';
+  $('controlState').textContent = reportedMode == null
+    ? 'SIN REGISTRO'
+    : reportedMode ? 'AUTOMÁTICO' : 'MANUAL';
+  $('reportedModeIcon').src = iconPath(reportedMode ? 'ic_auto_mode' : 'ic_manual_mode');
 
   $('autoMode').checked = auto;
   const canOperate = ['operator', 'admin'].includes(currentProfile?.role);

@@ -63,7 +63,7 @@ fun DesktopAuthScreen(
                     lineHeight = 26.sp
                 )
             }
-            Text("EcoSphere Desktop 1.2.0", color = Color(0xFF88A396), fontSize = 11.sp)
+            Text("EcoSphere Desktop 1.3.0", color = Color(0xFF88A396), fontSize = 11.sp)
         }
 
         Box(
