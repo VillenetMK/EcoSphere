@@ -13,7 +13,122 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div id="app">
+  <main id="authGate" class="auth-page">
+    <section class="auth-brand-panel" aria-labelledby="authBrandTitle">
+      <div class="auth-brand-lockup"><div class="brand-mark">ES</div><strong>EcoSphere</strong></div>
+      <div class="auth-brand-copy">
+        <span>Acceso protegido</span>
+        <h1 id="authBrandTitle">Control seguro del microclima</h1>
+        <p>La telemetría y los controles del sistema están disponibles únicamente para cuentas verificadas y aprobadas.</p>
+      </div>
+      <button id="authDownloadsBtn" class="auth-downloads-btn" type="button">Descargar aplicaciones</button>
+    </section>
+
+    <section class="auth-card" aria-labelledby="authTitle">
+      <header class="auth-card-header">
+        <span class="auth-kicker">EcoSphere Control</span>
+        <h2 id="authTitle">Bienvenido</h2>
+        <p>Accede con tu cuenta o registra una nueva.</p>
+      </header>
+
+      <div id="authTabs" class="auth-tabs" role="tablist" aria-label="Opciones de acceso">
+        <button class="active" type="button" data-auth-tab="login">Iniciar sesión</button>
+        <button type="button" data-auth-tab="register">Crear cuenta</button>
+      </div>
+
+      <div id="authMessage" class="auth-message" role="status" aria-live="polite" hidden></div>
+
+      <form id="loginForm" class="auth-form" data-auth-panel="login">
+        <label>Usuario o correo electrónico
+          <input id="loginIdentifier" type="text" autocomplete="username" maxlength="254" required />
+        </label>
+        <label>Contraseña
+          <input id="loginPassword" type="password" autocomplete="current-password" required />
+        </label>
+        <button class="auth-primary" type="submit">Ingresar</button>
+        <div class="auth-divider"><span>o continúa con</span></div>
+        <div class="oauth-buttons">
+          <button type="button" data-oauth-provider="google" data-oauth-intent="login"><span class="oauth-mark">G</span>Google</button>
+          <button type="button" data-oauth-provider="github" data-oauth-intent="login"><span class="oauth-mark">GH</span>GitHub</button>
+        </div>
+      </form>
+
+      <form id="registerForm" class="auth-form" data-auth-panel="register" hidden>
+        <p class="auth-form-note">Todos los campos son obligatorios. Las cuentas nuevas requieren aprobación antes de controlar el equipo.</p>
+        <label>Nombre de usuario
+          <input id="registerUsername" type="text" autocomplete="username" maxlength="32" placeholder="Ejemplo: VillenetADMIN" required />
+          <small data-field-error="username"></small>
+        </label>
+        <label>Nombre y apellido completo
+          <input id="registerFullName" type="text" autocomplete="name" maxlength="160" required />
+          <small data-field-error="fullName"></small>
+        </label>
+        <div class="auth-form-grid">
+          <label>DNI
+            <input id="registerDni" type="text" inputmode="numeric" autocomplete="off" maxlength="8" required />
+            <small data-field-error="dni"></small>
+          </label>
+          <label>Número de teléfono
+            <input id="registerPhone" type="tel" autocomplete="tel" maxlength="20" placeholder="+51 999 999 999" required />
+            <small data-field-error="phone"></small>
+          </label>
+        </div>
+        <label>Correo electrónico
+          <input id="registerEmail" type="email" autocomplete="email" maxlength="254" required />
+          <small data-field-error="email"></small>
+        </label>
+        <div id="registerPasswordFields" class="auth-form-grid">
+          <label>Contraseña
+            <input id="registerPassword" type="password" autocomplete="new-password" minlength="12" />
+            <small data-field-error="password"></small>
+          </label>
+          <label>Confirmar contraseña
+            <input id="registerPasswordConfirmation" type="password" autocomplete="new-password" minlength="12" />
+            <small data-field-error="passwordConfirmation"></small>
+          </label>
+        </div>
+        <p id="registerPasswordNote" class="auth-password-note">La contraseña sólo se usa al registrarse por correo. Google y GitHub verifican la identidad con sus propios sistemas.</p>
+        <button id="registerSubmitBtn" class="auth-primary" type="submit">Registrarme con correo</button>
+        <div id="registerOAuthFields" class="auth-oauth-registration">
+          <div class="auth-divider"><span>o verifica el correo con</span></div>
+          <div class="oauth-buttons">
+            <button type="button" data-oauth-provider="google" data-oauth-intent="register"><span class="oauth-mark">G</span>Google</button>
+            <button type="button" data-oauth-provider="github" data-oauth-intent="register"><span class="oauth-mark">GH</span>GitHub</button>
+          </div>
+        </div>
+      </form>
+
+      <section class="auth-pending" data-auth-panel="pending" hidden>
+        <div class="auth-pending-mark">✓</div>
+        <h3 id="pendingName">Tu cuenta</h3>
+        <p id="pendingStatus">El registro está pendiente de aprobación.</p>
+        <button class="auth-secondary" type="button" data-auth-signout>Cerrar sesión</button>
+      </section>
+
+      <section class="auth-mfa" data-auth-panel="mfa" hidden>
+        <span class="auth-kicker">Protección administrativa</span>
+        <h3 id="mfaTitle">Verificación en dos pasos</h3>
+        <p id="mfaDescription">Ingresa el código de seis dígitos de Google Authenticator.</p>
+        <div id="mfaEnrollment" class="mfa-enrollment" hidden>
+          <img id="mfaQrCode" class="mfa-qr" alt="Código QR para configurar Google Authenticator" />
+          <div>
+            <strong>Escanea el código QR</strong>
+            <p>También puedes escribir manualmente esta clave en tu aplicación:</p>
+            <code id="mfaSecret"></code>
+          </div>
+        </div>
+        <form id="mfaForm" class="auth-form">
+          <label>Código de Google Authenticator
+            <input id="mfaCode" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required />
+          </label>
+          <button id="mfaVerifyBtn" class="auth-primary" type="submit">Verificar código</button>
+        </form>
+        <button class="auth-secondary auth-mfa-signout" type="button" data-auth-signout>Cerrar sesión</button>
+      </section>
+    </section>
+  </main>
+
+  <div id="app" hidden>
     <aside class="sidebar">
       <div class="brand">
         <div class="brand-mark">ES</div>
@@ -30,7 +145,12 @@
       </nav>
 
       <button id="downloadsBtn" class="install-btn">Descargar EcoSphere</button>
-      <div class="version">EcoSphere Web 1.4.0</div>
+      <div class="sidebar-account">
+        <strong id="currentUserName">Cuenta EcoSphere</strong>
+        <span id="currentUserRole">Acceso autorizado</span>
+        <button type="button" data-auth-signout>Cerrar sesión</button>
+      </div>
+      <div class="version">EcoSphere Web 1.5.0</div>
     </aside>
 
     <main class="main">

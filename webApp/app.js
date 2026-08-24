@@ -15,9 +15,8 @@ import {
   paginateHistory,
   prepareHistoryExport,
 } from './history.js';
-
-const BASE_URL = 'https://kslzmrddrhfyyrxyfmbw.supabase.co';
-const API_KEY = 'sb_publishable_oHQqSvres8b5l0qgcpXJ2w_9A33lfg3';
+import { initializeAuth } from './auth.js';
+import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from './supabase-client.js';
 
 let latestRecord = null;
 let deviceControl = null;
@@ -30,6 +29,8 @@ let lastHistoryLoadedAt = 0;
 let historyPage = 1;
 let historyPageSize = HISTORY_CONFIG.defaultPageSize;
 let historyMetric = 'soil_humidity';
+let refreshTimer = null;
+let currentProfile = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -66,24 +67,27 @@ function iconMarkup(name, className = 'ui-icon') {
   return `<img class="${className}" src="${iconPath(name)}" alt="" aria-hidden="true" />`;
 }
 
-function headers(extra = {}) {
+async function headers(extra = {}) {
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  if (!session?.access_token) throw new Error('La sesión venció. Inicia sesión nuevamente.');
   return {
-    apikey: API_KEY,
-    Authorization: `Bearer ${API_KEY}`,
+    apikey: SUPABASE_PUBLISHABLE_KEY,
+    Authorization: `Bearer ${session.access_token}`,
     ...extra,
   };
 }
 
 async function apiGet(path) {
-  const response = await fetch(`${BASE_URL}/${path}`, { headers: headers() });
+  const response = await fetch(`${SUPABASE_URL}/${path}`, { headers: await headers() });
   if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
   return response.json();
 }
 
 async function apiPatch(path, body) {
-  const response = await fetch(`${BASE_URL}/${path}`, {
+  const response = await fetch(`${SUPABASE_URL}/${path}`, {
     method: 'PATCH',
-    headers: headers({
+    headers: await headers({
       'Content-Type': 'application/json',
       Prefer: 'return=representation',
     }),
@@ -169,7 +173,8 @@ function renderDashboard() {
   $('waterValue').textContent = waterLevelLabel(latestRecord?.water_level);
 
   $('autoMode').checked = auto;
-  $('autoMode').disabled = busy || !deviceControl;
+  const canOperate = ['operator', 'admin'].includes(currentProfile?.role);
+  $('autoMode').disabled = busy || !deviceControl || !canOperate;
   $('modeHint').textContent = auto ? 'El ESP32 controla los actuadores' : 'Control manual habilitado';
 
   const fan = Number(deviceControl?.fan_power ?? 0);
@@ -178,13 +183,13 @@ function renderDashboard() {
   $('ledPower').value = led;
   $('fanPowerLabel').textContent = `${fan} %`;
   $('ledPowerLabel').textContent = `${led} %`;
-  $('fanPower').disabled = busy || auto || !deviceControl;
-  $('ledPower').disabled = busy || auto || !deviceControl;
+  $('fanPower').disabled = busy || auto || !deviceControl || !canOperate;
+  $('ledPower').disabled = busy || auto || !deviceControl || !canOperate;
   const irrigation = irrigationDecision(
     latestRecord?.soil_humidity,
     latestRecord?.water_level,
   );
-  $('pumpBtn').disabled = busy || !deviceControl || !irrigation.allowed;
+  $('pumpBtn').disabled = busy || !deviceControl || !irrigation.allowed || !canOperate;
   $('pumpHint').textContent = irrigationStatus(
     latestRecord?.soil_humidity,
     latestRecord?.water_level,
@@ -367,6 +372,10 @@ function setRefreshLoading(value) {
 }
 
 async function updateControl(body) {
+  if (!['operator', 'admin'].includes(currentProfile?.role)) {
+    toast('Tu cuenta tiene acceso de sólo lectura.');
+    return;
+  }
   setBusy(true);
   try {
     const result = await apiPatch('rest/v1/device_control?id=eq.1', body);
@@ -539,10 +548,12 @@ document.querySelectorAll('.nav-item').forEach(button => {
 });
 
 const downloadsDialog = $('downloadsDialog');
-$('downloadsBtn').addEventListener('click', () => {
+function openDownloads() {
   if (typeof downloadsDialog.showModal === 'function') downloadsDialog.showModal();
   else downloadsDialog.setAttribute('open', '');
-});
+}
+$('downloadsBtn').addEventListener('click', openDownloads);
+$('authDownloadsBtn').addEventListener('click', openDownloads);
 $('downloadsCloseBtn').addEventListener('click', () => downloadsDialog.close());
 downloadsDialog.addEventListener('click', event => {
   if (event.target === downloadsDialog) downloadsDialog.close();
@@ -552,5 +563,37 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
 }
 
-refresh();
-setInterval(() => refresh(), 2000);
+function startApplication({ profile }) {
+  currentProfile = profile;
+  $('authGate').hidden = true;
+  $('app').hidden = false;
+  $('currentUserName').textContent = profile.username || profile.full_name;
+  $('currentUserRole').textContent = profile.role === 'admin'
+    ? 'Administrador'
+    : profile.role === 'operator' ? 'Operador' : 'Sólo lectura';
+  if (!refreshTimer) {
+    refresh();
+    refreshTimer = setInterval(() => refresh(), 2000);
+  }
+}
+
+function stopApplication() {
+  $('app').hidden = true;
+  $('authGate').hidden = false;
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = null;
+  latestRecord = null;
+  deviceControl = null;
+  historyRecords = [];
+  currentProfile = null;
+}
+
+initializeAuth({
+  onAccessGranted: startApplication,
+  onSignedOut: stopApplication,
+}).catch(error => {
+  const message = $('authMessage');
+  message.textContent = error.message || 'No se pudo iniciar el acceso seguro.';
+  message.dataset.kind = 'error';
+  message.hidden = false;
+});
