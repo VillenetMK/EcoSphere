@@ -56,10 +56,10 @@ test('el registro contiene los campos obligatorios y los proveedores aprobados',
 });
 
 
-test('la portada comunica el equilibrio entre vida y tecnología', async () => {
+test('la portada comunica la visión de llevar vida a cualquier lugar', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
-  assert.match(html, /ECOSISTEMA INTELIGENTE/);
-  assert.match(html, /Donde la vida y la tecnología encuentran el equilibrio\./);
+  assert.match(html, /EL FUTURO ECHA RAÍCES/);
+  assert.match(html, /La vida puede prosperar en cualquier lugar\./);
   assert.match(html, /cada ecosistema prospere de forma autónoma/);
 });
 
