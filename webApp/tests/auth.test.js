@@ -92,3 +92,12 @@ test('los datos personales no se envían como metadata editable del JWT', async 
   assert.doesNotMatch(source, /options:\s*\{\s*data\s*:/);
   assert.doesNotMatch(source, /service_role|sb_secret_/);
 });
+
+test('el registro social no muestra el correo completo de la sesión', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
+  assert.match(html, /placeholder="Ejemplo: usuario@ejemplo\.com"/);
+  assert.match(source, /emailInput\.value = ''/);
+  assert.match(source, /Correo verificado mediante/);
+  assert.match(source, /profileCompletionSession\?\.user\?\.email/);
+});
