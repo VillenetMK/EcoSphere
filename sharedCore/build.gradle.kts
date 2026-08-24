@@ -2,10 +2,11 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 group = "com.example.ecosphere"
-version = "1.1.0"
+version = "1.2.0"
 
 kotlin {
     jvmToolchain(17)
@@ -21,6 +22,7 @@ java {
 
 dependencies {
     api(libs.gson)
+    api(libs.kotlinx.serialization.json)
     testImplementation(libs.junit)
 }
 

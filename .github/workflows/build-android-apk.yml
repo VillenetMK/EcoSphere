@@ -46,12 +46,12 @@ jobs:
         run: ./gradlew :sharedCore:test :app:testDebugUnitTest :app:assembleDebug --stacktrace --no-daemon
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk EcoSphere-1.1.0-Android.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk EcoSphere-1.2.0-Android.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: EcoSphere-Android-APK
-          path: EcoSphere-1.1.0-Android.apk
+          path: EcoSphere-1.2.0-Android.apk
           if-no-files-found: error
           retention-days: 30

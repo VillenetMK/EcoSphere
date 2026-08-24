@@ -47,17 +47,23 @@ private enum class Destination(val label: String) {
     DIAGNOSTICS("Diagnóstico del sistema")
 }
 
-private class EcoSphereApi {
+private class EcoSphereApi(
+    private val accessToken: () -> String?
+) {
     private val gson = Gson()
     private val client = HttpClient.newBuilder()
         .connectTimeout(java.time.Duration.ofSeconds(12))
         .build()
 
-    private fun requestBuilder(path: String): HttpRequest.Builder = HttpRequest.newBuilder()
-        .uri(URI.create("${EcoSphereConfig.SUPABASE_URL}/$path"))
-        .timeout(java.time.Duration.ofSeconds(15))
-        .header("apikey", EcoSphereConfig.SUPABASE_PUBLISHABLE_KEY)
-        .header("Authorization", "Bearer ${EcoSphereConfig.SUPABASE_PUBLISHABLE_KEY}")
+    private fun requestBuilder(path: String): HttpRequest.Builder {
+        val token = accessToken()?.takeIf(String::isNotBlank)
+            ?: error("Tu sesión expiró. Inicia sesión nuevamente.")
+        return HttpRequest.newBuilder()
+            .uri(URI.create("${EcoSphereConfig.SUPABASE_URL}/$path"))
+            .timeout(java.time.Duration.ofSeconds(15))
+            .header("apikey", EcoSphereConfig.SUPABASE_PUBLISHABLE_KEY)
+            .header("Authorization", "Bearer $token")
+    }
 
     private inline fun <reified T> parseList(json: String): List<T> {
         val type = object : TypeToken<List<T>>() {}.type
@@ -134,14 +140,73 @@ fun main() = application {
                 onSurfaceVariant = Muted
             )
         ) {
-            EcoSphereDesktopApp()
+            val authController = remember { DesktopAuthController() }
+            val authScope = rememberCoroutineScope()
+            val authState = authController.state
+
+            LaunchedEffect(Unit) {
+                authController.initialize()
+            }
+
+            if (authState.page == DesktopAuthPage.APP) {
+                EcoSphereDesktopApp(
+                    accessToken = authController::accessToken,
+                    profileName = authState.profile?.fullName.orEmpty(),
+                    profileRole = authState.profile?.role.orEmpty(),
+                    onSignOut = { authScope.launch { authController.signOut() } }
+                )
+            } else {
+                DesktopAuthScreen(
+                    state = authState,
+                    onShowLogin = authController::showLogin,
+                    onShowRegister = authController::showRegister,
+                    onSignIn = { identifier, password ->
+                        authScope.launch { authController.signIn(identifier, password) }
+                    },
+                    onRegister = { username, firstName, lastName, dni, phone, email, password, confirmation ->
+                        authScope.launch {
+                            authController.registerWithEmail(
+                                username,
+                                firstName,
+                                lastName,
+                                dni,
+                                phone,
+                                email,
+                                password,
+                                confirmation
+                            )
+                        }
+                    },
+                    onOAuth = { provider, registration, username, firstName, lastName, dni, phone, email ->
+                        authScope.launch {
+                            authController.startOAuth(
+                                provider,
+                                registration,
+                                username,
+                                firstName,
+                                lastName,
+                                dni,
+                                phone,
+                                email
+                            )
+                        }
+                    },
+                    onVerifyMfa = { code -> authScope.launch { authController.verifyMfa(code) } },
+                    onSignOut = { authScope.launch { authController.signOut() } }
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun EcoSphereDesktopApp() {
-    val api = remember { EcoSphereApi() }
+private fun EcoSphereDesktopApp(
+    accessToken: () -> String?,
+    profileName: String,
+    profileRole: String,
+    onSignOut: () -> Unit
+) {
+    val api = remember { EcoSphereApi(accessToken) }
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
 
@@ -187,6 +252,9 @@ private fun EcoSphereDesktopApp() {
         Row(Modifier.fillMaxSize().padding(padding)) {
             NavigationPane(
                 destination = destination,
+                profileName = profileName,
+                profileRole = profileRole,
+                onSignOut = onSignOut,
                 onDestination = { destination = it }
             )
 
@@ -258,7 +326,13 @@ private fun EcoSphereDesktopApp() {
 }
 
 @Composable
-private fun NavigationPane(destination: Destination, onDestination: (Destination) -> Unit) {
+private fun NavigationPane(
+    destination: Destination,
+    profileName: String,
+    profileRole: String,
+    onSignOut: () -> Unit,
+    onDestination: (Destination) -> Unit
+) {
     Surface(
         modifier = Modifier.width(260.dp).fillMaxHeight(),
         color = Color(0xFF0F1713),
@@ -284,7 +358,26 @@ private fun NavigationPane(destination: Destination, onDestination: (Destination
             }
 
             Spacer(Modifier.weight(1f))
-            Text("EcoSphere Desktop 1.0.0", color = Muted, fontSize = 11.sp)
+            Text(
+                profileName.ifBlank { "Cuenta verificada" },
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp
+            )
+            Text(
+                when (profileRole) {
+                    "admin" -> "Administrador"
+                    "operator" -> "Operador"
+                    else -> "Visualizador"
+                },
+                color = Muted,
+                fontSize = 11.sp
+            )
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) {
+                Text("Cerrar sesión")
+            }
+            Spacer(Modifier.height(12.dp))
+            Text("EcoSphere Desktop 1.2.0", color = Muted, fontSize = 11.sp)
         }
     }
 }
