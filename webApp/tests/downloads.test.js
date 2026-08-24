@@ -10,9 +10,9 @@ const webAppDir = path.resolve(testDir, '..');
 test('la web ofrece instaladores oficiales para las tres plataformas', async () => {
   const html = await readFile(path.join(webAppDir, 'index.html'), 'utf8');
   const expected = [
-    ['Windows', 'EcoSphere-1.4.1-Windows-x64.msi', 'ic_windows.svg'],
-    ['Linux', 'EcoSphere-1.4.1-Linux-amd64.deb', 'ic_linux.svg'],
-    ['Android', 'EcoSphere-1.4.1-Android.apk', 'ic_android.svg'],
+    ['Windows', 'EcoSphere-1.4.2-Windows-x64.msi', 'ic_windows.svg'],
+    ['Linux', 'EcoSphere-1.4.2-Linux-amd64.deb', 'ic_linux.svg'],
+    ['Android', 'EcoSphere-1.4.2-Android.apk', 'ic_android.svg'],
   ];
 
   for (const [platform, file, icon] of expected) {
