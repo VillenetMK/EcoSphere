@@ -14,8 +14,8 @@ import com.example.ecosphere.auth.NativeSupabase
 import com.example.ecosphere.data.network.NetworkModule
 import com.example.ecosphere.data.repository.SensorRepository
 import com.example.ecosphere.ui.icons.DashboardControlIcons
-import com.example.ecosphere.ui.screens.EcoSphereApp
-import com.example.ecosphere.ui.screens.NativeAuthScreen
+import com.example.ecosphere.ui.mobile.MobileAuthScreen
+import com.example.ecosphere.ui.mobile.MobileEcoSphereApp
 import com.example.ecosphere.ui.theme.EcoSphereTheme
 import com.example.ecosphere.ui.viewmodel.EcoSphereViewModel
 import io.github.jan.supabase.auth.auth
@@ -49,7 +49,7 @@ class MainActivity : ComponentActivity() {
                         factory = EcoSphereViewModel.factory(repository)
                     )
 
-                    EcoSphereApp(
+                    MobileEcoSphereApp(
                         uiState = ecoSphereViewModel.uiState,
                         profileName = authState.profile?.fullName.orEmpty(),
                         profileRole = authState.profile?.role.orEmpty(),
@@ -69,7 +69,7 @@ class MainActivity : ComponentActivity() {
                         onReplaceController = ecoSphereViewModel::replaceActiveController
                     )
                 } else {
-                    NativeAuthScreen(
+                    MobileAuthScreen(
                         state = authState,
                         onShowLogin = authViewModel::showLogin,
                         onShowRegister = authViewModel::showRegister,
