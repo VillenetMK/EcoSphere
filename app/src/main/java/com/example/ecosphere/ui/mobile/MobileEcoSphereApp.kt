@@ -13,18 +13,24 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -37,19 +43,21 @@ import com.example.ecosphere.ui.screens.AdaptiveDashboardScreen
 import com.example.ecosphere.ui.screens.DiagnosticsScreen
 import com.example.ecosphere.ui.screens.HistoryScreen
 import com.example.ecosphere.ui.viewmodel.EcoSphereUiState
+import kotlinx.coroutines.launch
 
 private val MobileNavigationGreen = Color(0xFF66FF7A)
 private val MobileNavigationSurface = Color(0xFF101914)
 private val MobileNavigationIndicator = Color(0xFF203729)
 
 private enum class MobileDestination(
-    val label: String,
+    val compactLabel: String,
+    val menuLabel: String,
     val icon: ImageVector
 ) {
-    DASHBOARD("Inicio", EcoSphereIcons.Dashboard),
-    HISTORY("Historial", EcoSphereIcons.History),
-    DIAGNOSTICS("Diagnóstico", EcoSphereIcons.Diagnostics),
-    ACCOUNT("Cuenta", EcoSphereIcons.Settings)
+    DASHBOARD("Inicio", "Panel principal", EcoSphereIcons.Dashboard),
+    HISTORY("Historial", "Registros históricos", EcoSphereIcons.History),
+    DIAGNOSTICS("Diagnóstico", "Diagnóstico del sistema", EcoSphereIcons.Diagnostics),
+    ACCOUNT("Cuenta", "Cuenta", EcoSphereIcons.Settings)
 }
 
 @Composable
@@ -71,6 +79,8 @@ fun MobileEcoSphereApp(
 ) {
     var destinationName by rememberSaveable { mutableStateOf(MobileDestination.DASHBOARD.name) }
     val destination = MobileDestination.valueOf(destinationName)
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(destination) {
         when (destination) {
@@ -80,49 +90,112 @@ fun MobileEcoSphereApp(
         }
     }
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.background,
-        bottomBar = {
-            NavigationBar(
-                modifier = Modifier.navigationBarsPadding(),
-                containerColor = MobileNavigationSurface,
-                tonalElevation = 0.dp
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        gesturesEnabled = true,
+        drawerContent = {
+            ModalDrawerSheet(
+                modifier = Modifier.fillMaxWidth(0.84f),
+                drawerContainerColor = MobileNavigationSurface
             ) {
-                MobileDestination.entries.forEach { item ->
-                    val selected = item == destination
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = { destinationName = item.name },
-                        icon = {
-                            Icon(
-                                imageVector = item.icon,
-                                contentDescription = item.label,
-                                tint = Color.Unspecified
-                            )
-                        },
-                        label = {
-                            Text(
-                                text = item.label,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
-                            )
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedTextColor = MobileNavigationGreen,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            indicatorColor = MobileNavigationIndicator
-                        )
+                Column(
+                    modifier = Modifier
+                        .statusBarsPadding()
+                        .padding(horizontal = 12.dp, vertical = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "EcoSphere",
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MobileNavigationGreen
                     )
+                    Text(
+                        text = "Navegación",
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(8.dp))
+
+                    MobileDestination.entries
+                        .filter { it != MobileDestination.ACCOUNT }
+                        .forEach { item ->
+                            NavigationDrawerItem(
+                                selected = item == destination,
+                                onClick = {
+                                    destinationName = item.name
+                                    coroutineScope.launch { drawerState.close() }
+                                },
+                                icon = {
+                                    Icon(
+                                        imageVector = item.icon,
+                                        contentDescription = item.menuLabel,
+                                        tint = Color.Unspecified
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        text = item.menuLabel,
+                                        fontWeight = if (item == destination) {
+                                            FontWeight.Bold
+                                        } else {
+                                            FontWeight.Medium
+                                        }
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                        }
                 }
             }
         }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            when (destination) {
+    ) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = MaterialTheme.colorScheme.background,
+            bottomBar = {
+                NavigationBar(
+                    modifier = Modifier.navigationBarsPadding(),
+                    containerColor = MobileNavigationSurface,
+                    tonalElevation = 0.dp
+                ) {
+                    MobileDestination.entries.forEach { item ->
+                        val selected = item == destination
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = { destinationName = item.name },
+                            icon = {
+                                Icon(
+                                    imageVector = item.icon,
+                                    contentDescription = item.compactLabel,
+                                    tint = Color.Unspecified
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = item.compactLabel,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                                )
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedTextColor = MobileNavigationGreen,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                indicatorColor = MobileNavigationIndicator
+                            )
+                        )
+                    }
+                }
+            }
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                when (destination) {
                 MobileDestination.DASHBOARD -> AdaptiveDashboardScreen(
                     uiState = uiState,
                     onRefresh = onRefresh,
@@ -162,6 +235,7 @@ fun MobileEcoSphereApp(
                     profileRole = profileRole,
                     onSignOut = onSignOut
                 )
+                }
             }
         }
     }
