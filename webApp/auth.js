@@ -96,6 +96,13 @@ function showPanel(panel) {
   setMessage('');
 }
 
+function maskEmail(value) {
+  const [localPart = '', domain = ''] = String(value ?? '').split('@');
+  if (!localPart || !domain) return '';
+  const visible = localPart.slice(0, Math.min(2, localPart.length));
+  return `${visible}${'*'.repeat(Math.max(3, localPart.length - visible.length))}@${domain}`;
+}
+
 function setProfileCompletionMode(session) {
   profileCompletionSession = session;
   const enabled = Boolean(session);
@@ -103,9 +110,9 @@ function setProfileCompletionMode(session) {
   emailInput.readOnly = enabled;
   emailInput.type = enabled ? 'text' : 'email';
   emailInput.autocomplete = enabled ? 'off' : 'email';
-  emailInput.value = '';
+  emailInput.value = enabled ? maskEmail(session?.user?.email) : '';
   emailInput.placeholder = enabled
-    ? 'usuario@ejemplo.com'
+    ? 'Correo confirmado'
     : 'Ejemplo: usuario@ejemplo.com';
   document.getElementById('registerPasswordFields').hidden = enabled;
   document.getElementById('registerPasswordNote').hidden = enabled;
@@ -135,19 +142,24 @@ function showFieldErrors(errors) {
 }
 
 function savePendingRegistration(values, provider) {
-  sessionStorage.setItem(PENDING_REGISTRATION_KEY, JSON.stringify({ ...values, provider }));
+  localStorage.setItem(PENDING_REGISTRATION_KEY, JSON.stringify({ ...values, provider }));
   sessionStorage.setItem(OAUTH_INTENT_KEY, provider === 'email' ? 'register' : 'oauth-register');
 }
 
 function readPendingRegistration() {
   try {
-    return JSON.parse(sessionStorage.getItem(PENDING_REGISTRATION_KEY) || 'null');
+    return JSON.parse(
+      localStorage.getItem(PENDING_REGISTRATION_KEY)
+      || sessionStorage.getItem(PENDING_REGISTRATION_KEY)
+      || 'null',
+    );
   } catch {
     return null;
   }
 }
 
 function clearPendingRegistration() {
+  localStorage.removeItem(PENDING_REGISTRATION_KEY);
   sessionStorage.removeItem(PENDING_REGISTRATION_KEY);
   sessionStorage.removeItem(OAUTH_INTENT_KEY);
 }
@@ -280,10 +292,9 @@ async function verifyMfaCode(code) {
 async function resolveSession(session, onAccessGranted) {
   if (!session) return false;
   const intent = sessionStorage.getItem(OAUTH_INTENT_KEY);
-  const registrationIntent = ['register', 'oauth-register'].includes(intent);
   await completePendingProfile(session);
   const profile = await loadMyProfile();
-  if (!profile && !registrationIntent) {
+  if (!profile && intent === 'oauth-login') {
     clearPendingRegistration();
     await supabase.auth.signOut();
     setProfileCompletionMode(null);
@@ -294,7 +305,7 @@ async function resolveSession(session, onAccessGranted) {
   if (!profile) {
     setProfileCompletionMode(session);
     showPanel('register');
-    setMessage('Completa tus datos obligatorios para finalizar el registro.', 'info');
+    setMessage('Tu correo ya está confirmado. Completa tus datos para finalizar el registro.', 'info');
     return false;
   }
   clearPendingRegistration();
@@ -382,7 +393,6 @@ export async function initializeAuth({ onAccessGranted, onSignedOut }) {
     setAuthBusy(true);
     setMessage('');
     try {
-      clearPendingRegistration();
       sessionStorage.setItem(OAUTH_INTENT_KEY, 'password-login');
       const identifier = document.getElementById('loginIdentifier').value;
       const password = document.getElementById('loginPassword').value;

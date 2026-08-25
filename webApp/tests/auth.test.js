@@ -90,8 +90,7 @@ test('la portada equilibra la jerarquía tipográfica en escritorio y móvil', a
 
 test('iniciar sesión por OAuth nunca convierte el acceso en un registro', async () => {
   const source = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
-  assert.match(source, /const registrationIntent = \['register', 'oauth-register'\]\.includes\(intent\)/);
-  assert.match(source, /if \(!profile && !registrationIntent\) \{[\s\S]*?auth\.signOut\(\)[\s\S]*?showPanel\('login'\)/);
+  assert.match(source, /if \(!profile && intent === 'oauth-login'\) \{[\s\S]*?auth\.signOut\(\)[\s\S]*?showPanel\('login'\)/);
   assert.match(source, /Esta cuenta aún no está registrada/);
   assert.match(source, /if \(!profile\) \{\s*setProfileCompletionMode\(session\);\s*showPanel\('register'\);/);
 });
@@ -183,12 +182,38 @@ test('los datos personales no se envían como metadata editable del JWT', async 
   assert.doesNotMatch(source, /service_role|sb_secret_/);
 });
 
-test('el registro social no muestra el correo completo de la sesión', async () => {
+test('el registro social protege el correo confirmado y reutiliza la sesión', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const source = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
   assert.match(html, /placeholder="Ejemplo: usuario@ejemplo\.com"/);
-  assert.match(source, /emailInput\.value = ''/);
-  assert.match(source, /\? 'usuario@ejemplo\.com'/);
-  assert.doesNotMatch(source, /Correo verificado mediante/);
+  assert.match(source, /function maskEmail/);
+  assert.match(source, /emailInput\.value = enabled \? maskEmail/);
   assert.match(source, /profileCompletionSession\?\.user\?\.email/);
+});
+
+test('la confirmación conserva el alta pendiente y permite reparar cuentas sin perfil', async () => {
+  const source = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
+  const nativeAuth = await readFile(
+    new URL('../../app/src/main/java/com/example/ecosphere/auth/NativeAuthViewModel.kt', import.meta.url),
+    'utf8',
+  );
+  const mobileAuth = await readFile(
+    new URL('../../app/src/main/java/com/example/ecosphere/ui/mobile/MobileAuthScreen.kt', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(source, /localStorage\.setItem\(PENDING_REGISTRATION_KEY/);
+  assert.match(source, /localStorage\.removeItem\(PENDING_REGISTRATION_KEY/);
+  const loginHandler = source.slice(source.indexOf("loginForm'"), source.indexOf("registerForm'"));
+  assert.doesNotMatch(loginHandler, /clearPendingRegistration\(\)/);
+  assert.match(source, /Tu correo ya está confirmado\. Completa tus datos/);
+
+  const nativeSignIn = nativeAuth.slice(nativeAuth.indexOf('fun signIn('), nativeAuth.indexOf('fun registerWithEmail('));
+  assert.doesNotMatch(nativeSignIn, /clearPendingRegistration\(\)/);
+  assert.match(nativeAuth, /signUpWith\(\s*Email,\s*redirectUrl = NativeSupabase\.ANDROID_OAUTH_RETURN_URL/);
+  assert.match(nativeAuth, /val verifiedEmail: String\? = null/);
+  assert.match(nativeAuth, /Tu correo ya está confirmado\. Completa tus datos/);
+  assert.match(mobileAuth, /verifiedEmail = state\.verifiedEmail/);
+  assert.match(mobileAuth, /if \(!completingProfile\) \{\s*MobilePasswordField/);
+  assert.match(mobileAuth, /"Completar registro"/);
 });

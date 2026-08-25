@@ -41,6 +41,7 @@ data class NativeAuthUiState(
     val message: String? = null,
     val fieldErrors: Map<String, String> = emptyMap(),
     val profile: EcoSphereUserProfile? = null,
+    val verifiedEmail: String? = null,
     val mfaFactorId: String? = null,
     val mfaSecret: String? = null
 )
@@ -81,7 +82,6 @@ class NativeAuthViewModel(application: Application) : AndroidViewModel(applicati
     fun signIn(identifier: String, password: String) {
         viewModelScope.launch {
             runBusy {
-                clearPendingRegistration()
                 saveIntent(INTENT_LOGIN)
                 if (identifier.trim().contains('@')) {
                     supabase.auth.signInWith(Email) {
@@ -122,7 +122,13 @@ class NativeAuthViewModel(application: Application) : AndroidViewModel(applicati
         val identity = AuthValidation.validateRegistration(
             username, firstName, lastName, dni, phone, email, PROVIDER_EMAIL
         )
-        val errors = identity.errors + AuthValidation.validatePassword(password, confirmation)
+        val activeSession = supabase.auth.currentSessionOrNull()
+        val passwordErrors = if (activeSession == null) {
+            AuthValidation.validatePassword(password, confirmation)
+        } else {
+            emptyMap()
+        }
+        val errors = identity.errors + passwordErrors
         if (errors.isNotEmpty()) {
             uiState = uiState.copy(fieldErrors = errors, message = "Revisa los datos del formulario.")
             return
@@ -130,19 +136,35 @@ class NativeAuthViewModel(application: Application) : AndroidViewModel(applicati
 
         viewModelScope.launch {
             runBusy {
-                savePendingRegistration(identity.draft)
-                saveIntent(INTENT_REGISTER)
-                supabase.auth.signUpWith(Email) {
-                    this.email = identity.draft.email
-                    this.password = password
-                }
-                if (supabase.auth.currentSessionOrNull() != null) {
+                val session = supabase.auth.currentSessionOrNull()
+                if (session != null) {
+                    val verifiedEmail = session.user?.email?.lowercase().orEmpty()
+                    require(verifiedEmail == identity.draft.email) {
+                        "El correo debe coincidir con la cuenta confirmada."
+                    }
+                    savePendingRegistration(identity.draft)
+                    saveIntent(INTENT_REGISTER)
+                    completeProfile(identity.draft)
+                    clearPendingRegistration()
                     resolveCurrentSession()
                 } else {
-                    uiState = uiState.copy(
-                        page = NativeAuthPage.LOGIN,
-                        message = "Revisa tu correo y confirma la cuenta antes de iniciar sesión."
-                    )
+                    savePendingRegistration(identity.draft)
+                    saveIntent(INTENT_REGISTER)
+                    supabase.auth.signUpWith(
+                        Email,
+                        redirectUrl = NativeSupabase.ANDROID_OAUTH_RETURN_URL
+                    ) {
+                        this.email = identity.draft.email
+                        this.password = password
+                    }
+                    if (supabase.auth.currentSessionOrNull() != null) {
+                        resolveCurrentSession()
+                    } else {
+                        uiState = uiState.copy(
+                            page = NativeAuthPage.LOGIN,
+                            message = "Revisa tu correo y confirma la cuenta. Volverás a EcoSphere para finalizar el registro."
+                        )
+                    }
                 }
             }
         }
@@ -250,7 +272,6 @@ class NativeAuthViewModel(application: Application) : AndroidViewModel(applicati
         }
 
         val intent = readIntent()
-        val registrationIntent = intent == INTENT_REGISTER || intent == INTENT_OAUTH_REGISTER
         val draft = readPendingRegistration()
         if (draft != null) {
             val verifiedEmail = session.user?.email?.lowercase().orEmpty()
@@ -264,7 +285,7 @@ class NativeAuthViewModel(application: Application) : AndroidViewModel(applicati
         }
 
         val profile = loadProfile()
-        if (profile == null && !registrationIntent) {
+        if (profile == null && intent == INTENT_OAUTH_LOGIN) {
             supabase.auth.signOut()
             clearPendingRegistration()
             uiState = NativeAuthUiState(
@@ -275,10 +296,12 @@ class NativeAuthViewModel(application: Application) : AndroidViewModel(applicati
             return
         }
         if (profile == null) {
+            val verifiedEmail = session.user?.email?.lowercase().orEmpty()
             uiState = NativeAuthUiState(
                 page = NativeAuthPage.REGISTER,
                 busy = false,
-                message = "Completa tus datos obligatorios para finalizar el registro."
+                verifiedEmail = verifiedEmail,
+                message = "Tu correo ya está confirmado. Completa tus datos para finalizar el registro."
             )
             return
         }

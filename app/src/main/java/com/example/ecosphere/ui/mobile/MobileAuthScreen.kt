@@ -119,6 +119,7 @@ fun MobileAuthScreen(
                         busy = state.busy,
                         message = state.message,
                         errors = state.fieldErrors,
+                        verifiedEmail = state.verifiedEmail,
                         onRegister = onRegister,
                         onOAuth = { provider, username, firstName, lastName, dni, phone, email ->
                             onOAuth(provider, true, username, firstName, lastName, dni, phone, email)
@@ -295,6 +296,7 @@ private fun RegisterContent(
     busy: Boolean,
     message: String?,
     errors: Map<String, String>,
+    verifiedEmail: String?,
     onRegister: (String, String, String, String, String, String, String, String) -> Unit,
     onOAuth: (String, String, String, String, String, String, String) -> Unit
 ) {
@@ -303,14 +305,19 @@ private fun RegisterContent(
     var lastName by rememberSaveable { mutableStateOf("") }
     var dni by rememberSaveable { mutableStateOf("") }
     var phone by rememberSaveable { mutableStateOf("") }
-    var email by rememberSaveable { mutableStateOf("") }
+    var email by rememberSaveable(verifiedEmail) { mutableStateOf(verifiedEmail.orEmpty()) }
     var password by rememberSaveable { mutableStateOf("") }
     var confirmation by rememberSaveable { mutableStateOf("") }
+    val completingProfile = !verifiedEmail.isNullOrBlank()
 
     PageHeading(
-        eyebrow = "NUEVA CUENTA",
-        title = "Únete a EcoSphere",
-        subtitle = "Completa tus datos. Un administrador aprobará el acceso al sistema."
+        eyebrow = if (completingProfile) "CORREO CONFIRMADO" else "NUEVA CUENTA",
+        title = if (completingProfile) "Finaliza tu registro" else "Únete a EcoSphere",
+        subtitle = if (completingProfile) {
+            "Tu cuenta ya está verificada. Completa tus datos y enviaremos la solicitud al administrador."
+        } else {
+            "Completa tus datos. Un administrador aprobará el acceso al sistema."
+        }
     )
     MessageBanner(message)
 
@@ -341,17 +348,20 @@ private fun RegisterContent(
         busy = busy,
         error = errors["email"],
         placeholder = "usuario@ejemplo.com",
-        keyboardType = KeyboardType.Email
+        keyboardType = KeyboardType.Email,
+        editable = !completingProfile
     )
-    MobilePasswordField("Contraseña", password, { password = it }, busy, errors["password"])
-    MobilePasswordField(
-        "Confirmar contraseña",
-        confirmation,
-        { confirmation = it },
-        busy,
-        errors["passwordConfirmation"]
-    )
-    Text("Usa al menos 12 caracteres.", color = MobileMuted, fontSize = 12.sp)
+    if (!completingProfile) {
+        MobilePasswordField("Contraseña", password, { password = it }, busy, errors["password"])
+        MobilePasswordField(
+            "Confirmar contraseña",
+            confirmation,
+            { confirmation = it },
+            busy,
+            errors["passwordConfirmation"]
+        )
+        Text("Usa al menos 12 caracteres.", color = MobileMuted, fontSize = 12.sp)
+    }
 
     Button(
         onClick = { onRegister(username, firstName, lastName, dni, phone, email, password, confirmation) },
@@ -362,14 +372,20 @@ private fun RegisterContent(
         shape = RoundedCornerShape(17.dp),
         colors = primaryButtonColors()
     ) {
-        Text("Crear mi cuenta", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Text(
+            if (completingProfile) "Completar registro" else "Crear mi cuenta",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 
-    OAuthDivider()
-    OAuthButtons(
-        busy = busy,
-        onOAuth = { provider -> onOAuth(provider, username, firstName, lastName, dni, phone, email) }
-    )
+    if (!completingProfile) {
+        OAuthDivider()
+        OAuthButtons(
+            busy = busy,
+            onOAuth = { provider -> onOAuth(provider, username, firstName, lastName, dni, phone, email) }
+        )
+    }
 }
 
 @Composable
@@ -420,7 +436,8 @@ private fun MobileField(
     busy: Boolean,
     error: String?,
     placeholder: String = "",
-    keyboardType: KeyboardType = KeyboardType.Text
+    keyboardType: KeyboardType = KeyboardType.Text,
+    editable: Boolean = true
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
         OutlinedTextField(
@@ -430,7 +447,7 @@ private fun MobileField(
             label = { Text(label) },
             placeholder = { if (placeholder.isNotBlank()) Text(placeholder) },
             singleLine = true,
-            enabled = !busy,
+            enabled = !busy && editable,
             isError = error != null,
             keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = ImeAction.Next),
             colors = mobileFieldColors()
