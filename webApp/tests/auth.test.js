@@ -50,7 +50,7 @@ test('el registro contiene los campos obligatorios y los proveedores aprobados',
   }
   assert.match(html, /data-oauth-provider="google"/);
   assert.match(html, /data-oauth-provider="github"/);
-  assert.match(html, /requieren aprobación/);
+  assert.match(html, /acceso de operador automáticamente/);
   assert.match(html, /id="mfaCode"/);
   assert.match(html, /Google Authenticator/);
   assert.match(html, /id="loginIdentifier"/);
