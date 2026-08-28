@@ -74,6 +74,30 @@ class ControlPolicyTest {
     }
 
     @Test
+    fun `current telemetry requires a fresh reading and a live controller`() {
+        val timestamp = 1_787_515_200_000L
+        val record = SensorRecord(
+            createdAt = "2026-08-23T20:00:00.000Z",
+            soilHumidity = 7.0,
+            waterLevel = "low"
+        )
+        val control = DeviceControl(
+            esp32Online = true,
+            lastSeenAt = "2026-08-23T20:00:00.000Z"
+        )
+
+        assertEquals(record, ControlPolicy.currentTelemetry(record, control, timestamp + 29_999L))
+        assertEquals(
+            null,
+            ControlPolicy.currentTelemetry(record, control.copy(esp32Online = false), timestamp)
+        )
+        assertEquals(
+            null,
+            ControlPolicy.currentTelemetry(record, control, timestamp + 30_001L)
+        )
+    }
+
+    @Test
     fun `actuator labels describe controller outputs without claiming physical presence`() {
         assertEquals("SALIDA PWM 100 %", ControlPolicy.actuatorPwmLabel(true, 100))
         assertEquals("SALIDA PWM 0 %", ControlPolicy.actuatorPwmLabel(false, 0))

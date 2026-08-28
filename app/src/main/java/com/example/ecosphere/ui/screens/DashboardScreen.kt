@@ -59,7 +59,8 @@ fun DashboardScreen(
     val record = uiState.record
     val control = uiState.deviceControl
     val online = control?.isOnlineNow() ?: false
-    val telemetryCurrent = online && ControlPolicy.isTelemetryFresh(record?.createdAt)
+    val currentRecord = ControlPolicy.currentTelemetry(record, control)
+    val telemetryCurrent = currentRecord != null
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -115,11 +116,11 @@ fun DashboardScreen(
                 EmptyTelemetryCard()
             } else {
                 SensorMetrics(
-                    temperature = record.temperature,
-                    airHumidity = record.airHumidity,
-                    soilHumidity = record.soilHumidity,
-                    lightLux = record.lightLux,
-                    waterLevel = record.waterLevel
+                    temperature = currentRecord?.temperature,
+                    airHumidity = currentRecord?.airHumidity,
+                    soilHumidity = currentRecord?.soilHumidity,
+                    lightLux = currentRecord?.lightLux,
+                    waterLevel = currentRecord?.waterLevel
                 )
             }
 
@@ -149,8 +150,8 @@ fun DashboardScreen(
                 ledPower = control?.ledPower ?: 0,
                 pumpRequest = control?.pumpRequest ?: 0L,
                 pumpDurationMs = control?.pumpDurationMs ?: ControlPolicy.PUMP_DURATION_MS,
-                soilHumidity = record?.soilHumidity,
-                waterLevel = record?.waterLevel,
+                soilHumidity = currentRecord?.soilHumidity,
+                waterLevel = currentRecord?.waterLevel,
                 isUpdating = uiState.isUpdatingControl,
                 onAutoModeChange = onAutoModeChange,
                 onFanPowerChange = onFanPowerChange,

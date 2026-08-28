@@ -84,13 +84,14 @@ fun InteractiveDashboardScreen(
     val record = uiState.record
     val control = uiState.deviceControl
     val online = control?.isOnlineNow() == true
-    val telemetryCurrent = online && ControlPolicy.isTelemetryFresh(record?.createdAt)
+    val currentRecord = ControlPolicy.currentTelemetry(record, control)
+    val telemetryCurrent = currentRecord != null
     var detail by remember { mutableStateOf<DashboardDetail?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
     fun requestManualIrrigation(): Boolean {
-        val decision = ControlPolicy.irrigationDecision(record?.soilHumidity, record?.waterLevel)
+        val decision = ControlPolicy.irrigationDecision(currentRecord?.soilHumidity, currentRecord?.waterLevel)
         if (!decision.allowed) {
             scope.launch {
                 snackbarHostState.currentSnackbarData?.dismiss()
@@ -152,11 +153,11 @@ fun InteractiveDashboardScreen(
                 EmptyTelemetryCard()
             } else {
                 SensorGrid(
-                    temperature = record.temperature,
-                    airHumidity = record.airHumidity,
-                    soilHumidity = record.soilHumidity,
-                    lightLux = record.lightLux,
-                    waterLevel = record.waterLevel,
+                    temperature = currentRecord?.temperature,
+                    airHumidity = currentRecord?.airHumidity,
+                    soilHumidity = currentRecord?.soilHumidity,
+                    lightLux = currentRecord?.lightLux,
+                    waterLevel = currentRecord?.waterLevel,
                     onOpen = { detail = it }
                 )
             }
@@ -180,8 +181,8 @@ fun InteractiveDashboardScreen(
                 ledPower = control?.ledPower ?: 0,
                 pumpRequest = control?.pumpRequest ?: 0L,
                 pumpDurationMs = control?.pumpDurationMs ?: ControlPolicy.PUMP_DURATION_MS,
-                soilHumidity = record?.soilHumidity,
-                waterLevel = record?.waterLevel,
+                soilHumidity = currentRecord?.soilHumidity,
+                waterLevel = currentRecord?.waterLevel,
                 isUpdating = uiState.isUpdatingControl,
                 onAutoModeChange = onAutoModeChange,
                 onFanPowerChange = onFanPowerChange,
@@ -650,7 +651,8 @@ private fun DashboardDetailDialog(
     val record = uiState.record
     val control = uiState.deviceControl
     val online = control?.isOnlineNow() == true
-    val telemetryCurrent = online && ControlPolicy.isTelemetryFresh(record?.createdAt)
+    val currentRecord = ControlPolicy.currentTelemetry(record, control)
+    val telemetryCurrent = currentRecord != null
     val autoMode = control?.autoMode == true
     var fanPower by remember(detail, control?.fanPower) { mutableFloatStateOf((control?.fanPower ?: 0).toFloat()) }
     var ledPower by remember(detail, control?.ledPower) { mutableFloatStateOf((control?.ledPower ?: 0).toFloat()) }
@@ -700,27 +702,27 @@ private fun DashboardDetailDialog(
                         Text(if (autoMode) "Los sliders manuales quedan bloqueados." else "Puedes ajustar ventilador y LED manualmente.")
                     }
                     DashboardDetail.TEMPERATURE -> {
-                        DetailPair("Valor", record?.temperature?.let { "${formatNumber(it)} °C" } ?: "Sin lectura")
+                        DetailPair("Valor", currentRecord?.temperature?.let { "${formatNumber(it)} °C" } ?: "Sin lectura")
                         DetailPair("Sensor", "BME280")
                         DetailPair("Última lectura", prettyTimestamp(record?.createdAt))
                     }
                     DashboardDetail.AIR_HUMIDITY -> {
-                        DetailPair("Valor", record?.airHumidity?.let { "${formatNumber(it)} %" } ?: "Sin lectura")
+                        DetailPair("Valor", currentRecord?.airHumidity?.let { "${formatNumber(it)} %" } ?: "Sin lectura")
                         DetailPair("Sensor", "BME280")
                         DetailPair("Última lectura", prettyTimestamp(record?.createdAt))
                     }
                     DashboardDetail.SOIL_HUMIDITY -> {
-                        DetailPair("Valor", record?.soilHumidity?.let { "${formatNumber(it)} %" } ?: "Sin lectura")
-                        DetailPair("Riego", irrigationSafety(record?.soilHumidity, record?.waterLevel))
+                        DetailPair("Valor", currentRecord?.soilHumidity?.let { "${formatNumber(it)} %" } ?: "Sin lectura")
+                        DetailPair("Riego", irrigationSafety(currentRecord?.soilHumidity, currentRecord?.waterLevel))
                         DetailPair("Referencia", "35–<60 % aceptable")
                     }
                     DashboardDetail.LIGHT -> {
-                        DetailPair("Valor", record?.lightLux?.let { "${formatNumber(it)} lx" } ?: "Sin lectura")
+                        DetailPair("Valor", currentRecord?.lightLux?.let { "${formatNumber(it)} lx" } ?: "Sin lectura")
                         DetailPair("Sensor", "BH1750")
                         DetailPair("Última lectura", prettyTimestamp(record?.createdAt))
                     }
                     DashboardDetail.WATER_LEVEL -> {
-                        DetailPair("Nivel", waterLevelDisplay(record?.waterLevel))
+                        DetailPair("Nivel", waterLevelDisplay(currentRecord?.waterLevel))
                         DetailPair("Sensor", "Nivel de agua horizontal")
                         DetailPair("Entrada", "GPIO32")
                         Text("El riego se bloquea con nivel bajo o una lectura desconocida.")
@@ -749,7 +751,7 @@ private fun DashboardDetailDialog(
                             "Duración",
                             durationLabel(control?.pumpDurationMs ?: ControlPolicy.PUMP_DURATION_MS)
                         )
-                        DetailPair("Protección", irrigationSafety(record?.soilHumidity, record?.waterLevel))
+                        DetailPair("Protección", irrigationSafety(currentRecord?.soilHumidity, currentRecord?.waterLevel))
                     }
                 }
             }
@@ -764,8 +766,8 @@ private fun DashboardDetailDialog(
                 DashboardDetail.PUMP -> TextButton(
                     onClick = onPumpRequest,
                     enabled = !uiState.isUpdatingControl && ControlPolicy.irrigationDecision(
-                        record?.soilHumidity,
-                        record?.waterLevel
+                        currentRecord?.soilHumidity,
+                        currentRecord?.waterLevel
                     ).allowed
                 ) { Text("Regar ahora") }
                 else -> TextButton(onClick = onDismiss) { Text("Cerrar") }

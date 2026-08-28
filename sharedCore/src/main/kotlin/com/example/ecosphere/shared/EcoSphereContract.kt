@@ -154,6 +154,28 @@ object ControlPolicy {
         null -> "SIN REGISTRO"
     }
 
+    fun currentTelemetry(
+        record: SensorRecord?,
+        control: DeviceControl?,
+        nowMillis: Long = System.currentTimeMillis(),
+        timeoutMs: Long = ONLINE_TIMEOUT_MS
+    ): SensorRecord? {
+        if (record == null || control == null) return null
+
+        val telemetryFresh = isTelemetryFresh(
+            createdAt = record.createdAt,
+            nowMillis = nowMillis,
+            timeoutMs = timeoutMs
+        )
+        val deviceOnline = isDeviceOnline(
+            esp32Online = control.esp32Online,
+            lastSeenAt = control.lastSeenAt,
+            nowMillis = nowMillis,
+            timeoutMs = timeoutMs
+        )
+        return record.takeIf { telemetryFresh && deviceOnline }
+    }
+
     fun isTelemetryFresh(
         createdAt: String?,
         nowMillis: Long = System.currentTimeMillis(),
