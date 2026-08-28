@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
+  DEFAULT_PHONE_INPUT,
+  formatPhoneInput,
   normalizeDni,
   normalizePhone,
   normalizeUsername,
@@ -17,7 +19,22 @@ test('normaliza el nombre de usuario sin aceptar formatos ambiguos', () => {
 test('normaliza DNI y teléfonos peruanos sin inventar dígitos', () => {
   assert.equal(normalizeDni('12.345.678'), '12345678');
   assert.equal(normalizePhone('999 888 777'), '+51999888777');
+  assert.equal(formatPhoneInput(DEFAULT_PHONE_INPUT), '+51');
+  assert.equal(formatPhoneInput('+51 999 888 777 12345'), '+51 999 888 777');
   assert.equal(normalizePhone('+34 612 345 678'), '+34612345678');
+});
+
+test('el celular peruano exige nueve dígitos y comenzar con 9', () => {
+  const base = {
+    username: 'usuario123',
+    firstName: 'Ana María',
+    lastName: 'De la Cruz',
+    dni: '12345678',
+    email: 'usuario@example.com',
+  };
+  assert.equal(validateIdentityFields({ ...base, phone: '+51 999 888 777' }).valid, true);
+  assert.match(validateIdentityFields({ ...base, phone: '+51 899 888 777' }).errors.phone, /comenzar con 9/);
+  assert.match(validateIdentityFields({ ...base, phone: '+51 999 888 77' }).errors.phone, /9 dígitos/);
 });
 
 test('acepta una identidad completa y rechaza datos incompletos', () => {
@@ -54,6 +71,7 @@ test('el registro contiene los campos obligatorios y los proveedores aprobados',
   assert.match(html, /id="mfaCode"/);
   assert.match(html, /Google Authenticator/);
   assert.match(html, /id="loginIdentifier"/);
+  assert.match(html, /id="registerPhone"[^>]*maxlength="16"[^>]*value="\+51 "/);
 });
 
 test('nombres y apellidos se guardan por separado sin pedir contraseña en OAuth', async () => {
