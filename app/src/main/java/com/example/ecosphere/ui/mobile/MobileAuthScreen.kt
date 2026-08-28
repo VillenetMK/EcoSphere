@@ -56,6 +56,7 @@ import com.example.ecosphere.R
 import com.example.ecosphere.auth.NativeAuthPage
 import com.example.ecosphere.auth.NativeAuthUiState
 import com.example.ecosphere.auth.NativeAuthViewModel
+import com.example.ecosphere.shared.AuthValidation
 
 private val MobileGreen = Color(0xFF66FF7A)
 private val MobileBackground = Color(0xFF07100B)
@@ -304,7 +305,7 @@ private fun RegisterContent(
     var firstName by rememberSaveable { mutableStateOf("") }
     var lastName by rememberSaveable { mutableStateOf("") }
     var dni by rememberSaveable { mutableStateOf("") }
-    var phone by rememberSaveable { mutableStateOf("") }
+    var phone by rememberSaveable { mutableStateOf(AuthValidation.DEFAULT_PHONE_INPUT) }
     var email by rememberSaveable(verifiedEmail) { mutableStateOf(verifiedEmail.orEmpty()) }
     var password by rememberSaveable { mutableStateOf("") }
     var confirmation by rememberSaveable { mutableStateOf("") }
@@ -335,7 +336,7 @@ private fun RegisterContent(
     MobileField(
         label = "Número de teléfono",
         value = phone,
-        onValue = { phone = it },
+        onValue = { phone = AuthValidation.formatPhoneInput(it) },
         busy = busy,
         error = errors["phone"],
         placeholder = "+51 999 999 999",

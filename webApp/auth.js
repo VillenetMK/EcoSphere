@@ -7,6 +7,7 @@ import {
 const PENDING_REGISTRATION_KEY = 'ecosphere.pending-registration';
 const OAUTH_INTENT_KEY = 'ecosphere.oauth-intent';
 const ALLOWED_PROVIDERS = new Set(['google', 'github']);
+export const DEFAULT_PHONE_INPUT = '+51 ';
 let profileCompletionSession = null;
 let pendingMfa = null;
 
@@ -18,11 +19,28 @@ export function normalizeDni(value) {
   return String(value ?? '').replace(/\D/g, '').slice(0, 8);
 }
 
-export function normalizePhone(value) {
-  const raw = String(value ?? '').trim();
+export function formatPhoneInput(value) {
+  const raw = String(value ?? '').trimStart();
+  if (!raw) return '';
+
   const digits = raw.replace(/\D/g, '');
-  if (/^9\d{8}$/.test(digits)) return `+51${digits}`;
-  return raw.startsWith('+') ? `+${digits}` : digits;
+  const withCountryCode = raw.startsWith('+') ? digits : `51${digits}`;
+  const limited = withCountryCode.startsWith('51')
+    ? withCountryCode.slice(0, 11)
+    : withCountryCode.slice(0, 15);
+
+  if (limited.startsWith('51')) {
+    const local = limited.slice(2);
+    const groups = [local.slice(0, 3), local.slice(3, 6), local.slice(6, 9)].filter(Boolean);
+    return `+51${groups.length ? ` ${groups.join(' ')}` : ''}`;
+  }
+  return limited ? `+${limited}` : '+';
+}
+
+export function normalizePhone(value) {
+  const formatted = formatPhoneInput(value);
+  const digits = formatted.replace(/\D/g, '');
+  return digits ? `+${digits}` : '';
 }
 
 export function validateIdentityFields(values) {
@@ -45,7 +63,11 @@ export function validateIdentityFields(values) {
     errors.lastName = 'Ingresa tus apellidos usando sólo letras, espacios, apóstrofes o guiones.';
   }
   if (!/^\d{8}$/.test(dni)) errors.dni = 'El DNI debe tener exactamente 8 dígitos.';
-  if (!/^\+[1-9]\d{7,14}$/.test(phone)) errors.phone = 'Ingresa un teléfono válido; por ejemplo, +51 999 999 999.';
+  if (phone.startsWith('+51') && !/^\+519\d{8}$/.test(phone)) {
+    errors.phone = 'Ingresa los 9 dígitos del celular peruano; debe comenzar con 9.';
+  } else if (!/^\+[1-9]\d{7,14}$/.test(phone)) {
+    errors.phone = 'Ingresa un teléfono válido; por ejemplo, +51 999 999 999.';
+  }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
     errors.email = 'Ingresa un correo electrónico válido.';
   }
@@ -384,6 +406,12 @@ async function signInWithIdentifier(identifier, password) {
 }
 
 export async function initializeAuth({ onAccessGranted, onSignedOut }) {
+  const phoneInput = document.getElementById('registerPhone');
+  phoneInput.value = formatPhoneInput(phoneInput.value || DEFAULT_PHONE_INPUT);
+  phoneInput.addEventListener('input', () => {
+    phoneInput.value = formatPhoneInput(phoneInput.value);
+  });
+
   document.querySelectorAll('[data-auth-tab]').forEach(button => {
     button.addEventListener('click', () => showPanel(button.dataset.authTab));
   });
