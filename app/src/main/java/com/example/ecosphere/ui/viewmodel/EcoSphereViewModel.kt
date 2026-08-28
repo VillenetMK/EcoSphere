@@ -139,6 +139,27 @@ class EcoSphereViewModel(
         }
     }
 
+    fun refreshControlAudit() {
+        viewModelScope.launch {
+            uiState = uiState.copy(
+                isLoadingControlAudit = true,
+                controlAuditError = null
+            )
+            try {
+                uiState = uiState.copy(
+                    isLoadingControlAudit = false,
+                    controlAudit = repository.getControlAudit(),
+                    controlAuditError = null
+                )
+            } catch (e: Exception) {
+                uiState = uiState.copy(
+                    isLoadingControlAudit = false,
+                    controlAuditError = e.message ?: "No se pudo cargar el registro de actividad"
+                )
+            }
+        }
+    }
+
     private suspend fun loadDashboard(
         showLoading: Boolean,
         clearControlMessage: Boolean

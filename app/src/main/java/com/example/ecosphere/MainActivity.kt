@@ -61,6 +61,7 @@ class MainActivity : ComponentActivity() {
                         onRefreshHistory = ecoSphereViewModel::refreshHistory,
                         onSelectHistoryMonth = ecoSphereViewModel::selectHistoryMonth,
                         onLoadMoreHistory = ecoSphereViewModel::loadMoreHistory,
+                        onRefreshControlAudit = ecoSphereViewModel::refreshControlAudit,
                         onAutoModeChange = ecoSphereViewModel::setAutoMode,
                         onFanPowerChange = ecoSphereViewModel::setFanPower,
                         onLedPowerChange = ecoSphereViewModel::setLedPower,

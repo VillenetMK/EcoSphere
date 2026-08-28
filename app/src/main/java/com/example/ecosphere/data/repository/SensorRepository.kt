@@ -1,7 +1,8 @@
 package com.example.ecosphere.data.repository
 
-import com.example.ecosphere.data.model.DeviceControl
+import com.example.ecosphere.data.model.ControlAuditEntry
 import com.example.ecosphere.data.model.ControllerAdminStatus
+import com.example.ecosphere.data.model.DeviceControl
 import com.example.ecosphere.data.model.HistoryMonthSummary
 import com.example.ecosphere.data.model.SensorRecord
 import com.example.ecosphere.data.network.SupabaseApi
@@ -59,6 +60,14 @@ class SensorRepository(
             apiKey = apiKey,
             authorization = authorization()
         ).firstOrNull()
+    }
+
+    suspend fun getControlAudit(limit: Int = AUDIT_PAGE_SIZE): List<ControlAuditEntry> {
+        return api.getControlAudit(
+            apiKey = apiKey,
+            authorization = authorization(),
+            body = mapOf("p_limit" to limit.coerceIn(1, MAX_AUDIT_PAGE_SIZE))
+        )
     }
 
     suspend fun getControllerAdminStatus(): ControllerAdminStatus? {
@@ -145,5 +154,7 @@ class SensorRepository(
 
     companion object {
         const val HISTORY_PAGE_SIZE = 200
+        const val AUDIT_PAGE_SIZE = 200
+        const val MAX_AUDIT_PAGE_SIZE = 500
     }
 }

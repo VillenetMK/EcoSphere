@@ -1,7 +1,8 @@
 package com.example.ecosphere.data.network
 
-import com.example.ecosphere.data.model.DeviceControl
+import com.example.ecosphere.data.model.ControlAuditEntry
 import com.example.ecosphere.data.model.ControllerAdminStatus
+import com.example.ecosphere.data.model.DeviceControl
 import com.example.ecosphere.data.model.HistoryMonthSummary
 import com.example.ecosphere.data.model.SensorRecord
 import com.example.ecosphere.data.model.UsernameLoginResponse
@@ -58,6 +59,14 @@ interface SupabaseApi {
         @Header("Prefer") prefer: String = "return=representation",
         @Body body: Map<String, @JvmSuppressWildcards Any>
     ): List<DeviceControl>
+
+    @POST("rest/v1/rpc/admin_control_audit")
+    suspend fun getControlAudit(
+        @Header("apikey") apiKey: String,
+        @Header("Authorization") authorization: String,
+        @Header("Content-Type") contentType: String = "application/json",
+        @Body body: Map<String, Int>
+    ): List<ControlAuditEntry>
 
     @POST("rest/v1/rpc/controller_admin_status")
     suspend fun getControllerAdminStatus(

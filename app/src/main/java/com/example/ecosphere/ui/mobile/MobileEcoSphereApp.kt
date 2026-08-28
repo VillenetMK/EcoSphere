@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.ecosphere.ui.icons.EcoSphereIcons
 import com.example.ecosphere.ui.screens.AdaptiveDashboardScreen
+import com.example.ecosphere.ui.screens.ControlAuditScreen
 import com.example.ecosphere.ui.screens.DiagnosticsScreen
 import com.example.ecosphere.ui.screens.HistoryScreen
 import com.example.ecosphere.ui.viewmodel.EcoSphereUiState
@@ -51,6 +52,7 @@ private enum class MobileDestination(
     DASHBOARD("Panel principal", EcoSphereIcons.Dashboard),
     HISTORY("Registros históricos", EcoSphereIcons.History),
     DIAGNOSTICS("Diagnóstico del sistema", EcoSphereIcons.Diagnostics),
+    AUDIT("Registro de actividad", EcoSphereIcons.History),
     ACCOUNT("Cuenta", EcoSphereIcons.Settings)
 }
 
@@ -64,6 +66,7 @@ fun MobileEcoSphereApp(
     onRefreshHistory: () -> Unit,
     onSelectHistoryMonth: (String) -> Unit,
     onLoadMoreHistory: () -> Unit,
+    onRefreshControlAudit: () -> Unit,
     onAutoModeChange: (Boolean) -> Unit,
     onFanPowerChange: (Int) -> Unit,
     onLedPowerChange: (Int) -> Unit,
@@ -75,11 +78,20 @@ fun MobileEcoSphereApp(
     val destination = MobileDestination.valueOf(destinationName)
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
+    val availableDestinations = MobileDestination.entries.filter { item ->
+        item != MobileDestination.AUDIT || profileRole == "admin"
+    }
 
-    LaunchedEffect(destination) {
+    LaunchedEffect(profileRole, destination) {
+        if (destination == MobileDestination.AUDIT && profileRole != "admin") {
+            destinationName = MobileDestination.DASHBOARD.name
+            return@LaunchedEffect
+        }
+
         when (destination) {
             MobileDestination.HISTORY -> onRefreshHistory()
             MobileDestination.DIAGNOSTICS -> onRefreshController()
+            MobileDestination.AUDIT -> onRefreshControlAudit()
             else -> Unit
         }
     }
@@ -113,34 +125,34 @@ fun MobileEcoSphereApp(
                     )
                     Spacer(Modifier.height(8.dp))
 
-                    MobileDestination.entries.forEach { item ->
-                            NavigationDrawerItem(
-                                selected = item == destination,
-                                onClick = {
-                                    destinationName = item.name
-                                    coroutineScope.launch { drawerState.close() }
-                                },
-                                icon = {
-                                    Icon(
-                                        imageVector = item.icon,
-                                        contentDescription = item.menuLabel,
-                                        tint = Color.Unspecified
-                                    )
-                                },
-                                label = {
-                                    Text(
-                                        text = item.menuLabel,
-                                        fontWeight = if (item == destination) {
-                                            FontWeight.Bold
-                                        } else {
-                                            FontWeight.Medium
-                                        }
-                                    )
-                                },
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp)
-                            )
-                        }
+                    availableDestinations.forEach { item ->
+                        NavigationDrawerItem(
+                            selected = item == destination,
+                            onClick = {
+                                destinationName = item.name
+                                coroutineScope.launch { drawerState.close() }
+                            },
+                            icon = {
+                                Icon(
+                                    imageVector = item.icon,
+                                    contentDescription = item.menuLabel,
+                                    tint = Color.Unspecified
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = item.menuLabel,
+                                    fontWeight = if (item == destination) {
+                                        FontWeight.Bold
+                                    } else {
+                                        FontWeight.Medium
+                                    }
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                    }
                 }
             }
         }
@@ -155,45 +167,52 @@ fun MobileEcoSphereApp(
                     .padding(innerPadding)
             ) {
                 when (destination) {
-                MobileDestination.DASHBOARD -> AdaptiveDashboardScreen(
-                    uiState = uiState,
-                    onRefresh = onRefresh,
-                    onAutoModeChange = onAutoModeChange,
-                    onFanPowerChange = onFanPowerChange,
-                    onLedPowerChange = onLedPowerChange,
-                    onPumpRequest = onPumpRequest
-                )
+                    MobileDestination.DASHBOARD -> AdaptiveDashboardScreen(
+                        uiState = uiState,
+                        onRefresh = onRefresh,
+                        onAutoModeChange = onAutoModeChange,
+                        onFanPowerChange = onFanPowerChange,
+                        onLedPowerChange = onLedPowerChange,
+                        onPumpRequest = onPumpRequest
+                    )
 
-                MobileDestination.HISTORY -> HistoryScreen(
-                    records = uiState.history,
-                    months = uiState.historyMonths,
-                    selectedMonth = uiState.selectedHistoryMonth,
-                    hasMore = uiState.historyHasMore,
-                    isLoading = uiState.isLoadingHistory,
-                    isLoadingMore = uiState.isLoadingMoreHistory,
-                    error = uiState.error,
-                    onRefresh = onRefreshHistory,
-                    onSelectMonth = onSelectHistoryMonth,
-                    onLoadMore = onLoadMoreHistory
-                )
+                    MobileDestination.HISTORY -> HistoryScreen(
+                        records = uiState.history,
+                        months = uiState.historyMonths,
+                        selectedMonth = uiState.selectedHistoryMonth,
+                        hasMore = uiState.historyHasMore,
+                        isLoading = uiState.isLoadingHistory,
+                        isLoadingMore = uiState.isLoadingMoreHistory,
+                        error = uiState.error,
+                        onRefresh = onRefreshHistory,
+                        onSelectMonth = onSelectHistoryMonth,
+                        onLoadMore = onLoadMoreHistory
+                    )
 
-                MobileDestination.DIAGNOSTICS -> DiagnosticsScreen(
-                    record = uiState.record,
-                    control = uiState.deviceControl,
-                    onRefresh = onRefresh,
-                    isAdmin = profileRole == "admin",
-                    controllerStatus = uiState.controllerStatus,
-                    isReplacingController = uiState.isReplacingController,
-                    controllerMessage = uiState.controllerMessage,
-                    onRefreshController = onRefreshController,
-                    onReplaceController = onReplaceController
-                )
+                    MobileDestination.DIAGNOSTICS -> DiagnosticsScreen(
+                        record = uiState.record,
+                        control = uiState.deviceControl,
+                        onRefresh = onRefresh,
+                        isAdmin = profileRole == "admin",
+                        controllerStatus = uiState.controllerStatus,
+                        isReplacingController = uiState.isReplacingController,
+                        controllerMessage = uiState.controllerMessage,
+                        onRefreshController = onRefreshController,
+                        onReplaceController = onReplaceController
+                    )
 
-                MobileDestination.ACCOUNT -> MobileAccountScreen(
-                    profileName = profileName,
-                    profileRole = profileRole,
-                    onSignOut = onSignOut
-                )
+                    MobileDestination.AUDIT -> ControlAuditScreen(
+                        entries = uiState.controlAudit,
+                        isLoading = uiState.isLoadingControlAudit,
+                        error = uiState.controlAuditError,
+                        onRefresh = onRefreshControlAudit
+                    )
+
+                    MobileDestination.ACCOUNT -> MobileAccountScreen(
+                        profileName = profileName,
+                        profileRole = profileRole,
+                        onSignOut = onSignOut
+                    )
                 }
             }
         }

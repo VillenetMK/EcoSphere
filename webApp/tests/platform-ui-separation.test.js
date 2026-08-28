@@ -25,6 +25,8 @@ test('Android usa un shell y una autenticación exclusivamente móviles', async 
   assert.match(mobileShell, /"Registros históricos"/);
   assert.match(mobileShell, /"Diagnóstico del sistema"/);
   assert.match(mobileShell, /ACCOUNT\("Cuenta"/);
+  assert.match(mobileShell, /AUDIT\("Registro de actividad"/);
+  assert.match(mobileShell, /item != MobileDestination\.AUDIT \|\| profileRole == "admin"/);
   assert.doesNotMatch(mobileShell, /\bNavigationBar\b/);
   assert.doesNotMatch(mobileShell, /filter \{ it != MobileDestination\.ACCOUNT/);
   assert.doesNotMatch(mobileAuth, /ECOSPHERE CONTROL/);
