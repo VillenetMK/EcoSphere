@@ -155,15 +155,24 @@ create index control_audit_log_actor_user_id_idx
 
 alter table private.control_audit_log enable row level security;
 
-create policy "deny_direct_control_audit_access"
+create policy "admin_mfa_read_control_audit"
   on private.control_audit_log
-  for all
-  to public
-  using (false)
-  with check (false);
+  for select
+  to authenticated
+  using (
+    coalesce((select auth.jwt()->>'aal'), '') = 'aal2'
+    and exists (
+      select 1
+      from private.user_profiles as profile
+      where profile.user_id = (select auth.uid())
+        and profile.status = 'approved'
+        and profile.role = 'admin'
+    )
+  );
 
 revoke all on table private.control_audit_log from public, anon, authenticated;
 revoke all on sequence private.control_audit_log_id_seq from public, anon, authenticated;
+grant select on table private.control_audit_log to authenticated;
 
 create function private.log_device_control_changes()
 returns trigger
@@ -254,15 +263,11 @@ returns table (
   pump_duration_ms integer,
   created_at timestamptz
 )
-language plpgsql
+language sql
 stable
-security definer
+security invoker
 set search_path = ''
 as $function$
-begin
-  perform private.require_admin_aal2();
-
-  return query
   select
     audit.id,
     audit.actor_username,
@@ -279,7 +284,6 @@ begin
   from private.control_audit_log as audit
   order by audit.created_at desc, audit.id desc
   limit greatest(1, least(coalesce(p_limit, 200), 500));
-end;
 $function$;
 
 revoke all on function public.admin_control_audit(integer)
