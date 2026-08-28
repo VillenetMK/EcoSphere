@@ -36,19 +36,41 @@ data class RegistrationValidation(
 }
 
 object AuthValidation {
+    const val DEFAULT_PHONE_INPUT = "+51 "
+
     private val usernamePattern = Regex("^[A-Za-z][A-Za-z0-9._-]{2,31}$")
     private val personNamePattern = Regex("^[\\p{L}][\\p{L} .'’-]*[\\p{L}]$")
     private val phonePattern = Regex("^\\+[1-9][0-9]{7,14}$")
+    private val peruMobilePattern = Regex("^\\+519[0-9]{8}$")
     private val emailPattern = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
 
-    fun normalizePhone(value: String): String {
-        val raw = value.trim()
+    fun formatPhoneInput(value: String): String {
+        val raw = value.trimStart()
+        if (raw.isEmpty()) return ""
+
         val digits = raw.filter(Char::isDigit)
-        return when {
-            Regex("^9[0-9]{8}$").matches(digits) -> "+51$digits"
-            raw.startsWith("+") -> "+$digits"
-            else -> digits
+        val withCountryCode = if (raw.startsWith("+")) digits else "51$digits"
+        val limited = if (withCountryCode.startsWith("51")) {
+            withCountryCode.take(11)
+        } else {
+            withCountryCode.take(15)
         }
+
+        if (limited.startsWith("51")) {
+            val local = limited.drop(2)
+            return buildString {
+                append("+51")
+                listOf(local.take(3), local.drop(3).take(3), local.drop(6).take(3))
+                    .filter(String::isNotEmpty)
+                    .forEach { group -> append(' ').append(group) }
+            }
+        }
+        return if (limited.isEmpty()) "+" else "+$limited"
+    }
+
+    fun normalizePhone(value: String): String {
+        val digits = formatPhoneInput(value).filter(Char::isDigit)
+        return if (digits.isEmpty()) "" else "+$digits"
     }
 
     fun validateRegistration(
@@ -80,7 +102,9 @@ object AuthValidation {
         if (!Regex("^[0-9]{8}$").matches(normalizedDni)) {
             errors["dni"] = "El DNI debe tener exactamente 8 dígitos."
         }
-        if (!phonePattern.matches(normalizedPhone)) {
+        if (normalizedPhone.startsWith("+51") && !peruMobilePattern.matches(normalizedPhone)) {
+            errors["phone"] = "Ingresa los 9 dígitos del celular peruano; debe comenzar con 9."
+        } else if (!phonePattern.matches(normalizedPhone)) {
             errors["phone"] = "Ingresa un teléfono válido; por ejemplo, +51 999 999 999."
         }
         if (normalizedEmail.length > 254 || !emailPattern.matches(normalizedEmail)) {
