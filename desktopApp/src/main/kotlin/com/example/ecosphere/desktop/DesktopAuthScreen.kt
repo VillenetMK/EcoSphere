@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ecosphere.shared.AuthValidation
 
 private val LoginGreen = Color(0xFF5CFF72)
 private val LoginSurface = Color(0xFF101914)
@@ -210,7 +211,7 @@ private fun DesktopRegisterForm(
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
     var dni by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf(AuthValidation.DEFAULT_PHONE_INPUT) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf("") }
@@ -227,7 +228,15 @@ private fun DesktopRegisterForm(
     }
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         DesktopField("DNI", dni, { dni = it.filter(Char::isDigit).take(8) }, busy, errors["dni"], modifier = Modifier.weight(1f))
-        DesktopField("Número de teléfono", phone, { phone = it }, busy, errors["phone"], "+51 999 999 999", Modifier.weight(1f))
+        DesktopField(
+            "Número de teléfono",
+            phone,
+            { phone = AuthValidation.formatPhoneInput(it) },
+            busy,
+            errors["phone"],
+            "+51 999 999 999",
+            Modifier.weight(1f)
+        )
     }
     DesktopField("Correo electrónico", email, { email = it }, busy, errors["email"], "usuario@ejemplo.com")
     DesktopPasswordField("Contraseña", password, { password = it }, busy, errors["password"])
