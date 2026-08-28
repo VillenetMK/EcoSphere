@@ -256,10 +256,13 @@ class EcoSphereViewModel(
     }
 
     fun requestPump() {
-        val record = uiState.record
+        val currentRecord = ControlPolicy.currentTelemetry(
+            record = uiState.record,
+            control = uiState.deviceControl
+        )
         val decision = ControlPolicy.irrigationDecision(
-            soilHumidity = record?.soilHumidity,
-            waterLevel = record?.waterLevel
+            soilHumidity = currentRecord?.soilHumidity,
+            waterLevel = currentRecord?.waterLevel
         )
         if (!decision.allowed) {
             uiState = uiState.copy(controlMessage = decision.message)
