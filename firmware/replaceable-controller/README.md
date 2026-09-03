@@ -1,5 +1,8 @@
 # Controladores ESP32 reemplazables
 
+Copyright (c) 2026 Gabriel Enrique Villenet Montero. Todos los derechos
+reservados. Uso sujeto al archivo `LICENSE` del repositorio.
+
 Este módulo permite cargar **el mismo firmware** en todos los ESP32. Cada placa obtiene automáticamente:
 
 - un identificador físico derivado de su eFuse MAC;
@@ -51,6 +54,25 @@ void sendState() {
 
 `ROOT_CA` debe contener el certificado raíz válido para `*.supabase.co`. No use `setInsecure()` y no coloque una clave `service_role` en el ESP32.
 
+## Versión mínima y señales desconectadas
+
+La telemetría de presencia del sensor de suelo y del flotador requiere
+`2.0.5+replaceable` o posterior. Supabase mantiene el heartbeat y el control de
+versiones antiguas, pero guarda `soil_humidity` y `water_level` como `null` para
+evitar mostrar señales flotantes como mediciones físicas.
+
+GPIO34 del ESP32 no dispone de pull-up/pull-down interno. Instale una
+resistencia de **47 kΩ a 100 kΩ entre GPIO34 y GND**, cerca del ESP32. Sin esa
+resistencia, un sensor capacitivo desconectado puede producir porcentajes
+aleatorios aunque el firmware filtre múltiples muestras. Después de instalarla,
+recalibre `SUELO_SECO_ADC` y `SUELO_MOJADO_ADC` con el sensor real.
+
+El flotador de GPIO32 usa `INPUT_PULLUP` y lógica activa en bajo. Un contacto
+abierto y un cable desconectado son eléctricamente indistinguibles con sólo dos
+hilos; ambos se tratan como nivel bajo y bloquean la bomba. Para mostrar un
+estado separado de “sensor desconectado” se necesita un circuito supervisado
+con resistencia de fin de línea.
+
 ## Reemplazo
 
 1. Encienda el ESP32 de reserva y solicite su código de vinculación.
@@ -60,3 +82,9 @@ void sendState() {
 5. La primera sincronización segura desactiva automáticamente el acceso anónimo antiguo.
 
 El controlador anterior pasa a reserva y deja de escribir. Las órdenes, usuarios y registros históricos continúan perteneciendo al mismo EcoSphere.
+
+## Seguridad
+
+No suba al repositorio contraseñas Wi-Fi, secretos del controlador ni claves
+privadas. El sketch listo para flashear debe mantenerse fuera del repositorio
+público.
