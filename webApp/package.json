@@ -1,10 +1,13 @@
 {
   "name": "ecosphere-web",
-  "version": "1.6.1",
+  "version": "1.6.5",
   "private": true,
+  "author": "Gabriel Enrique Villenet Montero",
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "build": "esbuild app.js --bundle --minify --format=esm --target=es2022 --outfile=../dist/app.js",
+    "check:copyright": "node ../scripts/check-copyright.mjs",
     "test": "node --test"
   },
   "dependencies": {

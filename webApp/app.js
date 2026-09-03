@@ -1,3 +1,9 @@
+/*
+ * EcoSphere
+ * Copyright (c) 2026 Gabriel Enrique Villenet Montero.
+ * Todos los derechos reservados. Uso sujeto al archivo LICENSE.
+ */
+
 import {
   CONTROL_POLICY,
   actuatorPwmLabel,
@@ -6,7 +12,7 @@ import {
   irrigationDecision,
   irrigationStatus,
   isDeviceOnline,
-  isTelemetryFresh,
+  isTelemetryCurrent,
   waterLevelLabel,
 } from './control-policy.js';
 import { buildDiagnosticModel, technicalReport } from './diagnostics.js';
@@ -186,6 +192,8 @@ function renderAll() {
 
 function renderDashboard() {
   const online = onlineNow(deviceControl);
+  const telemetryCurrent = isTelemetryCurrent(latestRecord, deviceControl);
+  const currentRecord = telemetryCurrent ? latestRecord : null;
   const auto = !!deviceControl?.auto_mode;
   $('systemStatus').textContent = online ? 'Sistema conectado' : 'Sistema sin conexión';
   $('modeValue').textContent = auto ? 'Automático' : 'Manual';
@@ -198,13 +206,12 @@ function renderDashboard() {
   $('emptyTelemetry').hidden = hasTelemetry;
   $('metricsGrid').hidden = !hasTelemetry;
 
-  $('temperatureValue').textContent = formatNumber(latestRecord?.temperature, '°C');
-  $('airHumidityValue').textContent = formatNumber(latestRecord?.air_humidity, '%');
-  $('soilHumidityValue').textContent = formatNumber(latestRecord?.soil_humidity, '%');
-  $('lightValue').textContent = formatNumber(latestRecord?.light_lux, 'lux');
-  $('waterValue').textContent = waterLevelLabel(latestRecord?.water_level);
+  $('temperatureValue').textContent = formatNumber(currentRecord?.temperature, '°C');
+  $('airHumidityValue').textContent = formatNumber(currentRecord?.air_humidity, '%');
+  $('soilHumidityValue').textContent = formatNumber(currentRecord?.soil_humidity, '%');
+  $('lightValue').textContent = formatNumber(currentRecord?.light_lux, 'lux');
+  $('waterValue').textContent = currentRecord ? waterLevelLabel(currentRecord.water_level) : '--';
 
-  const telemetryCurrent = online && isTelemetryFresh(latestRecord);
   const reportedMode = telemetryCurrent ? latestRecord?.auto_mode : null;
   $('fanState').textContent = telemetryCurrent
     ? actuatorPwmLabel(latestRecord?.fan_on, latestRecord?.fan_power)
@@ -234,13 +241,13 @@ function renderDashboard() {
   $('fanPower').disabled = busy || auto || !deviceControl || !canOperate;
   $('ledPower').disabled = busy || auto || !deviceControl || !canOperate;
   const irrigation = irrigationDecision(
-    latestRecord?.soil_humidity,
-    latestRecord?.water_level,
+    currentRecord?.soil_humidity,
+    currentRecord?.water_level,
   );
   $('pumpBtn').disabled = busy || !deviceControl || !irrigation.allowed || !canOperate;
   $('pumpHint').textContent = irrigationStatus(
-    latestRecord?.soil_humidity,
-    latestRecord?.water_level,
+    currentRecord?.soil_humidity,
+    currentRecord?.water_level,
   );
 }
 
@@ -609,9 +616,10 @@ $('ledPower').addEventListener('change', event => {
 });
 
 $('pumpBtn').addEventListener('click', async () => {
+  const currentRecord = isTelemetryCurrent(latestRecord, deviceControl) ? latestRecord : null;
   const decision = irrigationDecision(
-    latestRecord?.soil_humidity,
-    latestRecord?.water_level,
+    currentRecord?.soil_humidity,
+    currentRecord?.water_level,
   );
   if (!decision.allowed) {
     toast(decision.message);

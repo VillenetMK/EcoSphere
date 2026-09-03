@@ -1,3 +1,9 @@
+/*
+ * EcoSphere
+ * Copyright (c) 2026 Gabriel Enrique Villenet Montero.
+ * Todos los derechos reservados. Uso sujeto al archivo LICENSE.
+ */
+
 import java.util.Base64
 
 plugins {
@@ -48,8 +54,8 @@ android {
         applicationId = "com.example.ecosphere"
         minSdk = 24
         targetSdk = 36
-        versionCode = 14
-        versionName = "1.4.9"
+        versionCode = 15
+        versionName = "1.4.10"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

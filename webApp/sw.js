@@ -1,4 +1,10 @@
-const CACHE = 'ecosphere-web-v1.6.4-android-oauth-return';
+/*
+ * EcoSphere
+ * Copyright (c) 2026 Gabriel Enrique Villenet Montero.
+ * Todos los derechos reservados. Uso sujeto al archivo LICENSE.
+ */
+
+const CACHE = 'ecosphere-web-v1.6.5-current-telemetry-only';
 const ASSETS = [
   './',
   './index.html',
