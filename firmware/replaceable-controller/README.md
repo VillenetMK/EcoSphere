@@ -56,10 +56,10 @@ void sendState() {
 
 ## Versión mínima y señales desconectadas
 
-La telemetría de presencia del sensor de suelo y del flotador requiere
-`2.0.5+replaceable` o posterior. Supabase mantiene el heartbeat y el control de
-versiones antiguas, pero guarda `soil_humidity` y `water_level` como `null` para
-evitar mostrar señales flotantes como mediciones físicas.
+La telemetría de humedad del suelo requiere exactamente el firmware validado
+`2.0.5+replaceable`. Supabase mantiene el heartbeat y el control de versiones
+anteriores, pero guarda `soil_humidity` como `null` para evitar mostrar un
+GPIO34 flotante como una medición física.
 
 GPIO34 del ESP32 no dispone de pull-up/pull-down interno. Instale una
 resistencia de **47 kΩ a 100 kΩ entre GPIO34 y GND**, cerca del ESP32. Sin esa
@@ -69,9 +69,10 @@ recalibre `SUELO_SECO_ADC` y `SUELO_MOJADO_ADC` con el sensor real.
 
 El flotador de GPIO32 usa `INPUT_PULLUP` y lógica activa en bajo. Un contacto
 abierto y un cable desconectado son eléctricamente indistinguibles con sólo dos
-hilos; ambos se tratan como nivel bajo y bloquean la bomba. Para mostrar un
-estado separado de “sensor desconectado” se necesita un circuito supervisado
-con resistencia de fin de línea.
+hilos; ambos se reportan como `low`. En EcoSphere ese valor significa **agua no
+confirmada**, no confirma la presencia física del sensor y siempre bloquea la
+bomba. Para mostrar un estado separado de “sensor desconectado” se necesita un
+circuito supervisado con resistencia de fin de línea.
 
 ## Reemplazo
 
