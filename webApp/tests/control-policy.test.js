@@ -1,3 +1,9 @@
+/*
+ * EcoSphere
+ * Copyright (c) 2026 Gabriel Enrique Villenet Montero.
+ * Todos los derechos reservados. Uso sujeto al archivo LICENSE.
+ */
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -7,6 +13,7 @@ import {
   clampPower,
   irrigationDecision,
   isDeviceOnline,
+  isTelemetryCurrent,
   isTelemetryFresh,
   waterLevelLabel,
 } from '../control-policy.js';
@@ -47,6 +54,17 @@ test('la telemetría sólo se considera actual dentro del timeout', () => {
   assert.equal(isTelemetryFresh({ created_at: createdAt }, timestamp + 29_999), true);
   assert.equal(isTelemetryFresh({ created_at: createdAt }, timestamp + 30_001), false);
   assert.equal(isTelemetryFresh(null, timestamp), false);
+});
+
+test('una lectura antigua nunca se presenta como estado físico actual', () => {
+  const now = Date.parse('2026-08-23T20:00:00.000Z');
+  const freshRecord = { created_at: '2026-08-23T19:59:55.000Z', soil_humidity: 42 };
+  const staleRecord = { created_at: '2026-08-23T19:00:00.000Z', soil_humidity: 100 };
+  const onlineControl = { esp32_online: true, last_seen_at: '2026-08-23T19:59:55.000Z' };
+
+  assert.equal(isTelemetryCurrent(freshRecord, onlineControl, now), true);
+  assert.equal(isTelemetryCurrent(staleRecord, onlineControl, now), false);
+  assert.equal(isTelemetryCurrent(freshRecord, { ...onlineControl, esp32_online: false }, now), false);
 });
 
 test('los actuadores describen salidas del ESP32 y no presencia física', () => {

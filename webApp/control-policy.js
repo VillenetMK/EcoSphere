@@ -1,3 +1,9 @@
+/*
+ * EcoSphere
+ * Copyright (c) 2026 Gabriel Enrique Villenet Montero.
+ * Todos los derechos reservados. Uso sujeto al archivo LICENSE.
+ */
+
 export const CONTROL_POLICY = Object.freeze({
   soilManualDenyThreshold: 60,
   soilDryThreshold: 35,
@@ -97,4 +103,8 @@ export function isDeviceOnline(control, nowMillis = Date.now()) {
   const age = nowMillis - lastSeenMillis;
   return age >= -CONTROL_POLICY.clockSkewToleranceMs &&
     age <= CONTROL_POLICY.onlineTimeoutMs;
+}
+
+export function isTelemetryCurrent(record, control, nowMillis = Date.now()) {
+  return isDeviceOnline(control, nowMillis) && isTelemetryFresh(record, nowMillis);
 }

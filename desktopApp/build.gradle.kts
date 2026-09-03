@@ -1,3 +1,9 @@
+/*
+ * EcoSphere
+ * Copyright (c) 2026 Gabriel Enrique Villenet Montero.
+ * Todos los derechos reservados. Uso sujeto al archivo LICENSE.
+ */
+
 plugins {
     kotlin("jvm") version "2.4.10"
     id("org.jetbrains.compose") version "1.11.1"
@@ -6,7 +12,7 @@ plugins {
 }
 
 group = "com.example.ecosphere"
-version = "1.4.3"
+version = "1.4.4"
 
 kotlin {
     jvmToolchain(17)
@@ -39,7 +45,7 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb
             )
             packageName = "EcoSphere"
-            packageVersion = "1.4.3"
+            packageVersion = "1.4.4"
             description = "EcoSphere - Sistema inteligente de microclima"
             vendor = "EcoSphere"
             modules("java.net.http")

@@ -1,3 +1,7 @@
+# EcoSphere
+# Copyright (c) 2026 Gabriel Enrique Villenet Montero.
+# Todos los derechos reservados. Uso sujeto al archivo LICENSE.
+
 name: Build EcoSphere Android APK
 
 on:
@@ -46,12 +50,12 @@ jobs:
         run: ./gradlew :sharedCore:test :app:testDebugUnitTest :app:assembleDebug --stacktrace --no-daemon
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk EcoSphere-1.4.9-Android.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk EcoSphere-1.4.10-Android.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: EcoSphere-Android-APK
-          path: EcoSphere-1.4.9-Android.apk
+          path: EcoSphere-1.4.10-Android.apk
           if-no-files-found: error
           retention-days: 30

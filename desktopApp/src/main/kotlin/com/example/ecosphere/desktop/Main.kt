@@ -1,3 +1,9 @@
+/*
+ * EcoSphere
+ * Copyright (c) 2026 Gabriel Enrique Villenet Montero.
+ * Todos los derechos reservados. Uso sujeto al archivo LICENSE.
+ */
+
 package com.example.ecosphere.desktop
 
 import androidx.compose.foundation.background
@@ -326,9 +332,10 @@ private fun EcoSphereDesktopApp(
                         },
                         onPump = {
                             scope.launch {
+                                val currentRecord = ControlPolicy.currentTelemetry(record, control)
                                 val decision = ControlPolicy.irrigationDecision(
-                                    record?.soilHumidity,
-                                    record?.waterLevel
+                                    currentRecord?.soilHumidity,
+                                    currentRecord?.waterLevel
                                 )
                                 if (!decision.allowed) {
                                     snackbar.showSnackbar(decision.message)
@@ -438,7 +445,7 @@ private fun NavigationPane(
                 Text("Cerrar sesión")
             }
             Spacer(Modifier.height(12.dp))
-            Text("EcoSphere Desktop 1.4.3", color = Muted, fontSize = 11.sp)
+            Text("EcoSphere Desktop 1.4.4", color = Muted, fontSize = 11.sp)
         }
     }
 }
@@ -457,6 +464,8 @@ private fun Dashboard(
     onPump: () -> Unit
 ) {
     val scroll = rememberScrollState()
+    val currentRecord = ControlPolicy.currentTelemetry(record, control)
+    val telemetryCurrent = currentRecord != null
     Column(
         Modifier.fillMaxSize().verticalScroll(scroll).padding(28.dp),
         verticalArrangement = Arrangement.spacedBy(20.dp)
@@ -484,13 +493,13 @@ private fun Dashboard(
             EmptyTelemetryCard()
         } else {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                MetricCard("Temperatura", format(record.temperature, "°C"), "BME280", Modifier.weight(1f))
-                MetricCard("Humedad aire", format(record.airHumidity, "%"), "BME280", Modifier.weight(1f))
-                MetricCard("Humedad suelo", format(record.soilHumidity, "%"), "Sensor capacitivo", Modifier.weight(1f))
+                MetricCard("Temperatura", format(currentRecord?.temperature, "°C"), "BME280", Modifier.weight(1f))
+                MetricCard("Humedad aire", format(currentRecord?.airHumidity, "%"), "BME280", Modifier.weight(1f))
+                MetricCard("Humedad suelo", format(currentRecord?.soilHumidity, "%"), "Sensor capacitivo", Modifier.weight(1f))
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                MetricCard("Iluminación", format(record.lightLux, "lux"), "BH1750", Modifier.weight(1f))
-                MetricCard("Nivel de agua", waterLabel(record.waterLevel), "Sensor horizontal GPIO32", Modifier.weight(1f))
+                MetricCard("Iluminación", format(currentRecord?.lightLux, "lux"), "BH1750", Modifier.weight(1f))
+                MetricCard("Nivel de agua", currentRecord?.let { waterLabel(it.waterLevel) } ?: "--", "Sensor horizontal GPIO32", Modifier.weight(1f))
                 Spacer(Modifier.weight(1f))
             }
         }
@@ -501,7 +510,7 @@ private fun Dashboard(
         DashboardSectionTitle("Control remoto", "Órdenes enviadas a través de Supabase")
         ControlPanel(
             control = control,
-            record = record,
+            record = currentRecord,
             actionBusy = actionBusy,
             onAutoMode = onAutoMode,
             onFanPower = onFanPower,
@@ -786,7 +795,8 @@ private fun DiagnosticsScreen(
     onReplaceController: (String) -> Unit
 ) {
     val online = control?.isOnlineNow() == true
-    val telemetryCurrent = online && ControlPolicy.isTelemetryFresh(record?.createdAt)
+    val currentRecord = ControlPolicy.currentTelemetry(record, control)
+    val telemetryCurrent = currentRecord != null
     var pairingCode by remember { mutableStateOf("") }
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(28.dp),
@@ -798,10 +808,10 @@ private fun DiagnosticsScreen(
         Spacer(Modifier.height(8.dp))
 
         DiagnosticRow("ESP32", if (online) "OK" else "SIN CONEXIÓN", control?.lastSeenAt ?: "Sin heartbeat")
-        DiagnosticRow("BME280", if (record?.temperature != null && record.airHumidity != null) "OK" else "SIN CONFIRMAR", "Temperatura y humedad del aire")
-        DiagnosticRow("BH1750", if (record?.lightLux != null) "OK" else "SIN CONFIRMAR", "Sensor de iluminación")
-        DiagnosticRow("Humedad de suelo", if (record?.soilHumidity != null) "OK" else "SIN CONFIRMAR", record?.soilHumidity?.let { "${it.roundToInt()} %" } ?: "Sin lectura")
-        DiagnosticRow("Nivel de agua", if (record?.waterLevel != null) "OK" else "SIN CONFIRMAR", waterLabel(record?.waterLevel))
+        DiagnosticRow("BME280", if (currentRecord?.temperature != null && currentRecord.airHumidity != null) "OK" else "SIN CONFIRMAR", "Temperatura y humedad del aire")
+        DiagnosticRow("BH1750", if (currentRecord?.lightLux != null) "OK" else "SIN CONFIRMAR", "Sensor de iluminación")
+        DiagnosticRow("Humedad de suelo", if (currentRecord?.soilHumidity != null) "OK" else "SIN CONFIRMAR", currentRecord?.soilHumidity?.let { "${it.roundToInt()} %" } ?: "Sin lectura actual")
+        DiagnosticRow("Nivel de agua", if (currentRecord?.waterLevel != null) "OK" else "SIN CONFIRMAR", currentRecord?.let { waterLabel(it.waterLevel) } ?: "Sin lectura actual")
         DiagnosticRow(
             "Ventilador",
             if (telemetryCurrent) "SALIDA ESP32" else "SIN CONFIRMAR",

@@ -1,3 +1,9 @@
+/*
+ * EcoSphere
+ * Copyright (c) 2026 Gabriel Enrique Villenet Montero.
+ * Todos los derechos reservados. Uso sujeto al archivo LICENSE.
+ */
+
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -48,7 +54,16 @@ test('el estado reportado y los controles remotos permanecen separados', async (
   assert.match(html, /id="fanPower"/);
   assert.match(html, /id="ledPower"/);
   assert.match(html, /id="pumpBtn"/);
-  assert.match(app, /isTelemetryFresh\(latestRecord\)/);
+  assert.match(app, /isTelemetryCurrent\(latestRecord, deviceControl\)/);
+  assert.match(app, /currentRecord\?\.soil_humidity/);
+  assert.match(app, /currentRecord\?\.water_level/);
   assert.match(app, /actuatorPwmLabel/);
   assert.doesNotMatch(app, /`ENCENDIDO/);
+
+  const pumpHandler = app.slice(
+    app.indexOf("$('pumpBtn').addEventListener"),
+    app.indexOf("document.querySelectorAll('.nav-item')"),
+  );
+  assert.match(pumpHandler, /isTelemetryCurrent\(latestRecord, deviceControl\)/);
+  assert.doesNotMatch(pumpHandler, /irrigationDecision\(\s*latestRecord/);
 });
