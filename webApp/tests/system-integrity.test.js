@@ -20,6 +20,7 @@ test('Android no respalda sesiones ni datos pendientes de registro', async () =>
   ]);
 
   assert.match(manifest, /android:allowBackup="false"/);
+  assert.match(manifest, /android:usesCleartextTraffic="false"/);
   assert.match(manifest, /android:fullBackupContent="@xml\/backup_rules"/);
   assert.match(manifest, /android:dataExtractionRules="@xml\/data_extraction_rules"/);
   assert.match(backup, /exclude domain="sharedpref" path="\."/);

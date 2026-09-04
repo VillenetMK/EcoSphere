@@ -11,6 +11,7 @@
         android:roundIcon="@drawable/ecosphere_launcher_full"
         android:label="EcoSphere"
         android:supportsRtl="true"
+        android:usesCleartextTraffic="false"
         android:theme="@style/Theme.EcoSphere">
 
         <activity
