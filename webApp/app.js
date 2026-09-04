@@ -25,6 +25,7 @@ import {
   prepareHistoryExport,
 } from './history.js';
 import { initializeAuth } from './auth.js';
+import { readJsonResponse } from './api-response.js';
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from './supabase-client.js';
 
 let latestRecord = null;
@@ -90,8 +91,7 @@ async function headers(extra = {}) {
 
 async function apiGet(path) {
   const response = await fetch(`${SUPABASE_URL}/${path}`, { headers: await headers() });
-  if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-  return response.json();
+  return readJsonResponse(response);
 }
 
 async function apiPost(path, body = {}) {
@@ -103,8 +103,7 @@ async function apiPost(path, body = {}) {
     }),
     body: JSON.stringify(body),
   });
-  if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-  return response.json();
+  return readJsonResponse(response);
 }
 
 async function loadLatest() {

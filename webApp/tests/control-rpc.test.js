@@ -31,3 +31,23 @@ test('todos los clientes envían controles mediante el RPC seguro', async () => 
   assert.match(combined, /["']p_value["']/);
   assert.doesNotMatch(web, /acceso de sólo lectura/);
 });
+
+test('el RPC tolera ajustes humanos rápidos sin retirar las protecciones de riego', async () => {
+  const migration = await readFile(
+    new URL(
+      '../../supabase/migrations/20260904035138_relax_interactive_control_rate_limit.sql',
+      import.meta.url,
+    ),
+    'utf8',
+  );
+
+  assert.match(migration, /Replaying the current set-point is a successful idempotent request/);
+  assert.match(migration, /offset 29[\s\S]*offset 9/);
+  assert.match(migration, /'status', 429/);
+  assert.match(migration, /ECOSPHERE_CONTROL_RATE_LIMIT/);
+  assert.doesNotMatch(migration, /system command cooldown is active/);
+  assert.doesNotMatch(migration, /operator command cooldown is active/);
+  assert.match(migration, /system pump cooldown is active/);
+  assert.match(migration, /operator pump cooldown is active/);
+  assert.match(migration, /v_telemetry_at < now\(\) - interval '30 seconds'/);
+});
