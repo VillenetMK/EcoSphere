@@ -86,6 +86,44 @@ export function validatePassword(password, confirmation) {
   return { valid: Object.keys(errors).length === 0, errors };
 }
 
+export function authErrorMessage(error, fallback = 'No se pudo completar la operación.') {
+  const message = String(error?.message ?? error ?? '').trim();
+  const normalized = message.toLowerCase();
+  const safeMessages = new Set([
+    'Usuario o contraseña incorrectos.',
+    'Revisa los datos del formulario.',
+    'El correo debe coincidir con la cuenta verificada.',
+    'El correo verificado no coincide con el correo ingresado en el registro.',
+    'Proveedor de acceso no permitido.',
+    'La verificación expiró. Inicia sesión nuevamente.',
+    'Ingresa exactamente los seis dígitos del autenticador.',
+    'No se pudo elevar la sesión a verificación completa.',
+    'La sesión expiró durante la verificación.',
+    'No se pudo completar el perfil.',
+  ]);
+  if (safeMessages.has(message)) return message;
+  if (normalized.includes('invalid login') || normalized.includes('invalid credentials')) {
+    return 'Usuario o contraseña incorrectos.';
+  }
+  if (normalized.includes('email not confirmed')) {
+    return 'Confirma tu correo antes de iniciar sesión.';
+  }
+  if (normalized.includes('already registered') || normalized.includes('duplicate')) {
+    return 'El usuario, DNI, teléfono o correo ya está registrado.';
+  }
+  if (normalized.includes('reserved')) return 'Ese nombre de usuario está reservado.';
+  if (normalized.includes('rate limit') || normalized.includes('too many requests')) {
+    return 'Se realizaron demasiados intentos. Espera un momento e inténtalo nuevamente.';
+  }
+  if (normalized.includes('otp') || normalized.includes('totp') || normalized.includes('verification code')) {
+    return 'El código del autenticador es inválido o expiró.';
+  }
+  if (normalized.includes('network') || normalized.includes('failed to fetch') || normalized.includes('timeout')) {
+    return 'No se pudo conectar con EcoSphere. Revisa tu conexión e inténtalo nuevamente.';
+  }
+  return fallback;
+}
+
 function callbackUrl() {
   const url = new URL(window.location.href);
   url.search = '';
@@ -164,18 +202,29 @@ function showFieldErrors(errors) {
 }
 
 function savePendingRegistration(values) {
-  localStorage.setItem(PENDING_REGISTRATION_KEY, JSON.stringify({ ...values, provider: 'email' }));
+  localStorage.setItem(PENDING_REGISTRATION_KEY, JSON.stringify({
+    ...values,
+    provider: 'email',
+    savedAtEpochMs: Date.now(),
+  }));
   sessionStorage.setItem(OAUTH_INTENT_KEY, 'register');
 }
 
 function readPendingRegistration() {
   try {
-    return JSON.parse(
+    const pending = JSON.parse(
       localStorage.getItem(PENDING_REGISTRATION_KEY)
       || sessionStorage.getItem(PENDING_REGISTRATION_KEY)
       || 'null',
     );
+    const age = Date.now() - Number(pending?.savedAtEpochMs);
+    if (!pending || !Number.isFinite(age) || age < 0 || age > 24 * 60 * 60 * 1000) {
+      clearPendingRegistration();
+      return null;
+    }
+    return pending;
   } catch {
+    clearPendingRegistration();
     return null;
   }
 }
@@ -399,6 +448,7 @@ async function signInWithIdentifier(identifier, password) {
 }
 
 export async function initializeAuth({ onAccessGranted, onSignedOut }) {
+  readPendingRegistration();
   const phoneInput = document.getElementById('registerPhone');
   phoneInput.value = formatPhoneInput(phoneInput.value || DEFAULT_PHONE_INPUT);
   phoneInput.addEventListener('input', () => {
@@ -420,7 +470,7 @@ export async function initializeAuth({ onAccessGranted, onSignedOut }) {
       const session = await signInWithIdentifier(identifier, password);
       await resolveSession(session, onAccessGranted);
     } catch (error) {
-      setMessage(error.message || 'No se pudo iniciar sesión.', 'error');
+      setMessage(authErrorMessage(error, 'No se pudo iniciar sesión.'), 'error');
     } finally {
       setAuthBusy(false);
     }
@@ -463,7 +513,7 @@ export async function initializeAuth({ onAccessGranted, onSignedOut }) {
       if (data.session) await resolveSession(data.session, onAccessGranted);
       else setMessage('Revisa tu correo y confirma la cuenta para completar el registro.', 'success');
     } catch (error) {
-      setMessage(error.message || 'No se pudo crear la cuenta.', 'error');
+      setMessage(authErrorMessage(error, 'No se pudo crear la cuenta.'), 'error');
     } finally {
       setAuthBusy(false);
     }
@@ -476,7 +526,7 @@ export async function initializeAuth({ onAccessGranted, onSignedOut }) {
       try {
         await startOAuth(button.dataset.oauthProvider);
       } catch (error) {
-        setMessage(error.message || 'No se pudo iniciar el acceso social.', 'error');
+        setMessage(authErrorMessage(error, 'No se pudo iniciar el acceso social.'), 'error');
         setAuthBusy(false);
       }
     });
@@ -489,7 +539,7 @@ export async function initializeAuth({ onAccessGranted, onSignedOut }) {
     try {
       await verifyMfaCode(document.getElementById('mfaCode').value.trim());
     } catch (error) {
-      setMessage(error.message || 'No se pudo verificar el autenticador.', 'error');
+      setMessage(authErrorMessage(error, 'No se pudo verificar el autenticador.'), 'error');
     } finally {
       setAuthBusy(false);
     }
@@ -497,16 +547,23 @@ export async function initializeAuth({ onAccessGranted, onSignedOut }) {
 
   document.querySelectorAll('[data-auth-signout]').forEach(button => {
     button.addEventListener('click', async () => {
-      await supabase.auth.signOut();
-      setProfileCompletionMode(null);
-      resetMfaState();
-      onSignedOut();
-      showPanel('login');
+      try {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+        clearPendingRegistration();
+        setProfileCompletionMode(null);
+        resetMfaState();
+        onSignedOut();
+        showPanel('login');
+      } catch (error) {
+        setMessage(authErrorMessage(error, 'No se pudo cerrar la sesión.'), 'error');
+      }
     });
   });
 
   supabase.auth.onAuthStateChange(event => {
     if (event !== 'SIGNED_OUT') return;
+    clearPendingRegistration();
     setProfileCompletionMode(null);
     resetMfaState();
     onSignedOut();
@@ -514,7 +571,7 @@ export async function initializeAuth({ onAccessGranted, onSignedOut }) {
   });
 
   const { data: { session }, error } = await supabase.auth.getSession();
-  if (error) setMessage(error.message, 'error');
+  if (error) setMessage(authErrorMessage(error, 'No se pudo restaurar la sesión.'), 'error');
   if (!session) {
     setProfileCompletionMode(null);
     resetMfaState();
@@ -525,7 +582,7 @@ export async function initializeAuth({ onAccessGranted, onSignedOut }) {
   try {
     await resolveSession(session, onAccessGranted);
   } catch (sessionError) {
-    setMessage(sessionError.message || 'No se pudo validar la sesión.', 'error');
+    setMessage(authErrorMessage(sessionError, 'No se pudo validar la sesión.'), 'error');
   } finally {
     setAuthBusy(false);
   }

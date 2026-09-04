@@ -6,7 +6,7 @@ const root = new URL('../../', import.meta.url);
 
 test('el reemplazo de ESP32 conserva un único sistema y sólo un controlador activo', async () => {
   const migration = await readFile(
-    new URL('supabase/migrations/20260824130000_replaceable_esp32_controllers.sql', root),
+    new URL('supabase/migrations/20260824143525_replaceable_esp32_controllers.sql', root),
     'utf8',
   );
   assert.match(migration, /device_controllers_one_active_per_ecosystem/);
@@ -24,6 +24,10 @@ test('la identidad del controlador no depende del firmware copiado', async () =>
   assert.match(firmware, /ESP\.getEfuseMac\(\)/);
   assert.match(firmware, /esp_fill_random/);
   assert.match(firmware, /Preferences/);
+  assert.match(firmware, /pairingClaimProof\(\)/);
+  assert.match(firmware, /ecosphere-pairing-v1:/);
+  assert.match(firmware, /mbedtls_md\(/);
+  assert.match(firmware, /encodeHexUpper\(digest, 12, pairingClaimProof_\)/);
   assert.doesNotMatch(firmware, /service_role/i);
   assert.doesNotMatch(firmware, /setInsecure/);
 });
@@ -34,6 +38,12 @@ test('la vinculación aparece en diagnóstico y exige administrador', async () =
     readFile(new URL('webApp/app.js', root), 'utf8'),
   ]);
   assert.match(html, /id="controllerPairingPanel"[^>]*hidden/);
+  assert.match(html, /id="controllerHardwareUid"/);
+  assert.match(html, /id="controllerClaimProof"/);
   assert.match(app, /currentProfile\?\.role === 'admin'/);
+  assert.match(app, /rpc\/controller_open_pairing_window/);
+  assert.match(app, /p_expected_hardware_uid: hardwareUid/);
+  assert.match(app, /p_expected_claim_proof: claimProof/);
+  assert.match(app, /p_minutes: 2/);
   assert.match(app, /rpc\/replace_active_controller/);
 });

@@ -2,7 +2,6 @@
 -- Copyright (c) 2026 Gabriel Enrique Villenet Montero.
 -- Todos los derechos reservados. Uso sujeto al archivo LICENSE.
 
-begin;
 
 -- Google and GitHub do not provide a DNI or a phone number. Keep those fields
 -- mandatory for email registrations, while allowing verified OAuth identities
@@ -232,5 +231,3 @@ where profile.user_id is null
     lower(coalesce(auth_user.raw_app_meta_data->>'provider', '')) in ('google', 'github')
     or coalesce(auth_user.raw_app_meta_data->'providers', '[]'::jsonb) ?| array['google', 'github']
   );
-
-commit;

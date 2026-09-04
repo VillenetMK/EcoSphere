@@ -1,3 +1,9 @@
+/*
+ * EcoSphere
+ * Copyright (c) 2026 Gabriel Enrique Villenet Montero.
+ * Todos los derechos reservados. Uso sujeto al archivo LICENSE.
+ */
+
 #pragma once
 
 #include <Arduino.h>
@@ -6,6 +12,7 @@
 #include <Preferences.h>
 #include <WiFiClientSecure.h>
 #include <esp_system.h>
+#include <mbedtls/md.h>
 
 // Identity and Supabase RPC client shared by every physical ESP32 replacement.
 // The sketch contains no per-board identifier: the eFuse MAC and a random secret
@@ -14,11 +21,18 @@ class EcoSphereControllerClient {
  public:
   EcoSphereControllerClient(
       const char* supabaseUrl,
-      const char* publishableKey,
       const char* rootCa)
       : supabaseUrl_(supabaseUrl),
-        publishableKey_(publishableKey),
         rootCa_(rootCa) {}
+
+  // Backward-compatible constructor for sketches that still pass the public
+  // Supabase key. The controller gateway authenticates with the per-board
+  // secret, so the key is intentionally ignored and never sent over the wire.
+  EcoSphereControllerClient(
+      const char* supabaseUrl,
+      const char* /* publishableKey */,
+      const char* rootCa)
+      : EcoSphereControllerClient(supabaseUrl, rootCa) {}
 
   bool begin() {
     const uint64_t chipId = ESP.getEfuseMac();
@@ -35,22 +49,26 @@ class EcoSphereControllerClient {
       return false;
     }
 
-    encodeSecret();
-    return true;
+    esp_fill_random(bootNonce_, sizeof(bootNonce_));
+    encodeHex(secret_, sizeof(secret_), secretHex_);
+    encodeHex(bootNonce_, sizeof(bootNonce_), bootNonceHex_);
+    return buildPairingClaimProof();
   }
 
   const char* hardwareUid() const { return hardwareUid_; }
+  const char* pairingClaimProof() const { return pairingClaimProof_; }
 
   // Call only when the operator explicitly requests pairing. The returned code
-  // expires after 15 minutes and is safe to display on Serial or a local screen.
+  // expires after 5 minutes and is safe to display on Serial or a local screen.
   String beginPairing(const char* firmwareVersion) {
     JsonDocument payload;
+    payload["operation"] = "begin_pairing";
     payload["p_hardware_uid"] = hardwareUid_;
     payload["p_device_secret"] = secretHex_;
     payload["p_firmware_version"] = firmwareVersion;
 
     JsonDocument response;
-    if (!postRpc("controller_begin_pairing", payload, response)) return String();
+    if (!postGateway(payload, response)) return String();
     if (!response.is<JsonArray>() || response.size() == 0) return String();
     return response[0]["pairing_code"] | String();
   }
@@ -64,11 +82,13 @@ class EcoSphereControllerClient {
       JsonObjectConst telemetry,
       JsonDocument& commands) {
     JsonDocument payload;
+    payload["operation"] = "sync";
     payload["p_hardware_uid"] = hardwareUid_;
     payload["p_device_secret"] = secretHex_;
     payload["p_heartbeat_seq"] = heartbeatSequence;
     payload["p_firmware_version"] = firmwareVersion;
     payload["p_has_telemetry"] = hasTelemetry;
+    payload["p_boot_nonce"] = bootNonceHex_;
 
     copyTelemetry(payload, telemetry, "temperature", "p_temperature");
     copyTelemetry(payload, telemetry, "air_humidity", "p_air_humidity");
@@ -83,20 +103,50 @@ class EcoSphereControllerClient {
     copyTelemetry(payload, telemetry, "led_power", "p_reported_led_power");
 
     JsonDocument response;
-    if (!postRpc("controller_sync", payload, response)) return false;
+    if (!postGateway(payload, response)) return false;
     if (!response.is<JsonArray>() || response.size() == 0) return false;
     commands.set(response[0]);
     return true;
   }
 
  private:
-  void encodeSecret() {
+  static void encodeHex(const uint8_t* bytes, size_t length, char* output) {
     static constexpr char HEX[] = "0123456789abcdef";
-    for (size_t i = 0; i < sizeof(secret_); ++i) {
-      secretHex_[i * 2] = HEX[(secret_[i] >> 4) & 0x0F];
-      secretHex_[i * 2 + 1] = HEX[secret_[i] & 0x0F];
+    for (size_t i = 0; i < length; ++i) {
+      output[i * 2] = HEX[(bytes[i] >> 4) & 0x0F];
+      output[i * 2 + 1] = HEX[bytes[i] & 0x0F];
     }
-    secretHex_[64] = '\0';
+    output[length * 2] = '\0';
+  }
+
+  static void encodeHexUpper(const uint8_t* bytes, size_t length, char* output) {
+    static constexpr char HEX[] = "0123456789ABCDEF";
+    for (size_t i = 0; i < length; ++i) {
+      output[i * 2] = HEX[(bytes[i] >> 4) & 0x0F];
+      output[i * 2 + 1] = HEX[bytes[i] & 0x0F];
+    }
+    output[length * 2] = '\0';
+  }
+
+  bool buildPairingClaimProof() {
+    const String material = String("ecosphere-pairing-v1:")
+        + hardwareUid_ + ":" + secretHex_;
+    const mbedtls_md_info_t* sha256 =
+        mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+    uint8_t digest[32]{};
+    if (sha256 == nullptr
+        || mbedtls_md(
+               sha256,
+               reinterpret_cast<const unsigned char*>(material.c_str()),
+               material.length(),
+               digest) != 0) {
+      pairingClaimProof_[0] = '\0';
+      return false;
+    }
+
+    // Supabase compares the first 12 SHA-256 bytes as 24 uppercase hex chars.
+    encodeHexUpper(digest, 12, pairingClaimProof_);
+    return true;
   }
 
   static void copyTelemetry(
@@ -107,15 +157,14 @@ class EcoSphereControllerClient {
     if (!source[sourceKey].isNull()) destination[destinationKey] = source[sourceKey];
   }
 
-  bool postRpc(const char* rpcName, JsonDocument& payload, JsonDocument& response) {
+  bool postGateway(JsonDocument& payload, JsonDocument& response) {
     WiFiClientSecure secureClient;
     secureClient.setCACert(rootCa_);
 
     HTTPClient http;
-    const String url = String(supabaseUrl_) + "/rest/v1/rpc/" + rpcName;
+    const String url = String(supabaseUrl_) + "/functions/v1/controller-gateway";
     if (!http.begin(secureClient, url)) return false;
-    http.addHeader("apikey", publishableKey_);
-    http.addHeader("Authorization", String("Bearer ") + publishableKey_);
+    http.setTimeout(15000);
     http.addHeader("Content-Type", "application/json");
 
     String body;
@@ -125,17 +174,19 @@ class EcoSphereControllerClient {
     http.end();
 
     if (status < 200 || status >= 300) {
-      Serial.printf("EcoSphere RPC %s failed: HTTP %d\n", rpcName, status);
+      Serial.printf("EcoSphere controller gateway failed: HTTP %d\n", status);
       return false;
     }
     return deserializeJson(response, responseBody) == DeserializationError::Ok;
   }
 
   const char* supabaseUrl_;
-  const char* publishableKey_;
   const char* rootCa_;
   Preferences preferences_;
   uint8_t secret_[32]{};
+  uint8_t bootNonce_[16]{};
   char secretHex_[65]{};
+  char bootNonceHex_[33]{};
   char hardwareUid_[13]{};
+  char pairingClaimProof_[25]{};
 };

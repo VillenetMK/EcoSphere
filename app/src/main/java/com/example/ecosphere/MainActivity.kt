@@ -2,9 +2,11 @@ package com.example.ecosphere
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -37,6 +39,20 @@ class MainActivity : ComponentActivity() {
         setContent {
             EcoSphereTheme {
                 val authState = authViewModel.uiState
+                DisposableEffect(authState.page) {
+                    val protectsCredentials = authState.page in setOf(
+                        NativeAuthPage.INITIALIZING,
+                        NativeAuthPage.LOGIN,
+                        NativeAuthPage.REGISTER,
+                        NativeAuthPage.MFA
+                    )
+                    if (protectsCredentials) {
+                        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                    } else {
+                        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                    }
+                    onDispose { }
+                }
                 if (authState.page == NativeAuthPage.APP) {
                     val repository = remember(authState.profile?.email) {
                         SensorRepository(NetworkModule.api) {
@@ -67,6 +83,7 @@ class MainActivity : ComponentActivity() {
                         onLedPowerChange = ecoSphereViewModel::setLedPower,
                         onPumpRequest = ecoSphereViewModel::requestPump,
                         onRefreshController = ecoSphereViewModel::refreshControllerStatus,
+                        onAuthorizeController = ecoSphereViewModel::openControllerPairingWindow,
                         onReplaceController = ecoSphereViewModel::replaceActiveController
                     )
                 } else {
@@ -95,7 +112,7 @@ class MainActivity : ComponentActivity() {
         NativeSupabase.client.handleDeeplinks(
             intent = intent,
             onSessionSuccess = { authViewModel.onOAuthCallback() },
-            onError = { authViewModel.onOAuthCallback() }
+            onError = authViewModel::onOAuthError
         )
     }
 }

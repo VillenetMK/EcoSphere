@@ -18,6 +18,7 @@ import io.github.jan.supabase.auth.providers.invoke
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -43,6 +44,7 @@ data class DesktopAuthState(
     val message: String? = null,
     val fieldErrors: Map<String, String> = emptyMap(),
     val profile: EcoSphereUserProfile? = null,
+    val verifiedEmail: String? = null,
     val mfaFactorId: String? = null,
     val mfaSecret: String? = null
 )
@@ -62,6 +64,7 @@ class DesktopAuthController {
         private set
 
     suspend fun initialize() = runBusy {
+        readPendingRegistration()
         supabase.auth.awaitInitialization()
         resolveCurrentSession()
     }
@@ -75,7 +78,6 @@ class DesktopAuthController {
     }
 
     suspend fun signIn(identifier: String, password: String) = runBusy {
-        clearPendingRegistration()
         saveIntent(INTENT_LOGIN)
         if (identifier.trim().contains('@')) {
             supabase.auth.signInWith(Email) {
@@ -110,25 +112,44 @@ class DesktopAuthController {
         val identity = AuthValidation.validateRegistration(
             username, firstName, lastName, dni, phone, email, PROVIDER_EMAIL
         )
-        val errors = identity.errors + AuthValidation.validatePassword(password, confirmation)
+        val activeSession = supabase.auth.currentSessionOrNull()
+        val passwordErrors = if (activeSession == null) {
+            AuthValidation.validatePassword(password, confirmation)
+        } else {
+            emptyMap()
+        }
+        val errors = identity.errors + passwordErrors
         if (errors.isNotEmpty()) {
             state = state.copy(fieldErrors = errors, message = "Revisa los datos del formulario.")
             return
         }
         runBusy {
-            savePendingRegistration(identity.draft)
-            saveIntent(INTENT_REGISTER)
-            supabase.auth.signUpWith(Email) {
-                this.email = identity.draft.email
-                this.password = password
-            }
-            if (supabase.auth.currentSessionOrNull() != null) {
+            val session = supabase.auth.currentSessionOrNull()
+            if (session != null) {
+                val verifiedEmail = session.user?.email?.lowercase().orEmpty()
+                require(verifiedEmail == identity.draft.email) {
+                    "El correo debe coincidir con la cuenta confirmada."
+                }
+                savePendingRegistration(identity.draft)
+                saveIntent(INTENT_REGISTER)
+                completeProfile(identity.draft)
+                clearPendingRegistration()
                 resolveCurrentSession()
             } else {
-                state = state.copy(
-                    page = DesktopAuthPage.LOGIN,
-                    message = "Revisa tu correo y confirma la cuenta antes de iniciar sesión."
-                )
+                savePendingRegistration(identity.draft)
+                saveIntent(INTENT_REGISTER)
+                supabase.auth.signUpWith(Email) {
+                    this.email = identity.draft.email
+                    this.password = password
+                }
+                if (supabase.auth.currentSessionOrNull() != null) {
+                    resolveCurrentSession()
+                } else {
+                    state = state.copy(
+                        page = DesktopAuthPage.LOGIN,
+                        message = "Revisa tu correo y confirma la cuenta antes de iniciar sesión."
+                    )
+                }
             }
         }
     }
@@ -218,9 +239,11 @@ class DesktopAuthController {
             return
         }
         if (profile == null) {
+            val verifiedEmail = session.user?.email?.lowercase().orEmpty()
             state = DesktopAuthState(
                 page = DesktopAuthPage.REGISTER,
                 busy = false,
+                verifiedEmail = verifiedEmail,
                 message = "Completa tus datos obligatorios para finalizar el registro."
             )
             return
@@ -323,6 +346,8 @@ class DesktopAuthController {
         state = state.copy(busy = true, message = null, fieldErrors = emptyMap())
         try {
             block()
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Throwable) {
             state = state.copy(busy = false, message = friendlyMessage(error))
         } finally {
@@ -330,26 +355,29 @@ class DesktopAuthController {
         }
     }
 
-    private fun friendlyMessage(error: Throwable): String {
-        val message = error.message.orEmpty()
-        return when {
-            message.contains("Invalid login", ignoreCase = true) -> "Usuario o contraseña incorrectos."
-            message.contains("Email not confirmed", ignoreCase = true) -> "Confirma tu correo antes de iniciar sesión."
-            message.contains("reserved", ignoreCase = true) -> "Ese nombre de usuario está reservado."
-            message.contains("duplicate", ignoreCase = true) -> "El usuario, DNI, teléfono o correo ya está registrado."
-            message.isNotBlank() -> message
-            else -> "No se pudo completar la operación."
-        }
-    }
+    private fun friendlyMessage(error: Throwable): String =
+        AuthValidation.safeAuthErrorMessage(error.message)
 
     private fun savePendingRegistration(draft: RegistrationDraft) {
         preferences.put(KEY_DRAFT, gson.toJson(draft))
         preferences.flush()
     }
 
-    private fun readPendingRegistration(): RegistrationDraft? = runCatching {
-        preferences.get(KEY_DRAFT, null)?.let { gson.fromJson(it, RegistrationDraft::class.java) }
-    }.getOrNull()
+    private fun readPendingRegistration(): RegistrationDraft? {
+        val draft = try {
+            preferences.get(KEY_DRAFT, null)?.let {
+                gson.fromJson(it, RegistrationDraft::class.java)
+            }
+        } catch (_: Exception) {
+            clearPendingRegistration()
+            return null
+        }
+        if (draft != null && !AuthValidation.isRegistrationDraftCurrent(draft)) {
+            clearPendingRegistration()
+            return null
+        }
+        return draft
+    }
 
     private fun clearPendingRegistration() {
         preferences.remove(KEY_DRAFT)

@@ -25,7 +25,7 @@ Android, Windows y Linux usan la misma autenticación de Supabase que la web: co
 
 Antes de probar Google o GitHub en los instaladores, agrega estas URL en **Supabase → Authentication → URL Configuration → Redirect URLs**:
 
-- `ecosphere://auth-callback` para Android.
+- `https://villenetmk.github.io/EcoSphere/?ecosphere_client=android` para Android; esa página entrega el código PKCE a `ecosphere://auth-callback` dentro de la aplicación.
 - `http://localhost:54321` para Windows y Linux.
 
 El callback local de escritorio sólo escucha durante el inicio OAuth y se cierra después de recibir la respuesta o al cumplirse el tiempo de espera.
@@ -40,8 +40,9 @@ El callback local de escritorio sólo escucha durante el inicio OAuth y se cierr
 ## Verificación
 
 ```bash
-# Reglas del navegador
-node --test webApp/tests/control-policy.test.js
+# Web, seguridad estática y firmware cliente
+npm test --prefix webApp
+npm run check:copyright --prefix webApp
 
 # Núcleo compartido y APK
 ./gradlew :sharedCore:test :app:testDebugUnitTest :app:assembleDebug
@@ -51,3 +52,7 @@ gradle -p desktopApp build
 ```
 
 Los instaladores se generan como artefactos descargables de GitHub Actions. La planificación completa está en [docs/MULTIPLATFORM_MIGRATION.md](docs/MULTIPLATFORM_MIGRATION.md).
+
+## Licencia
+
+Código propietario; consulte [LICENSE](LICENSE). Todos los derechos reservados.

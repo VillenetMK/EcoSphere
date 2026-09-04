@@ -16,3 +16,10 @@ test('la PWA restringe recursos mediante una política CSP sin ejecución insegu
 test('la PWA no envía la URL de origen como referencia', () => {
   assert.match(html, /<meta name="referrer" content="no-referrer" \/>/);
 });
+
+test('la interfaz se oculta si un sitio externo intenta embeberla', async () => {
+  const guard = await readFile(new URL('../android-auth-return.js', import.meta.url), 'utf8');
+  assert.match(guard, /window\.top !== window\.self/);
+  assert.match(guard, /document\.documentElement\.hidden = true/);
+  assert.match(guard, /window\.top\.location = window\.self\.location\.href/);
+});

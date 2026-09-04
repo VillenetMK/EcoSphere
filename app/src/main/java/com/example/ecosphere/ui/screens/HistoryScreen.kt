@@ -35,8 +35,8 @@ import com.example.ecosphere.data.model.SensorRecord
 import com.example.ecosphere.shared.ControlPolicy
 import com.example.ecosphere.ui.icons.EcoSphereIcons
 import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
-import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -372,20 +372,10 @@ private fun formatHistory(value: String?, pattern: String, fallback: String): St
     if (value.isNullOrBlank()) return fallback
 
     return try {
-        val normalized = normalizeIsoTimestamp(value)
-        val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
-        }
+        val millis = ControlPolicy.timestampMillis(value) ?: return value
         val output = SimpleDateFormat(pattern, Locale.getDefault())
-        parser.parse(normalized)?.let(output::format) ?: value
+        output.format(Date(millis))
     } catch (_: Exception) {
         value
     }
-}
-
-private fun normalizeIsoTimestamp(value: String): String {
-    val noZone = value.substringBefore("+").substringBefore("Z")
-    val base = noZone.substringBefore(".")
-    val fraction = noZone.substringAfter(".", "0").padEnd(3, '0').take(3)
-    return "$base.$fraction"
 }

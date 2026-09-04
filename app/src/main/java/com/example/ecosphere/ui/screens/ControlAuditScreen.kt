@@ -29,10 +29,11 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.ecosphere.data.model.ControlAuditEntry
+import com.example.ecosphere.shared.ControlPolicy
 import com.example.ecosphere.ui.icons.EcoSphereIcons
 import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
-import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -268,14 +269,9 @@ private fun modeLabel(enabled: Boolean): String = if (enabled) "Automático" els
 
 private fun formatAuditTimestamp(value: String): String {
     return try {
-        val noZone = value.substringBefore("+").substringBefore("Z")
-        val base = noZone.substringBefore(".")
-        val fraction = noZone.substringAfter(".", "0").padEnd(3, '0').take(3)
-        val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
-        }
+        val millis = ControlPolicy.timestampMillis(value) ?: return value
         val output = SimpleDateFormat("dd/MM/yyyy\nHH:mm:ss", Locale.getDefault())
-        parser.parse("$base.$fraction")?.let(output::format) ?: value
+        output.format(Date(millis))
     } catch (_: Exception) {
         value
     }

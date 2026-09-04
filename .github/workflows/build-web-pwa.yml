@@ -9,11 +9,25 @@ on:
     branches: [ main ]
     paths:
       - 'webApp/**'
+      - 'app/src/main/AndroidManifest.xml'
+      - 'app/src/main/res/xml/**'
+      - 'app/src/main/java/com/example/ecosphere/ui/mobile/MobileEcoSphereApp.kt'
+      - 'desktopApp/src/main/kotlin/com/example/ecosphere/desktop/Main.kt'
+      - 'firmware/**'
+      - 'scripts/**'
+      - 'supabase/**'
       - '.github/workflows/build-web-pwa.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'webApp/**'
+      - 'app/src/main/AndroidManifest.xml'
+      - 'app/src/main/res/xml/**'
+      - 'app/src/main/java/com/example/ecosphere/ui/mobile/MobileEcoSphereApp.kt'
+      - 'desktopApp/src/main/kotlin/com/example/ecosphere/desktop/Main.kt'
+      - 'firmware/**'
+      - 'scripts/**'
+      - 'supabase/**'
       - '.github/workflows/build-web-pwa.yml'
   workflow_dispatch:
 
@@ -38,8 +52,10 @@ jobs:
           cache-dependency-path: webApp/package-lock.json
       - name: Install pinned web dependencies
         run: npm ci --prefix webApp
-      - name: Test browser rules and diagnostics
-        run: node --test webApp/tests/*.test.js
+      - name: Test browser, firmware and repository invariants
+        run: |
+          npm test --prefix webApp
+          npm run check:copyright --prefix webApp
       - name: Configure GitHub Pages
         if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
@@ -55,11 +71,11 @@ jobs:
           cp -R webApp/icons dist/
           touch dist/.nojekyll
           cd dist
-          zip -r ../EcoSphere-1.6.8-Web.zip .
+          zip -r ../EcoSphere-1.6.9-Web.zip .
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: EcoSphere-Web-PWA
-          path: EcoSphere-1.6.8-Web.zip
+          path: EcoSphere-1.6.9-Web.zip
           if-no-files-found: error
           retention-days: 30
       - name: Upload Pages artifact

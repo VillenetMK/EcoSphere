@@ -26,7 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,9 +39,6 @@ import com.example.ecosphere.data.model.ControllerAdminStatus
 import com.example.ecosphere.data.model.SensorRecord
 import com.example.ecosphere.shared.ControlPolicy
 import com.example.ecosphere.ui.icons.EcoSphereIcons
-import java.text.SimpleDateFormat
-import java.util.Locale
-import java.util.TimeZone
 import kotlin.math.abs
 
 private enum class DiagnosticLevel(val label: String) {
@@ -65,20 +62,28 @@ fun DiagnosticsScreen(
     onRefresh: () -> Unit,
     isAdmin: Boolean = false,
     controllerStatus: ControllerAdminStatus? = null,
-    isReplacingController: Boolean = false,
+    isControllerBusy: Boolean = false,
     controllerMessage: String? = null,
-    onRefreshController: () -> Unit = {},
+    onAuthorizeController: (String, String) -> Unit = { _, _ -> },
     onReplaceController: (String) -> Unit = {}
 ) {
-    var pairingCode by rememberSaveable { mutableStateOf("") }
+    var hardwareUid by remember { mutableStateOf("") }
+    var claimProof by remember { mutableStateOf("") }
+    var pairingCode by remember { mutableStateOf("") }
     val entries = buildDiagnostics(record, control)
     val errors = entries.count { it.level == DiagnosticLevel.ERROR }
     val warnings = entries.count { it.level == DiagnosticLevel.WARNING }
     val online = control?.isOnlineNow() == true
-    val telemetryFresh = telemetryAgeMs(record?.createdAt)?.let { it in 0..15_000L } == true
+    val telemetryFresh = ControlPolicy.isTelemetryFresh(record?.createdAt)
 
-    LaunchedEffect(isAdmin) {
-        if (isAdmin) onRefreshController()
+    LaunchedEffect(controllerMessage) {
+        when {
+            controllerMessage?.startsWith("ESP32 autorizado") == true -> {
+                hardwareUid = ""
+                claimProof = ""
+            }
+            controllerMessage?.startsWith("Controlador reemplazado") == true -> pairingCode = ""
+        }
     }
 
     Scaffold(
@@ -176,6 +181,38 @@ fun DiagnosticsScreen(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
+                        Text("1. Autoriza físicamente el nuevo ESP32", fontWeight = FontWeight.SemiBold)
+                        OutlinedTextField(
+                            value = hardwareUid,
+                            onValueChange = { hardwareUid = it.uppercase().take(14) },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("UID EcoSphere") },
+                            placeholder = { Text("ABCD-EF12-3456") },
+                            singleLine = true,
+                            enabled = !isControllerBusy
+                        )
+                        OutlinedTextField(
+                            value = claimProof,
+                            onValueChange = { claimProof = it.uppercase().take(29) },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Prueba EcoSphere") },
+                            placeholder = { Text("ABCD-EF12-3456-7890-ABCD-EF12") },
+                            singleLine = true,
+                            enabled = !isControllerBusy
+                        )
+                        Button(
+                            onClick = { onAuthorizeController(hardwareUid, claimProof) },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isControllerBusy && hardwareUid.isNotBlank() && claimProof.isNotBlank()
+                        ) {
+                            Text(if (isControllerBusy) "Procesando…" else "Autorizar este ESP32")
+                        }
+                        Text(
+                            "La autorización dura dos minutos. Solicita después el código temporal en la placa.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text("2. Confirma el código temporal", fontWeight = FontWeight.SemiBold)
                         OutlinedTextField(
                             value = pairingCode,
                             onValueChange = { pairingCode = it.uppercase().take(14) },
@@ -183,17 +220,14 @@ fun DiagnosticsScreen(
                             label = { Text("Código mostrado por el ESP32") },
                             placeholder = { Text("ABCD-EF12-3456") },
                             singleLine = true,
-                            enabled = !isReplacingController
+                            enabled = !isControllerBusy
                         )
                         Button(
-                            onClick = {
-                                onReplaceController(pairingCode)
-                                pairingCode = ""
-                            },
+                            onClick = { onReplaceController(pairingCode) },
                             modifier = Modifier.fillMaxWidth(),
-                            enabled = !isReplacingController && pairingCode.isNotBlank()
+                            enabled = !isControllerBusy && pairingCode.isNotBlank()
                         ) {
-                            Text(if (isReplacingController) "Vinculando…" else "Usar como reemplazo")
+                            Text(if (isControllerBusy) "Procesando…" else "Usar como reemplazo")
                         }
                         if (!controllerMessage.isNullOrBlank()) {
                             Text(
@@ -363,7 +397,7 @@ private fun buildDiagnostics(record: SensorRecord?, control: DeviceControl?): Li
     val entries = mutableListOf<DiagnosticEntry>()
     val online = control?.isOnlineNow() == true
     val ageMs = telemetryAgeMs(record?.createdAt)
-    val fresh = ageMs?.let { it in 0..15_000L } == true
+    val fresh = ControlPolicy.isTelemetryFresh(record?.createdAt)
 
     entries += if (online) {
         DiagnosticEntry(
@@ -385,15 +419,20 @@ private fun buildDiagnostics(record: SensorRecord?, control: DeviceControl?): Li
             DiagnosticLevel.ERROR,
             "No existe una lectura con fecha válida."
         )
+        ageMs < -ControlPolicy.CLOCK_SKEW_TOLERANCE_MS -> DiagnosticEntry(
+            "Telemetría",
+            DiagnosticLevel.WARNING,
+            "La lectura tiene una fecha futura y no se considera estado físico actual."
+        )
         fresh -> DiagnosticEntry(
             "Telemetría",
             DiagnosticLevel.OK,
-            "Última lectura hace ${ageMs / 1000} s."
+            "Última lectura hace ${maxOf(0L, ageMs) / 1000} s."
         )
         else -> DiagnosticEntry(
             "Telemetría",
             DiagnosticLevel.WARNING,
-            "La lectura tiene ${ageMs / 1000} s de antigüedad y no se considera estado físico actual."
+            "La lectura tiene ${maxOf(0L, ageMs) / 1000} s de antigüedad y no se considera estado físico actual."
         )
     }
 
@@ -549,18 +588,6 @@ private fun actuatorStatus(
 }
 
 private fun telemetryAgeMs(value: String?): Long? {
-    if (value.isNullOrBlank()) return null
-
-    return try {
-        val noZone = value.substringBefore("+").substringBefore("Z")
-        val base = noZone.substringBefore(".")
-        val fraction = noZone.substringAfter(".", "0").padEnd(3, '0').take(3)
-        val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
-        }
-        val millis = parser.parse("$base.$fraction")?.time ?: return null
-        System.currentTimeMillis() - millis
-    } catch (_: Exception) {
-        null
-    }
+    val millis = ControlPolicy.timestampMillis(value) ?: return null
+    return System.currentTimeMillis() - millis
 }

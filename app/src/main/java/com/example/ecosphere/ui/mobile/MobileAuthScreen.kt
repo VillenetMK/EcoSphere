@@ -36,6 +36,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -204,8 +205,8 @@ private fun LoginContent(
     onOAuth: (String) -> Unit,
     onShowRegister: () -> Unit
 ) {
-    var identifier by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
+    var identifier by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
     val focusManager = LocalFocusManager.current
 
     PageHeading(
@@ -302,14 +303,14 @@ private fun RegisterContent(
     onRegister: (String, String, String, String, String, String, String, String) -> Unit,
     onOAuth: (String) -> Unit
 ) {
-    var username by rememberSaveable { mutableStateOf("") }
-    var firstName by rememberSaveable { mutableStateOf("") }
-    var lastName by rememberSaveable { mutableStateOf("") }
-    var dni by rememberSaveable { mutableStateOf("") }
-    var phone by rememberSaveable { mutableStateOf(AuthValidation.DEFAULT_PHONE_INPUT) }
-    var email by rememberSaveable(verifiedEmail) { mutableStateOf(verifiedEmail.orEmpty()) }
-    var password by rememberSaveable { mutableStateOf("") }
-    var confirmation by rememberSaveable { mutableStateOf("") }
+    var username by remember { mutableStateOf("") }
+    var firstName by remember { mutableStateOf("") }
+    var lastName by remember { mutableStateOf("") }
+    var dni by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf(AuthValidation.DEFAULT_PHONE_INPUT) }
+    var email by remember(verifiedEmail) { mutableStateOf(verifiedEmail.orEmpty()) }
+    var password by remember { mutableStateOf("") }
+    var confirmation by remember { mutableStateOf("") }
     val completingProfile = !verifiedEmail.isNullOrBlank()
 
     PageHeading(
@@ -620,7 +621,7 @@ private fun MfaContent(
     onVerify: (String) -> Unit,
     onSignOut: () -> Unit
 ) {
-    var code by rememberSaveable { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }
 
     PageHeading(
         eyebrow = "PROTECCIÓN ADMINISTRATIVA",

@@ -1,0 +1,8 @@
+[functions.username-login]
+verify_jwt = false
+
+[functions.controller-gateway]
+verify_jwt = false
+
+[functions.controller-credentials]
+verify_jwt = false

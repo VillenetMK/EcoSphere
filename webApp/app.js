@@ -24,8 +24,8 @@ import {
   paginateHistory,
   prepareHistoryExport,
 } from './history.js';
-import { initializeAuth } from './auth.js';
-import { readJsonResponse } from './api-response.js';
+import { authErrorMessage, initializeAuth } from './auth.js';
+import { clientErrorMessage, readJsonResponse } from './api-response.js';
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from './supabase-client.js';
 
 let latestRecord = null;
@@ -42,6 +42,15 @@ let historyMetric = 'soil_humidity';
 let refreshTimer = null;
 let currentProfile = null;
 let controllerStatus = null;
+
+function normalizeSeparatedHex(value) {
+  return String(value).replace(/[\s-]/g, '').toUpperCase();
+}
+
+function validatedHex(value, length) {
+  const normalized = normalizeSeparatedHex(value);
+  return new RegExp(`^[0-9A-F]{${length}}$`).test(normalized) ? normalized : null;
+}
 
 const $ = (id) => document.getElementById(id);
 
@@ -144,7 +153,7 @@ async function refresh({ manual = false } = {}) {
     hideError();
     renderAll();
   } catch (error) {
-    showError(error.message || 'Error sincronizando con Supabase');
+    showError(clientErrorMessage(error, 'Error sincronizando con EcoSphere.'));
   } finally {
     if (manual) setRefreshLoading(false);
     refreshing = false;
@@ -441,7 +450,7 @@ async function updateControl(action, value) {
     deviceControl = result[0] ?? deviceControl;
     await refresh();
   } catch (error) {
-    toast(error.message || 'Error actualizando el control');
+    toast(clientErrorMessage(error, 'Error actualizando el control.'));
   } finally {
     setBusy(false);
   }
@@ -540,11 +549,52 @@ $('historyExportDownloadBtn').addEventListener('click', () => {
   toast(`${selection.records.length} registros exportados en CSV.`);
 });
 $('diagnosticsRefreshBtn').addEventListener('click', () => refresh({ manual: true }));
+$('controllerAuthorizationForm').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (currentProfile?.role !== 'admin') return;
+
+  const uidInput = $('controllerHardwareUid');
+  const proofInput = $('controllerClaimProof');
+  const hardwareUid = validatedHex(uidInput.value, 12);
+  const claimProof = validatedHex(proofInput.value, 24);
+  if (!hardwareUid) {
+    toast('El UID del ESP32 debe contener exactamente 12 caracteres hexadecimales.');
+    uidInput.focus();
+    return;
+  }
+  if (!claimProof) {
+    toast('La prueba del ESP32 debe contener exactamente 24 caracteres hexadecimales.');
+    proofInput.focus();
+    return;
+  }
+
+  const button = $('authorizeControllerBtn');
+  button.disabled = true;
+  try {
+    await apiPost('rest/v1/rpc/controller_open_pairing_window', {
+      p_expected_hardware_uid: hardwareUid,
+      p_expected_claim_proof: claimProof,
+      p_minutes: 2,
+    });
+    uidInput.value = '';
+    proofInput.value = '';
+    toast('ESP32 autorizado por dos minutos. Solicita ahora su código temporal.');
+  } catch (error) {
+    toast(clientErrorMessage(error, 'No se pudo autorizar el controlador.'));
+  } finally {
+    button.disabled = false;
+  }
+});
 $('controllerPairingForm').addEventListener('submit', async event => {
   event.preventDefault();
   if (currentProfile?.role !== 'admin') return;
   const input = $('controllerPairingCode');
-  const code = input.value.trim();
+  const code = validatedHex(input.value, 12);
+  if (!code) {
+    toast('El código temporal debe contener exactamente 12 caracteres hexadecimales.');
+    input.focus();
+    return;
+  }
   const button = $('replaceControllerBtn');
   button.disabled = true;
   try {
@@ -556,7 +606,7 @@ $('controllerPairingForm').addEventListener('submit', async event => {
     await refresh({ manual: true });
     toast('Controlador reemplazado. El sistema conservará su historial y configuración.');
   } catch (error) {
-    toast(error.message || 'No se pudo vincular el controlador.');
+    toast(clientErrorMessage(error, 'No se pudo vincular el controlador.'));
   } finally {
     button.disabled = false;
   }
@@ -620,11 +670,11 @@ document.querySelectorAll('.nav-item').forEach(button => {
     document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === activeScreen));
     if (activeScreen === 'history') {
       try { await loadHistory(); renderHistory(); }
-      catch (error) { showError(error.message || 'Error cargando historial'); }
+      catch (error) { showError(clientErrorMessage(error, 'Error cargando el historial.')); }
     }
     if (activeScreen === 'diagnostics' && currentProfile?.role === 'admin') {
       try { await loadControllerStatus(); renderDiagnostics(); }
-      catch (error) { showError(error.message || 'Error cargando el controlador'); }
+      catch (error) { showError(clientErrorMessage(error, 'Error cargando el controlador.')); }
     }
   });
 });
@@ -642,7 +692,12 @@ downloadsDialog.addEventListener('click', event => {
 });
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {
+      // The online app remains functional when private browsing or a browser
+      // policy prevents service-worker registration.
+    });
+  });
 }
 
 function startApplication({ profile }) {
@@ -652,7 +707,7 @@ function startApplication({ profile }) {
   $('currentUserName').textContent = profile.username || profile.full_name;
   $('currentUserRole').textContent = profile.role === 'admin'
     ? 'Administrador'
-    : profile.role === 'operator' ? 'Operador' : 'Sólo lectura';
+    : 'Operador';
   if (!refreshTimer) {
     refresh();
     refreshTimer = setInterval(() => refresh(), 2000);
@@ -676,7 +731,7 @@ initializeAuth({
   onSignedOut: stopApplication,
 }).catch(error => {
   const message = $('authMessage');
-  message.textContent = error.message || 'No se pudo iniciar el acceso seguro.';
+  message.textContent = authErrorMessage(error, 'No se pudo iniciar el acceso seguro.');
   message.dataset.kind = 'error';
   message.hidden = false;
 });

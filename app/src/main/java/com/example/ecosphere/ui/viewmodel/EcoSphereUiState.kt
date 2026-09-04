@@ -21,7 +21,7 @@ data class EcoSphereUiState(
     val controlAuditError: String? = null,
     val deviceControl: DeviceControl? = null,
     val controllerStatus: ControllerAdminStatus? = null,
-    val isReplacingController: Boolean = false,
+    val isControllerBusy: Boolean = false,
     val controllerMessage: String? = null,
     val error: String? = null,
     val controlMessage: String? = null

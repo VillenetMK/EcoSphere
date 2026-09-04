@@ -64,7 +64,7 @@ fun DesktopAuthScreen(
                     lineHeight = 26.sp
                 )
             }
-            Text("EcoSphere Desktop 1.4.6", color = Color(0xFF88A396), fontSize = 11.sp)
+            Text("EcoSphere Desktop 1.4.7", color = Color(0xFF88A396), fontSize = 11.sp)
         }
 
         Box(
@@ -116,6 +116,7 @@ fun DesktopAuthScreen(
                         DesktopAuthPage.REGISTER -> DesktopRegisterForm(
                             busy = state.busy,
                             errors = state.fieldErrors,
+                            verifiedEmail = state.verifiedEmail,
                             onRegister = onRegister,
                             onOAuth = onOAuth
                         )
@@ -206,6 +207,7 @@ private fun DesktopLoginForm(
 private fun DesktopRegisterForm(
     busy: Boolean,
     errors: Map<String, String>,
+    verifiedEmail: String?,
     onRegister: (String, String, String, String, String, String, String, String) -> Unit,
     onOAuth: (String) -> Unit
 ) {
@@ -214,12 +216,17 @@ private fun DesktopRegisterForm(
     var lastName by remember { mutableStateOf("") }
     var dni by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf(AuthValidation.DEFAULT_PHONE_INPUT) }
-    var email by remember { mutableStateOf("") }
+    var email by remember(verifiedEmail) { mutableStateOf(verifiedEmail.orEmpty()) }
     var password by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf("") }
+    val completingProfile = !verifiedEmail.isNullOrBlank()
 
     Text(
-        "Completa todos los campos sólo si prefieres registrarte con correo y contraseña.",
+        if (completingProfile) {
+            "Tu correo ya está confirmado. Completa los datos para finalizar tu perfil."
+        } else {
+            "Completa todos los campos sólo si prefieres registrarte con correo y contraseña."
+        },
         color = Color(0xFFB8C9BF),
         fontSize = 12.sp
     )
@@ -240,18 +247,35 @@ private fun DesktopRegisterForm(
             Modifier.weight(1f)
         )
     }
-    DesktopField("Correo electrónico", email, { email = it }, busy, errors["email"], "usuario@ejemplo.com")
-    DesktopPasswordField("Contraseña", password, { password = it }, busy, errors["password"])
-    DesktopPasswordField("Confirmar contraseña", confirmation, { confirmation = it }, busy, errors["passwordConfirmation"])
-    Text("Usa al menos 12 caracteres.", color = Color(0xFFB8C9BF), fontSize = 11.sp)
+    DesktopField(
+        label = "Correo electrónico",
+        value = email,
+        onValue = { email = it },
+        busy = busy,
+        error = errors["email"],
+        placeholder = "usuario@ejemplo.com",
+        editable = !completingProfile
+    )
+    if (!completingProfile) {
+        DesktopPasswordField("Contraseña", password, { password = it }, busy, errors["password"])
+        DesktopPasswordField("Confirmar contraseña", confirmation, { confirmation = it }, busy, errors["passwordConfirmation"])
+        Text("Usa al menos 12 caracteres.", color = Color(0xFFB8C9BF), fontSize = 11.sp)
+    }
     Button(
         onClick = { onRegister(username, firstName, lastName, dni, phone, email, password, confirmation) },
         modifier = Modifier.fillMaxWidth().height(52.dp),
         enabled = !busy,
         colors = ButtonDefaults.buttonColors(containerColor = LoginGreen, contentColor = Color.Black)
-    ) { Text("Registrarme con correo", fontWeight = FontWeight.Bold) }
-    DesktopOAuthDivider()
-    DesktopOAuthButtons(busy, onOAuth)
+    ) {
+        Text(
+            if (completingProfile) "Completar registro" else "Registrarme con correo",
+            fontWeight = FontWeight.Bold
+        )
+    }
+    if (!completingProfile) {
+        DesktopOAuthDivider()
+        DesktopOAuthButtons(busy, onOAuth)
+    }
 }
 
 @Composable
@@ -262,7 +286,8 @@ private fun DesktopField(
     busy: Boolean,
     error: String?,
     placeholder: String = "",
-    modifier: Modifier = Modifier.fillMaxWidth()
+    modifier: Modifier = Modifier.fillMaxWidth(),
+    editable: Boolean = true
 ) {
     Column(modifier) {
         OutlinedTextField(
@@ -272,7 +297,7 @@ private fun DesktopField(
             label = { Text(label) },
             placeholder = { if (placeholder.isNotBlank()) Text(placeholder) },
             singleLine = true,
-            enabled = !busy,
+            enabled = !busy && editable,
             isError = error != null
         )
         if (error != null) Text(error, color = MaterialTheme.colorScheme.error, fontSize = 10.sp)

@@ -23,6 +23,7 @@ import io.github.jan.supabase.auth.providers.invoke
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
@@ -57,6 +58,7 @@ class NativeAuthViewModel(application: Application) : AndroidViewModel(applicati
     init {
         viewModelScope.launch {
             runBusy {
+                readPendingRegistration()
                 supabase.auth.awaitInitialization()
                 resolveCurrentSession()
             }
@@ -200,6 +202,17 @@ class NativeAuthViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             runBusy { resolveCurrentSession() }
         }
+    }
+
+    fun onOAuthError(error: Throwable) {
+        uiState = NativeAuthUiState(
+            page = NativeAuthPage.LOGIN,
+            busy = false,
+            message = AuthValidation.safeAuthErrorMessage(
+                error.message,
+                "No se pudo completar el acceso externo. Inténtalo nuevamente."
+            )
+        )
     }
 
     fun verifyMfa(code: String) {
@@ -374,6 +387,8 @@ class NativeAuthViewModel(application: Application) : AndroidViewModel(applicati
         uiState = uiState.copy(busy = true, message = null, fieldErrors = emptyMap())
         try {
             block()
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Throwable) {
             uiState = uiState.copy(
                 busy = false,
@@ -386,27 +401,28 @@ class NativeAuthViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    private fun friendlyMessage(error: Throwable): String {
-        val message = error.message.orEmpty()
-        return when {
-            message.contains("Invalid login", ignoreCase = true) -> "Usuario o contraseña incorrectos."
-            message.contains("Email not confirmed", ignoreCase = true) -> "Confirma tu correo antes de iniciar sesión."
-            message.contains("reserved", ignoreCase = true) -> "Ese nombre de usuario está reservado."
-            message.contains("duplicate", ignoreCase = true) -> "El usuario, DNI, teléfono o correo ya está registrado."
-            message.isNotBlank() -> message
-            else -> "No se pudo completar la operación."
-        }
-    }
+    private fun friendlyMessage(error: Throwable): String =
+        AuthValidation.safeAuthErrorMessage(error.message)
 
     private fun savePendingRegistration(draft: RegistrationDraft) {
         preferences.edit().putString(KEY_DRAFT, gson.toJson(draft)).apply()
     }
 
-    private fun readPendingRegistration(): RegistrationDraft? = runCatching {
-        preferences.getString(KEY_DRAFT, null)?.let {
-            gson.fromJson(it, RegistrationDraft::class.java)
+    private fun readPendingRegistration(): RegistrationDraft? {
+        val draft = try {
+            preferences.getString(KEY_DRAFT, null)?.let {
+                gson.fromJson(it, RegistrationDraft::class.java)
+            }
+        } catch (_: Exception) {
+            clearPendingRegistration()
+            return null
         }
-    }.getOrNull()
+        if (draft != null && !AuthValidation.isRegistrationDraftCurrent(draft)) {
+            clearPendingRegistration()
+            return null
+        }
+        return draft
+    }
 
     private fun clearPendingRegistration() {
         preferences.edit().remove(KEY_DRAFT).remove(KEY_INTENT).apply()
