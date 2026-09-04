@@ -73,7 +73,7 @@ fun MobileAuthScreen(
     onShowRegister: () -> Unit,
     onSignIn: (String, String) -> Unit,
     onRegister: (String, String, String, String, String, String, String, String) -> Unit,
-    onOAuth: (String, Boolean, String, String, String, String, String, String) -> Unit,
+    onOAuth: (String) -> Unit,
     onVerifyMfa: (String) -> Unit,
     onSignOut: () -> Unit
 ) {
@@ -111,9 +111,7 @@ fun MobileAuthScreen(
                         busy = state.busy,
                         message = state.message,
                         onSignIn = onSignIn,
-                        onOAuth = { provider ->
-                            onOAuth(provider, false, "", "", "", "", "", "")
-                        },
+                        onOAuth = onOAuth,
                         onShowRegister = onShowRegister
                     )
                     NativeAuthPage.REGISTER -> RegisterContent(
@@ -122,9 +120,7 @@ fun MobileAuthScreen(
                         errors = state.fieldErrors,
                         verifiedEmail = state.verifiedEmail,
                         onRegister = onRegister,
-                        onOAuth = { provider, username, firstName, lastName, dni, phone, email ->
-                            onOAuth(provider, true, username, firstName, lastName, dni, phone, email)
-                        }
+                        onOAuth = onOAuth
                     )
                     NativeAuthPage.PENDING -> PendingContent(
                         name = state.profile?.fullName.orEmpty(),
@@ -265,6 +261,11 @@ private fun LoginContent(
 
     OAuthDivider()
     OAuthButtons(busy = busy, onOAuth = onOAuth)
+    Text(
+        "Si es tu primera vez, Google o GitHub crearán tu cuenta automáticamente.",
+        color = MobileMuted,
+        fontSize = 12.sp
+    )
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -299,7 +300,7 @@ private fun RegisterContent(
     errors: Map<String, String>,
     verifiedEmail: String?,
     onRegister: (String, String, String, String, String, String, String, String) -> Unit,
-    onOAuth: (String, String, String, String, String, String, String) -> Unit
+    onOAuth: (String) -> Unit
 ) {
     var username by rememberSaveable { mutableStateOf("") }
     var firstName by rememberSaveable { mutableStateOf("") }
@@ -315,9 +316,9 @@ private fun RegisterContent(
         eyebrow = if (completingProfile) "CORREO CONFIRMADO" else "NUEVA CUENTA",
         title = if (completingProfile) "Finaliza tu registro" else "Únete a EcoSphere",
         subtitle = if (completingProfile) {
-            "Tu cuenta ya está verificada. Completa tus datos y enviaremos la solicitud al administrador."
+            "Tu cuenta ya está verificada. Completa tus datos para terminar el registro por correo."
         } else {
-            "Completa tus datos. Un administrador aprobará el acceso al sistema."
+            "Completa estos datos sólo si prefieres registrarte con correo y contraseña."
         }
     )
     MessageBanner(message)
@@ -382,10 +383,7 @@ private fun RegisterContent(
 
     if (!completingProfile) {
         OAuthDivider()
-        OAuthButtons(
-            busy = busy,
-            onOAuth = { provider -> onOAuth(provider, username, firstName, lastName, dni, phone, email) }
-        )
+        OAuthButtons(busy = busy, onOAuth = onOAuth)
     }
 }
 

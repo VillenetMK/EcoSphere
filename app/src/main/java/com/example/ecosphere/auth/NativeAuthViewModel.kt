@@ -170,33 +170,9 @@ class NativeAuthViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun startOAuth(
-        provider: String,
-        registration: Boolean,
-        username: String = "",
-        firstName: String = "",
-        lastName: String = "",
-        dni: String = "",
-        phone: String = "",
-        email: String = ""
-    ) {
-        if (registration) {
-            val identity = AuthValidation.validateRegistration(
-                username, firstName, lastName, dni, phone, email, provider
-            )
-            if (!identity.isValid) {
-                uiState = uiState.copy(
-                    fieldErrors = identity.errors,
-                    message = "Completa los datos obligatorios antes de continuar."
-                )
-                return
-            }
-            savePendingRegistration(identity.draft)
-            saveIntent(INTENT_OAUTH_REGISTER)
-        } else {
-            clearPendingRegistration()
-            saveIntent(INTENT_OAUTH_LOGIN)
-        }
+    fun startOAuth(provider: String) {
+        clearPendingRegistration()
+        saveIntent(INTENT_OAUTH)
 
         viewModelScope.launch {
             runBusy(resetBusyWhenComplete = true) {
@@ -212,7 +188,9 @@ class NativeAuthViewModel(application: Application) : AndroidViewModel(applicati
                     oauthProvider,
                     redirectUrl = NativeSupabase.ANDROID_OAUTH_RETURN_URL
                 ) {
-                    queryParams["prompt"] = "select_account"
+                    if (provider == PROVIDER_GOOGLE) {
+                        queryParams["prompt"] = "select_account"
+                    }
                 }
             }
         }
@@ -285,13 +263,13 @@ class NativeAuthViewModel(application: Application) : AndroidViewModel(applicati
         }
 
         val profile = loadProfile()
-        if (profile == null && intent == INTENT_OAUTH_LOGIN) {
+        if (profile == null && intent == INTENT_OAUTH) {
             supabase.auth.signOut()
             clearPendingRegistration()
             uiState = NativeAuthUiState(
                 page = NativeAuthPage.LOGIN,
                 busy = false,
-                message = "Esta cuenta aún no está registrada. Usa «Crear cuenta» para completar el alta."
+                message = "No se pudo preparar tu cuenta de Google o GitHub. Inténtalo nuevamente."
             )
             return
         }
@@ -454,8 +432,7 @@ class NativeAuthViewModel(application: Application) : AndroidViewModel(applicati
         private const val KEY_INTENT = "oauth-intent"
         private const val INTENT_LOGIN = "password-login"
         private const val INTENT_REGISTER = "register"
-        private const val INTENT_OAUTH_LOGIN = "oauth-login"
-        private const val INTENT_OAUTH_REGISTER = "oauth-register"
+        private const val INTENT_OAUTH = "oauth"
 
         fun factory(application: Application): ViewModelProvider.Factory =
             ViewModelProvider.AndroidViewModelFactory.getInstance(application)

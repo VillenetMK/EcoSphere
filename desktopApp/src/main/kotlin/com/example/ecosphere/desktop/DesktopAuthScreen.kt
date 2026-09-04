@@ -27,7 +27,7 @@ fun DesktopAuthScreen(
     onShowRegister: () -> Unit,
     onSignIn: (String, String) -> Unit,
     onRegister: (String, String, String, String, String, String, String, String) -> Unit,
-    onOAuth: (String, Boolean, String, String, String, String, String, String) -> Unit,
+    onOAuth: (String) -> Unit,
     onVerifyMfa: (String) -> Unit,
     onSignOut: () -> Unit
 ) {
@@ -64,7 +64,7 @@ fun DesktopAuthScreen(
                     lineHeight = 26.sp
                 )
             }
-            Text("EcoSphere Desktop 1.4.0", color = Color(0xFF88A396), fontSize = 11.sp)
+            Text("EcoSphere Desktop 1.4.5", color = Color(0xFF88A396), fontSize = 11.sp)
         }
 
         Box(
@@ -112,16 +112,13 @@ fun DesktopAuthScreen(
 
                     when (state.page) {
                         DesktopAuthPage.INITIALIZING -> DesktopLoading()
-                        DesktopAuthPage.LOGIN -> DesktopLoginForm(state.busy, onSignIn) { provider ->
-                            onOAuth(provider, false, "", "", "", "", "", "")
-                        }
+                        DesktopAuthPage.LOGIN -> DesktopLoginForm(state.busy, onSignIn, onOAuth)
                         DesktopAuthPage.REGISTER -> DesktopRegisterForm(
                             busy = state.busy,
                             errors = state.fieldErrors,
-                            onRegister = onRegister
-                        ) { provider, username, firstName, lastName, dni, phone, email ->
-                            onOAuth(provider, true, username, firstName, lastName, dni, phone, email)
-                        }
+                            onRegister = onRegister,
+                            onOAuth = onOAuth
+                        )
                         DesktopAuthPage.PENDING -> DesktopPending(
                             state.profile?.fullName.orEmpty(),
                             state.busy,
@@ -198,6 +195,11 @@ private fun DesktopLoginForm(
     ) { Text("Ingresar", fontWeight = FontWeight.Bold) }
     DesktopOAuthDivider()
     DesktopOAuthButtons(busy, onOAuth)
+    Text(
+        "Si es tu primera vez, Google o GitHub crearán tu cuenta automáticamente.",
+        color = Color(0xFFB8C9BF),
+        fontSize = 11.sp
+    )
 }
 
 @Composable
@@ -205,7 +207,7 @@ private fun DesktopRegisterForm(
     busy: Boolean,
     errors: Map<String, String>,
     onRegister: (String, String, String, String, String, String, String, String) -> Unit,
-    onOAuth: (String, String, String, String, String, String, String) -> Unit
+    onOAuth: (String) -> Unit
 ) {
     var username by remember { mutableStateOf("") }
     var firstName by remember { mutableStateOf("") }
@@ -217,7 +219,7 @@ private fun DesktopRegisterForm(
     var confirmation by remember { mutableStateOf("") }
 
     Text(
-        "Todos los campos son obligatorios. Las cuentas nuevas requieren aprobación antes de controlar el equipo.",
+        "Completa todos los campos sólo si prefieres registrarte con correo y contraseña.",
         color = Color(0xFFB8C9BF),
         fontSize = 12.sp
     )
@@ -249,9 +251,7 @@ private fun DesktopRegisterForm(
         colors = ButtonDefaults.buttonColors(containerColor = LoginGreen, contentColor = Color.Black)
     ) { Text("Registrarme con correo", fontWeight = FontWeight.Bold) }
     DesktopOAuthDivider()
-    DesktopOAuthButtons(busy) { provider ->
-        onOAuth(provider, username, firstName, lastName, dni, phone, email)
-    }
+    DesktopOAuthButtons(busy, onOAuth)
 }
 
 @Composable

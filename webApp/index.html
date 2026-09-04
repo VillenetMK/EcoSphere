@@ -54,13 +54,14 @@
         <button class="auth-primary" type="submit">Ingresar</button>
         <div class="auth-divider"><span>o continúa con</span></div>
         <div class="oauth-buttons">
-          <button type="button" data-oauth-provider="google" data-oauth-intent="login"><img class="oauth-provider-icon" src="icons/ic_google.svg" alt="" aria-hidden="true" />Google</button>
-          <button type="button" data-oauth-provider="github" data-oauth-intent="login"><img class="oauth-provider-icon" src="icons/ic_github.svg" alt="" aria-hidden="true" />GitHub</button>
+          <button type="button" data-oauth-provider="google"><img class="oauth-provider-icon" src="icons/ic_google.svg" alt="" aria-hidden="true" />Google</button>
+          <button type="button" data-oauth-provider="github"><img class="oauth-provider-icon" src="icons/ic_github.svg" alt="" aria-hidden="true" />GitHub</button>
         </div>
+        <p class="auth-password-note">Si es tu primera vez, Google o GitHub crearán tu cuenta automáticamente.</p>
       </form>
 
       <form id="registerForm" class="auth-form" data-auth-panel="register" hidden>
-        <p class="auth-form-note">Todos los campos son obligatorios. Al confirmar el correo recibirás acceso de operador automáticamente.</p>
+        <p class="auth-form-note">Para registrarte con correo, completa todos los campos. Google y GitHub crean la cuenta automáticamente.</p>
         <label>Nombre de usuario
           <input id="registerUsername" type="text" autocomplete="username" maxlength="32" placeholder="Ejemplo: usuario123" required />
           <small data-field-error="username"></small>
@@ -102,10 +103,10 @@
         <p id="registerPasswordNote" class="auth-password-note">La contraseña sólo se usa al registrarse por correo. Google y GitHub verifican la identidad con sus propios sistemas.</p>
         <button id="registerSubmitBtn" class="auth-primary" type="submit">Registrarme con correo</button>
         <div id="registerOAuthFields" class="auth-oauth-registration">
-          <div class="auth-divider"><span>o verifica el correo con</span></div>
+          <div class="auth-divider"><span>o crea tu cuenta con</span></div>
           <div class="oauth-buttons">
-            <button type="button" data-oauth-provider="google" data-oauth-intent="register"><img class="oauth-provider-icon" src="icons/ic_google.svg" alt="" aria-hidden="true" />Google</button>
-            <button type="button" data-oauth-provider="github" data-oauth-intent="register"><img class="oauth-provider-icon" src="icons/ic_github.svg" alt="" aria-hidden="true" />GitHub</button>
+            <button type="button" data-oauth-provider="google"><img class="oauth-provider-icon" src="icons/ic_google.svg" alt="" aria-hidden="true" />Google</button>
+            <button type="button" data-oauth-provider="github"><img class="oauth-provider-icon" src="icons/ic_github.svg" alt="" aria-hidden="true" />GitHub</button>
           </div>
         </div>
       </form>
@@ -162,7 +163,7 @@
         <span id="currentUserRole">Acceso autorizado</span>
         <button type="button" data-auth-signout>Cerrar sesión</button>
       </div>
-      <div class="version">EcoSphere Web 1.6.5</div>
+      <div class="version">EcoSphere Web 1.6.6</div>
     </aside>
 
     <main class="main">

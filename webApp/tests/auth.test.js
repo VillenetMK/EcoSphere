@@ -67,14 +67,14 @@ test('el registro contiene los campos obligatorios y los proveedores aprobados',
   }
   assert.match(html, /data-oauth-provider="google"/);
   assert.match(html, /data-oauth-provider="github"/);
-  assert.match(html, /acceso de operador automáticamente/);
+  assert.match(html, /crearán tu cuenta automáticamente/);
   assert.match(html, /id="mfaCode"/);
   assert.match(html, /Google Authenticator/);
   assert.match(html, /id="loginIdentifier"/);
   assert.match(html, /id="registerPhone"[^>]*maxlength="16"[^>]*value="\+51 "/);
 });
 
-test('nombres y apellidos se guardan por separado sin pedir contraseña en OAuth', async () => {
+test('el registro por correo guarda nombres separados y OAuth no pide contraseña adicional', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const source = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
   const migration = await readFile(
@@ -106,18 +106,53 @@ test('la portada equilibra la jerarquía tipográfica en escritorio y móvil', a
   assert.match(styles, /@media\(max-width:560px\)\{[^}]*\.auth-brand-panel\{padding:22px 20px\}/);
 });
 
-test('iniciar sesión por OAuth nunca convierte el acceso en un registro', async () => {
+test('Google y GitHub usan un único flujo para ingresar o crear la cuenta', async () => {
   const source = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
-  assert.match(source, /if \(!profile && intent === 'oauth-login'\) \{[\s\S]*?auth\.signOut\(\)[\s\S]*?showPanel\('login'\)/);
-  assert.match(source, /Esta cuenta aún no está registrada/);
-  assert.match(source, /if \(!profile\) \{\s*setProfileCompletionMode\(session\);\s*showPanel\('register'\);/);
+  const nativeAuth = await readFile(
+    new URL('../../app/src/main/java/com/example/ecosphere/auth/NativeAuthViewModel.kt', import.meta.url),
+    'utf8',
+  );
+  const desktopAuth = await readFile(
+    new URL('../../desktopApp/src/main/kotlin/com/example/ecosphere/desktop/DesktopAuthController.kt', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(source, /async function startOAuth\(provider\)/);
+  assert.match(source, /sessionStorage\.setItem\(OAUTH_INTENT_KEY, 'oauth'\)/);
+  assert.match(nativeAuth, /fun startOAuth\(provider: String\)/);
+  assert.match(desktopAuth, /suspend fun startOAuth\(provider: String\)/);
+  assert.doesNotMatch(`${source}\n${nativeAuth}\n${desktopAuth}`, /oauth-login|oauth-register/);
+
+  const webOAuth = source.slice(source.indexOf('async function startOAuth'), source.indexOf('async function signInWithIdentifier'));
+  const nativeOAuth = nativeAuth.slice(nativeAuth.indexOf('fun startOAuth('), nativeAuth.indexOf('fun onOAuthCallback'));
+  const desktopOAuth = desktopAuth.slice(desktopAuth.indexOf('suspend fun startOAuth('), desktopAuth.indexOf('suspend fun verifyMfa'));
+  assert.doesNotMatch(webOAuth, /validateIdentityFields|savePendingRegistration/);
+  assert.doesNotMatch(nativeOAuth, /validateRegistration|savePendingRegistration/);
+  assert.doesNotMatch(desktopOAuth, /validateRegistration|savePendingRegistration/);
 });
 
-test('Google y GitHub siempre permiten elegir la cuenta antes de continuar', async () => {
+test('Google permite elegir la cuenta antes de continuar', async () => {
   const source = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
   assert.match(source, /auth\.getSession\(\)/);
   assert.match(source, /auth\.signOut\(\{ scope: 'local' \}\)/);
-  assert.match(source, /queryParams: \{ prompt: 'select_account' \}/);
+  assert.match(source, /provider === 'google' \? \{ prompt: 'select_account' \} : undefined/);
+});
+
+test('Supabase crea el perfil OAuth desde datos verificados sin inventar DNI ni teléfono', async () => {
+  const migration = await readFile(
+    new URL('../../supabase/migrations/20260904024445_auto_provision_oauth_profiles.sql', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(migration, /create trigger provision_ecosphere_oauth_profile/);
+  assert.match(migration, /after insert or update of email_confirmed_at, raw_app_meta_data/);
+  assert.match(migration, /v_email_confirmed_at is null/);
+  assert.match(migration, /v_app_metadata->>'provider'/);
+  assert.match(migration, /v_user_metadata->>'given_name'/);
+  assert.match(migration, /null,\s*null,\s*v_email,\s*v_provider,\s*'approved',\s*'operator'/);
+  assert.match(migration, /registration_method in \('google', 'github'\)/);
+  assert.match(migration, /revoke all on function private\.provision_oauth_profile\(uuid\)/);
+  assert.doesNotMatch(migration, /v_user_metadata->>'(?:role|status|is_admin)'/);
 });
 
 test('el retorno OAuth de Android vuelve al APK y no renderiza el portal web', async () => {
@@ -200,7 +235,7 @@ test('los datos personales no se envían como metadata editable del JWT', async 
   assert.doesNotMatch(source, /service_role|sb_secret_/);
 });
 
-test('el registro social protege el correo confirmado y reutiliza la sesión', async () => {
+test('la reparación del registro por correo protege el correo confirmado y reutiliza la sesión', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const source = await readFile(new URL('../auth.js', import.meta.url), 'utf8');
   assert.match(html, /placeholder="Ejemplo: usuario@ejemplo\.com"/);

@@ -133,33 +133,9 @@ class DesktopAuthController {
         }
     }
 
-    suspend fun startOAuth(
-        provider: String,
-        registration: Boolean,
-        username: String = "",
-        firstName: String = "",
-        lastName: String = "",
-        dni: String = "",
-        phone: String = "",
-        email: String = ""
-    ) {
-        if (registration) {
-            val identity = AuthValidation.validateRegistration(
-                username, firstName, lastName, dni, phone, email, provider
-            )
-            if (!identity.isValid) {
-                state = state.copy(
-                    fieldErrors = identity.errors,
-                    message = "Completa los datos obligatorios antes de continuar."
-                )
-                return
-            }
-            savePendingRegistration(identity.draft)
-            saveIntent(INTENT_OAUTH_REGISTER)
-        } else {
-            clearPendingRegistration()
-            saveIntent(INTENT_OAUTH_LOGIN)
-        }
+    suspend fun startOAuth(provider: String) {
+        clearPendingRegistration()
+        saveIntent(INTENT_OAUTH)
 
         runBusy {
             if (supabase.auth.currentSessionOrNull() != null) supabase.auth.signOut()
@@ -169,7 +145,9 @@ class DesktopAuthController {
                 else -> error("Proveedor de acceso no permitido.")
             }
             supabase.auth.signInWith(oauthProvider) {
-                queryParams["prompt"] = "select_account"
+                if (provider == PROVIDER_GOOGLE) {
+                    queryParams["prompt"] = "select_account"
+                }
             }
             resolveCurrentSession()
         }
@@ -216,7 +194,6 @@ class DesktopAuthController {
         }
 
         val intent = readIntent()
-        val registrationIntent = intent == INTENT_REGISTER || intent == INTENT_OAUTH_REGISTER
         val draft = readPendingRegistration()
         if (draft != null) {
             val verifiedEmail = session.user?.email?.lowercase().orEmpty()
@@ -230,13 +207,13 @@ class DesktopAuthController {
         }
 
         val profile = loadProfile()
-        if (profile == null && !registrationIntent) {
+        if (profile == null && intent == INTENT_OAUTH) {
             supabase.auth.signOut()
             clearPendingRegistration()
             state = DesktopAuthState(
                 page = DesktopAuthPage.LOGIN,
                 busy = false,
-                message = "Esta cuenta aún no está registrada. Usa «Crear cuenta» para completar el alta."
+                message = "No se pudo preparar tu cuenta de Google o GitHub. Inténtalo nuevamente."
             )
             return
         }
@@ -401,7 +378,6 @@ class DesktopAuthController {
         private const val KEY_INTENT = "oauth-intent"
         private const val INTENT_LOGIN = "password-login"
         private const val INTENT_REGISTER = "register"
-        private const val INTENT_OAUTH_LOGIN = "oauth-login"
-        private const val INTENT_OAUTH_REGISTER = "oauth-register"
+        private const val INTENT_OAUTH = "oauth"
     }
 }

@@ -205,18 +205,9 @@ fun main() = application {
                             )
                         }
                     },
-                    onOAuth = { provider, registration, username, firstName, lastName, dni, phone, email ->
+                    onOAuth = { provider ->
                         authScope.launch {
-                            authController.startOAuth(
-                                provider,
-                                registration,
-                                username,
-                                firstName,
-                                lastName,
-                                dni,
-                                phone,
-                                email
-                            )
+                            authController.startOAuth(provider)
                         }
                     },
                     onVerifyMfa = { code -> authScope.launch { authController.verifyMfa(code) } },
