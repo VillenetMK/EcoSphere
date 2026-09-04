@@ -155,6 +155,26 @@ test('Supabase crea el perfil OAuth desde datos verificados sin inventar DNI ni 
   assert.doesNotMatch(migration, /v_user_metadata->>'(?:role|status|is_admin)'/);
 });
 
+test('todos los usuarios normales son operadores y el rol de solo lectura no puede volver', async () => {
+  const migration = await readFile(
+    new URL('../../supabase/migrations/20260904030849_remove_viewer_role.sql', import.meta.url),
+    'utf8',
+  );
+  const guide = await readFile(
+    new URL('../../docs/AUTH_AND_DOMAIN_SETUP.md', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(migration, /set role = 'operator',[\s\S]*where role = 'viewer'/);
+  assert.match(migration, /alter column role set default 'operator'/);
+  assert.match(migration, /check \(role in \('operator', 'admin'\)\)/);
+  assert.match(migration, /create trigger enforce_operator_profile_role/);
+  assert.match(migration, /new\.user_id = \(select auth\.uid\(\)\)[\s\S]*new\.role := 'operator'/);
+  assert.match(migration, /if v_role <> 'operator'/);
+  assert.match(guide, /El rol de solo lectura fue retirado/);
+  assert.doesNotMatch(guide, /`viewer`:/);
+});
+
 test('el retorno OAuth de Android vuelve al APK y no renderiza el portal web', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const bridge = await readFile(new URL('../android-auth-return.js', import.meta.url), 'utf8');

@@ -11,7 +11,7 @@ El nombre cubre el panel web, Android, Windows, Linux y el sistema IoT. La dispo
 - Usuario, correo y contraseña: nombre de usuario, nombres y apellidos, DNI, teléfono, correo, contraseña de al menos 12 caracteres y confirmación.
 - Google o GitHub: un solo botón sirve para registrarse o iniciar sesión. Supabase toma el nombre ofrecido y el correo verificado por el proveedor, genera internamente un nombre de usuario único y crea el perfil sin contraseña adicional. DNI y teléfono quedan vacíos porque esos proveedores no los entregan.
 - Las cuentas verificadas reciben automáticamente acceso `approved` con rol `operator`, excepto las cuentas bloqueadas o administrativas existentes, que nunca se degradan ni se modifican.
-- `viewer`: lectura; `operator`: lectura y controles; `admin`: lectura, controles y administración futura de accesos.
+- Los usuarios normales tienen rol `operator`, con lectura y controles; `admin` añade la administración de accesos. El rol de solo lectura fue retirado. Una cuenta todavía puede quedar `blocked` sin cambiar su rol.
 
 Los datos personales se almacenan en `private.user_profiles`. Los nombres de OAuth se copian una sola vez desde la metadata de presentación; los roles y estados nunca se obtienen de metadata editable ni se incluyen allí como fuente de autorización.
 
