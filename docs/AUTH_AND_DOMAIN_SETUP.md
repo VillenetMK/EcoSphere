@@ -13,6 +13,8 @@ El nombre cubre el panel web, Android, Windows, Linux y el sistema IoT. La dispo
 - Las cuentas verificadas reciben automáticamente acceso `approved` con rol `operator`, excepto las cuentas bloqueadas o administrativas existentes, que nunca se degradan ni se modifican.
 - Los usuarios normales tienen rol `operator`, con lectura y controles; `admin` añade la administración de accesos. El rol de solo lectura fue retirado. Una cuenta todavía puede quedar `blocked` sin cambiar su rol.
 
+Los comandos de ventilación, iluminación, modo automático y riego pasan por el RPC `control_command`; los clientes no reciben permiso `UPDATE` directo sobre `public.device_control`. Así se conservan la validación de sesión y rol, los límites, los bloqueos de seguridad y la auditoría de cada orden.
+
 Los datos personales se almacenan en `private.user_profiles`. Los nombres de OAuth se copian una sola vez desde la metadata de presentación; los roles y estados nunca se obtienen de metadata editable ni se incluyen allí como fuente de autorización.
 
 El inicio tradicional acepta el nombre de usuario o el correo. La resolución del usuario ocurre en una Edge Function con origen restringido, mensajes genéricos y bloqueo temporal después de cinco fallos. El correo asociado no se expone al navegador antes de validar la contraseña.

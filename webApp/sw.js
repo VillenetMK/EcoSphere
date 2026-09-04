@@ -4,7 +4,7 @@
  * Todos los derechos reservados. Uso sujeto al archivo LICENSE.
  */
 
-const CACHE = 'ecosphere-web-v1.6.6-one-click-oauth';
+const CACHE = 'ecosphere-web-v1.6.7-secure-control-rpc';
 const ASSETS = [
   './',
   './index.html',

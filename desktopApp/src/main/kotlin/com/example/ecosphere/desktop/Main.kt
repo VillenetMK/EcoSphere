@@ -98,12 +98,11 @@ private class EcoSphereApi(
         parseList<SensorRecord>(res.body())
     }
 
-    suspend fun patchControl(body: Map<String, Any>): DeviceControl? = withContext(Dispatchers.IO) {
-        val json = gson.toJson(body)
-        val req = requestBuilder("rest/v1/device_control?id=eq.1")
+    suspend fun controlCommand(action: String, value: Int): DeviceControl? = withContext(Dispatchers.IO) {
+        val json = gson.toJson(mapOf("p_action" to action, "p_value" to value))
+        val req = requestBuilder("rest/v1/rpc/control_command")
             .header("Content-Type", "application/json")
-            .header("Prefer", "return=representation")
-            .method("PATCH", HttpRequest.BodyPublishers.ofString(json))
+            .POST(HttpRequest.BodyPublishers.ofString(json))
             .build()
         val res = client.send(req, HttpResponse.BodyHandlers.ofString())
         require(res.statusCode() in 200..299) { "HTTP ${res.statusCode()}: ${res.body()}" }
@@ -131,24 +130,21 @@ private class EcoSphereApi(
         parseList<ControllerAdminStatus>(res.body()).firstOrNull()
     }
 
-    suspend fun setAutoMode(enabled: Boolean) = patchControl(mapOf("auto_mode" to enabled))
+    suspend fun setAutoMode(enabled: Boolean) = controlCommand("auto_mode", if (enabled) 1 else 0)
 
     suspend fun setFanPower(power: Int): DeviceControl? {
         val safePower = ControlPolicy.clampPower(power)
-        return patchControl(mapOf("fan_power" to safePower, "fan_target" to (safePower > 0)))
+        return controlCommand("fan_power", safePower)
     }
 
     suspend fun setLedPower(power: Int): DeviceControl? {
         val safePower = ControlPolicy.clampPower(power)
-        return patchControl(mapOf("led_power" to safePower, "led_target" to (safePower > 0)))
+        return controlCommand("led_power", safePower)
     }
 
     suspend fun requestPump(
-        currentRequest: Long,
         durationMs: Int = ControlPolicy.PUMP_DURATION_MS
-    ) = patchControl(
-        mapOf("pump_request" to currentRequest + 1, "pump_duration_ms" to durationMs)
-    )
+    ) = controlCommand("pump", durationMs)
 }
 
 fun main() = application {
@@ -333,10 +329,7 @@ private fun EcoSphereDesktopApp(
                                 } else {
                                     actionBusy = true
                                     try {
-                                        api.requestPump(
-                                            control?.pumpRequest ?: 0L,
-                                            ControlPolicy.PUMP_DURATION_MS
-                                        )
+                                        api.requestPump(ControlPolicy.PUMP_DURATION_MS)
                                         refresh()
                                     } catch (e: Exception) {
                                         snackbar.showSnackbar(e.message ?: "Error solicitando riego")
@@ -436,7 +429,7 @@ private fun NavigationPane(
                 Text("Cerrar sesión")
             }
             Spacer(Modifier.height(12.dp))
-            Text("EcoSphere Desktop 1.4.4", color = Muted, fontSize = 11.sp)
+            Text("EcoSphere Desktop 1.4.6", color = Muted, fontSize = 11.sp)
         }
     }
 }
