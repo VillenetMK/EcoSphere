@@ -9,11 +9,11 @@ El nombre cubre el panel web, Android, Windows, Linux y el sistema IoT. La dispo
 ## Flujo de cuenta
 
 - Usuario, correo y contraseña: nombre de usuario, nombres y apellidos, DNI, teléfono, correo, contraseña de al menos 12 caracteres y confirmación.
-- Google o GitHub: primero nombre de usuario, nombres y apellidos, DNI, teléfono y correo; después el proveedor verifica el correo. No se solicita una contraseña adicional.
-- Toda cuenta nueva queda `pending` y `viewer` hasta su aprobación.
+- Google o GitHub: un solo botón sirve para registrarse o iniciar sesión. Supabase toma el nombre ofrecido y el correo verificado por el proveedor, genera internamente un nombre de usuario único y crea el perfil sin contraseña adicional. DNI y teléfono quedan vacíos porque esos proveedores no los entregan.
+- Las cuentas verificadas reciben automáticamente acceso `approved` con rol `operator`, excepto las cuentas bloqueadas o administrativas existentes, que nunca se degradan ni se modifican.
 - `viewer`: lectura; `operator`: lectura y controles; `admin`: lectura, controles y administración futura de accesos.
 
-Los datos personales se almacenan en `private.user_profiles`; no se incluyen en metadata editable del usuario ni en el JWT.
+Los datos personales se almacenan en `private.user_profiles`. Los nombres de OAuth se copian una sola vez desde la metadata de presentación; los roles y estados nunca se obtienen de metadata editable ni se incluyen allí como fuente de autorización.
 
 El inicio tradicional acepta el nombre de usuario o el correo. La resolución del usuario ocurre en una Edge Function con origen restringido, mensajes genéricos y bloqueo temporal después de cinco fallos. El correo asociado no se expone al navegador antes de validar la contraseña.
 

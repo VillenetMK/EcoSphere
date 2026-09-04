@@ -54,8 +54,8 @@ android {
         applicationId = "com.example.ecosphere"
         minSdk = 24
         targetSdk = 36
-        versionCode = 15
-        versionName = "1.4.10"
+        versionCode = 16
+        versionName = "1.4.11"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

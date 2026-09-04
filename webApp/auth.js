@@ -163,9 +163,9 @@ function showFieldErrors(errors) {
   });
 }
 
-function savePendingRegistration(values, provider) {
-  localStorage.setItem(PENDING_REGISTRATION_KEY, JSON.stringify({ ...values, provider }));
-  sessionStorage.setItem(OAUTH_INTENT_KEY, provider === 'email' ? 'register' : 'oauth-register');
+function savePendingRegistration(values) {
+  localStorage.setItem(PENDING_REGISTRATION_KEY, JSON.stringify({ ...values, provider: 'email' }));
+  sessionStorage.setItem(OAUTH_INTENT_KEY, 'register');
 }
 
 function readPendingRegistration() {
@@ -316,12 +316,12 @@ async function resolveSession(session, onAccessGranted) {
   const intent = sessionStorage.getItem(OAUTH_INTENT_KEY);
   await completePendingProfile(session);
   const profile = await loadMyProfile();
-  if (!profile && intent === 'oauth-login') {
+  if (!profile && intent === 'oauth') {
     clearPendingRegistration();
     await supabase.auth.signOut();
     setProfileCompletionMode(null);
     showPanel('login');
-    setMessage('Esta cuenta aún no está registrada. Usa «Crear cuenta» para completar el alta.', 'error');
+    setMessage('No se pudo preparar tu cuenta de Google o GitHub. Inténtalo nuevamente.', 'error');
     return false;
   }
   if (!profile) {
@@ -343,17 +343,10 @@ async function resolveSession(session, onAccessGranted) {
   return true;
 }
 
-async function startOAuth(provider, intent) {
+async function startOAuth(provider) {
   if (!ALLOWED_PROVIDERS.has(provider)) throw new Error('Proveedor de acceso no permitido.');
-  if (intent === 'register') {
-    const identity = validateIdentityFields(registrationValues());
-    showFieldErrors(identity.errors);
-    if (!identity.valid) throw new Error('Revisa los datos obligatorios antes de continuar.');
-    savePendingRegistration(identity.values, provider);
-  } else {
-    clearPendingRegistration();
-    sessionStorage.setItem(OAUTH_INTENT_KEY, 'oauth-login');
-  }
+  clearPendingRegistration();
+  sessionStorage.setItem(OAUTH_INTENT_KEY, 'oauth');
 
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
   if (sessionError) throw sessionError;
@@ -366,7 +359,7 @@ async function startOAuth(provider, intent) {
     provider,
     options: {
       redirectTo: callbackUrl(),
-      queryParams: { prompt: 'select_account' },
+      queryParams: provider === 'google' ? { prompt: 'select_account' } : undefined,
     },
   });
   if (error) throw error;
@@ -445,7 +438,7 @@ export async function initializeAuth({ onAccessGranted, onSignedOut }) {
         if (identity.values.email !== String(profileCompletionSession.user.email ?? '').toLowerCase()) {
           throw new Error('El correo debe coincidir con la cuenta verificada.');
         }
-        savePendingRegistration(identity.values, 'email');
+        savePendingRegistration(identity.values);
         await completePendingProfile(profileCompletionSession);
         const profile = await loadMyProfile();
         if (!profile) throw new Error('No se pudo completar el perfil.');
@@ -460,7 +453,7 @@ export async function initializeAuth({ onAccessGranted, onSignedOut }) {
       const errors = { ...identity.errors, ...password.errors };
       showFieldErrors(errors);
       if (!identity.valid || !password.valid) throw new Error('Revisa los datos del formulario.');
-      savePendingRegistration(identity.values, 'email');
+      savePendingRegistration(identity.values);
       const { data, error } = await supabase.auth.signUp({
         email: identity.values.email,
         password: document.getElementById('registerPassword').value,
@@ -481,7 +474,7 @@ export async function initializeAuth({ onAccessGranted, onSignedOut }) {
       setAuthBusy(true);
       setMessage('');
       try {
-        await startOAuth(button.dataset.oauthProvider, button.dataset.oauthIntent);
+        await startOAuth(button.dataset.oauthProvider);
       } catch (error) {
         setMessage(error.message || 'No se pudo iniciar el acceso social.', 'error');
         setAuthBusy(false);
