@@ -135,7 +135,7 @@ fun InteractiveDashboardScreen(
         ) {
             SystemOverviewCard(
                 online = online,
-                autoMode = control?.autoMode ?: record?.autoMode,
+                autoMode = control?.autoMode,
                 lastSeenAt = prettyTimestamp(control?.lastSeenAt),
                 lastReadingAt = prettyTimestamp(record?.createdAt),
                 isLoading = uiState.isLoading,
@@ -554,7 +554,11 @@ private fun ControlCard(
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             ControlHeader(
-                if (autoMode) DashboardControlIcons.AutoMode else DashboardControlIcons.ManualMode,
+                when {
+                    !controlsAvailable -> DashboardControlIcons.Offline
+                    autoMode -> DashboardControlIcons.AutoMode
+                    else -> DashboardControlIcons.ManualMode
+                },
                 "Modo de operación"
             ) { onOpen(DashboardDetail.MODE) }
 
@@ -562,7 +566,11 @@ private fun ControlCard(
                 Column(Modifier.weight(1f)) {
                     Text("Control automático", fontWeight = FontWeight.Medium)
                     Text(
-                        if (autoMode) "El ESP32 decide según las lecturas" else "Control manual habilitado",
+                        when {
+                            !controlsAvailable -> "Configuración remota sin confirmar"
+                            autoMode -> "El ESP32 decide según las lecturas"
+                            else -> "Control manual habilitado"
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
