@@ -25,7 +25,8 @@ data class RegistrationDraft(
     val dni: String,
     val phone: String,
     val email: String,
-    val provider: String
+    val provider: String,
+    val savedAtEpochMs: Long = System.currentTimeMillis()
 )
 
 data class RegistrationValidation(
@@ -37,12 +38,53 @@ data class RegistrationValidation(
 
 object AuthValidation {
     const val DEFAULT_PHONE_INPUT = "+51 "
+    const val REGISTRATION_DRAFT_TTL_MS = 24L * 60L * 60L * 1_000L
+
+    fun isRegistrationDraftCurrent(
+        draft: RegistrationDraft,
+        nowMillis: Long = System.currentTimeMillis()
+    ): Boolean = draft.savedAtEpochMs in (nowMillis - REGISTRATION_DRAFT_TTL_MS)..nowMillis
 
     private val usernamePattern = Regex("^[A-Za-z][A-Za-z0-9._-]{2,31}$")
     private val personNamePattern = Regex("^[\\p{L}][\\p{L} .'’-]*[\\p{L}]$")
     private val phonePattern = Regex("^\\+[1-9][0-9]{7,14}$")
     private val peruMobilePattern = Regex("^\\+519[0-9]{8}$")
     private val emailPattern = Regex("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$")
+    private val safeAuthMessages = setOf(
+        "Usuario o contraseña incorrectos.",
+        "El correo debe coincidir con la cuenta confirmada.",
+        "El correo verificado no coincide con el correo ingresado en el registro.",
+        "Proveedor de acceso no permitido.",
+        "La verificación expiró. Inicia sesión nuevamente.",
+        "Ingresa exactamente los seis dígitos del autenticador.",
+        "No se pudo completar la verificación en dos pasos."
+    )
+
+    fun safeAuthErrorMessage(
+        unsafeMessage: String?,
+        fallback: String = "No se pudo completar la operación."
+    ): String {
+        val message = unsafeMessage.orEmpty().trim()
+        val normalized = message.lowercase()
+        return when {
+            message in safeAuthMessages -> message
+            "invalid login" in normalized || "invalid credentials" in normalized ->
+                "Usuario o contraseña incorrectos."
+            "email not confirmed" in normalized ->
+                "Confirma tu correo antes de iniciar sesión."
+            "already registered" in normalized || "duplicate" in normalized ->
+                "El usuario, DNI, teléfono o correo ya está registrado."
+            "reserved" in normalized -> "Ese nombre de usuario está reservado."
+            "rate limit" in normalized || "too many requests" in normalized ->
+                "Se realizaron demasiados intentos. Espera un momento e inténtalo nuevamente."
+            "otp" in normalized || "totp" in normalized || "verification code" in normalized ->
+                "El código del autenticador es inválido o expiró."
+            "network" in normalized || "failed to connect" in normalized
+                || "timeout" in normalized || "unable to resolve host" in normalized ->
+                "No se pudo conectar con EcoSphere. Revisa tu conexión e inténtalo nuevamente."
+            else -> fallback
+        }
+    }
 
     fun formatPhoneInput(value: String): String {
         val raw = value.trimStart()

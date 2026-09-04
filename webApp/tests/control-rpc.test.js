@@ -35,7 +35,7 @@ test('todos los clientes envían controles mediante el RPC seguro', async () => 
 test('el RPC tolera ajustes humanos rápidos sin retirar las protecciones de riego', async () => {
   const migration = await readFile(
     new URL(
-      '../../supabase/migrations/20260904035138_relax_interactive_control_rate_limit.sql',
+      '../../supabase/migrations/20260904035343_relax_interactive_control_rate_limit.sql',
       import.meta.url,
     ),
     'utf8',

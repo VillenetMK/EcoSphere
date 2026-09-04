@@ -66,4 +66,77 @@ class AuthValidationTest {
         assertTrue(identity.errors.keys.containsAll(listOf("username", "firstName", "lastName", "dni", "phone", "email")))
         assertTrue(passwordErrors.keys.containsAll(listOf("password", "passwordConfirmation")))
     }
+
+    @Test
+    fun `descarta borradores personales vencidos o fechados en el futuro`() {
+        val now = 1_800_000_000_000L
+        val draft = RegistrationDraft(
+            username = "usuario123",
+            firstName = "Ana",
+            lastName = "Vargas",
+            dni = "12345678",
+            phone = "+51999999999",
+            email = "ana@example.com",
+            provider = "email",
+            savedAtEpochMs = now
+        )
+
+        assertTrue(AuthValidation.isRegistrationDraftCurrent(draft, now))
+        assertTrue(AuthValidation.isRegistrationDraftCurrent(
+            draft.copy(savedAtEpochMs = now - AuthValidation.REGISTRATION_DRAFT_TTL_MS),
+            now
+        ))
+        assertFalse(AuthValidation.isRegistrationDraftCurrent(
+            draft.copy(savedAtEpochMs = now - AuthValidation.REGISTRATION_DRAFT_TTL_MS - 1),
+            now
+        ))
+        assertFalse(AuthValidation.isRegistrationDraftCurrent(
+            draft.copy(savedAtEpochMs = now + 1),
+            now
+        ))
+    }
+
+    @Test
+    fun `normaliza y valida identificadores temporales del controlador`() {
+        assertEquals("A1B2C3D4E5F6", ControllerPairing.hardwareUidOrNull("a1b2-c3d4-e5f6"))
+        assertEquals(
+            "00112233445566778899AABB",
+            ControllerPairing.claimProofOrNull("0011-2233-4455-6677-8899-aabb")
+        )
+        assertEquals("ABCDEF123456", ControllerPairing.pairingCodeOrNull("abcd-ef12-3456"))
+        assertEquals(null, ControllerPairing.hardwareUidOrNull("A1B2-C3D4-E5G6"))
+        assertEquals(null, ControllerPairing.claimProofOrNull("001122"))
+        assertEquals(null, ControllerPairing.pairingCodeOrNull("ABCDEF1234567"))
+    }
+
+    @Test
+    fun `los errores de autenticacion no exponen detalles internos`() {
+        assertEquals(
+            "No se pudo completar la operación.",
+            AuthValidation.safeAuthErrorMessage("permission denied for table private.user_profiles")
+        )
+        assertEquals(
+            "Usuario o contraseña incorrectos.",
+            AuthValidation.safeAuthErrorMessage("Invalid login credentials")
+        )
+        assertEquals(
+            "No se pudo conectar con EcoSphere. Revisa tu conexión e inténtalo nuevamente.",
+            AuthValidation.safeAuthErrorMessage("network timeout")
+        )
+    }
+
+    @Test
+    fun `los errores operativos no exponen respuestas internas`() {
+        assertEquals(
+            "No se pudo actualizar el control",
+            ClientErrorMessages.safe(
+                "permission denied for table public.device_control",
+                "No se pudo actualizar el control"
+            )
+        )
+        assertEquals(
+            "Tu cuenta no tiene permiso para realizar esta acción.",
+            ClientErrorMessages.safe("HTTP 403 Client Error", "Error")
+        )
+    }
 }

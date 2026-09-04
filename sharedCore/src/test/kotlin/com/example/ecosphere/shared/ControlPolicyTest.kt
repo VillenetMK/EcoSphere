@@ -74,6 +74,16 @@ class ControlPolicyTest {
     }
 
     @Test
+    fun `telemetry freshness respects offsets and fractional precision`() {
+        val timestamp = 1_787_515_200_000L
+
+        assertTrue(ControlPolicy.isTelemetryFresh("2026-08-23T15:00:00-05:00", timestamp))
+        assertTrue(ControlPolicy.isTelemetryFresh("2026-08-23T20:00:00.000000+00:00", timestamp))
+        assertFalse(ControlPolicy.isTelemetryFresh("2026-99-99T20:00:00Z", timestamp))
+        assertFalse(ControlPolicy.isTelemetryFresh("not-a-timestamp", timestamp))
+    }
+
+    @Test
     fun `current telemetry requires a fresh reading and a live controller`() {
         val timestamp = 1_787_515_200_000L
         val record = SensorRecord(

@@ -135,7 +135,7 @@ fun InteractiveDashboardScreen(
         ) {
             SystemOverviewCard(
                 online = online,
-                autoMode = control?.autoMode ?: record?.autoMode ?: false,
+                autoMode = control?.autoMode,
                 lastSeenAt = prettyTimestamp(control?.lastSeenAt),
                 lastReadingAt = prettyTimestamp(record?.createdAt),
                 isLoading = uiState.isLoading,
@@ -176,6 +176,7 @@ fun InteractiveDashboardScreen(
 
             SectionTitle("Control remoto", "Órdenes enviadas a través de Supabase")
             ControlCard(
+                controlsAvailable = control != null,
                 autoMode = control?.autoMode ?: false,
                 fanPower = control?.fanPower ?: 0,
                 ledPower = control?.ledPower ?: 0,
@@ -224,7 +225,7 @@ fun InteractiveDashboardScreen(
 @Composable
 private fun SystemOverviewCard(
     online: Boolean,
-    autoMode: Boolean,
+    autoMode: Boolean?,
     lastSeenAt: String,
     lastReadingAt: String,
     isLoading: Boolean,
@@ -233,7 +234,11 @@ private fun SystemOverviewCard(
     onModeClick: () -> Unit
 ) {
     val connectionIcon = if (online) DashboardControlIcons.Online else DashboardControlIcons.Offline
-    val modeIcon = if (autoMode) DashboardControlIcons.AutoMode else DashboardControlIcons.ManualMode
+    val modeIcon = when (autoMode) {
+        true -> DashboardControlIcons.AutoMode
+        false -> DashboardControlIcons.ManualMode
+        null -> DashboardControlIcons.Offline
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -295,7 +300,11 @@ private fun SystemOverviewCard(
                     modifier = Modifier.weight(1f),
                     icon = modeIcon,
                     title = "Modo",
-                    value = if (autoMode) "Automático" else "Manual",
+                    value = when (autoMode) {
+                        true -> "Automático"
+                        false -> "Manual"
+                        null -> "Sin confirmar"
+                    },
                     onClick = onModeClick
                 )
                 OverviewValue(
@@ -522,6 +531,7 @@ private fun StatusLine(icon: ImageVector, title: String, value: String, onClick:
 
 @Composable
 private fun ControlCard(
+    controlsAvailable: Boolean,
     autoMode: Boolean,
     fanPower: Int,
     ledPower: Int,
@@ -544,7 +554,11 @@ private fun ControlCard(
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp)) {
         Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             ControlHeader(
-                if (autoMode) DashboardControlIcons.AutoMode else DashboardControlIcons.ManualMode,
+                when {
+                    !controlsAvailable -> DashboardControlIcons.Offline
+                    autoMode -> DashboardControlIcons.AutoMode
+                    else -> DashboardControlIcons.ManualMode
+                },
                 "Modo de operación"
             ) { onOpen(DashboardDetail.MODE) }
 
@@ -552,23 +566,41 @@ private fun ControlCard(
                 Column(Modifier.weight(1f)) {
                     Text("Control automático", fontWeight = FontWeight.Medium)
                     Text(
-                        if (autoMode) "El ESP32 decide según las lecturas" else "Control manual habilitado",
+                        when {
+                            !controlsAvailable -> "Configuración remota sin confirmar"
+                            autoMode -> "El ESP32 decide según las lecturas"
+                            else -> "Control manual habilitado"
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Switch(checked = autoMode, onCheckedChange = onAutoModeChange, enabled = !isUpdating)
+                Switch(
+                    checked = autoMode,
+                    onCheckedChange = onAutoModeChange,
+                    enabled = controlsAvailable && !isUpdating
+                )
             }
 
             HorizontalDivider()
             ControlHeader(DashboardControlIcons.Fan, "Ventilación") { onOpen(DashboardDetail.FAN) }
-            PowerSlider("Potencia del ventilador", fanSlider, !autoMode && !isUpdating, { fanSlider = it }) {
+            PowerSlider(
+                "Potencia del ventilador",
+                fanSlider,
+                controlsAvailable && !autoMode && !isUpdating,
+                { fanSlider = it }
+            ) {
                 onFanPowerChange(fanSlider.roundToInt())
             }
 
             HorizontalDivider()
             ControlHeader(DashboardControlIcons.GrowLed, "Iluminación") { onOpen(DashboardDetail.GROW_LED) }
-            PowerSlider("Intensidad LED grow", ledSlider, !autoMode && !isUpdating, { ledSlider = it }) {
+            PowerSlider(
+                "Intensidad LED grow",
+                ledSlider,
+                controlsAvailable && !autoMode && !isUpdating,
+                { ledSlider = it }
+            ) {
                 onLedPowerChange(ledSlider.roundToInt())
             }
 
@@ -578,7 +610,7 @@ private fun ControlCard(
             Button(
                 onClick = onPumpRequest,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isUpdating && irrigationDecision.allowed
+                enabled = controlsAvailable && !isUpdating && irrigationDecision.allowed
             ) {
                 Icon(DashboardControlIcons.Pump, null, Modifier.size(20.dp), tint = DashboardControlIcons.Green)
                 Spacer(Modifier.width(8.dp))
@@ -659,7 +691,11 @@ private fun DashboardDetailDialog(
 
     val icon = when (detail) {
         DashboardDetail.CONNECTION -> if (online) DashboardControlIcons.Online else DashboardControlIcons.Offline
-        DashboardDetail.MODE -> if (autoMode) DashboardControlIcons.AutoMode else DashboardControlIcons.ManualMode
+        DashboardDetail.MODE -> when (control?.autoMode) {
+            true -> DashboardControlIcons.AutoMode
+            false -> DashboardControlIcons.ManualMode
+            null -> DashboardControlIcons.Offline
+        }
         DashboardDetail.TEMPERATURE -> DashboardControlIcons.Temperature
         DashboardDetail.AIR_HUMIDITY -> DashboardControlIcons.AirHumidity
         DashboardDetail.SOIL_HUMIDITY -> DashboardControlIcons.SoilHumidity
@@ -697,9 +733,22 @@ private fun DashboardDetailDialog(
                         Text("El estado se considera offline si no llega heartbeat reciente.", style = MaterialTheme.typography.bodySmall)
                     }
                     DashboardDetail.MODE -> {
-                        DetailPair("Configurado", if (autoMode) "AUTOMÁTICO" else "MANUAL")
+                        DetailPair(
+                            "Configurado",
+                            when (control?.autoMode) {
+                                true -> "AUTOMÁTICO"
+                                false -> "MANUAL"
+                                null -> "SIN CONFIRMAR"
+                            }
+                        )
                         DetailPair("Reportado por ESP32", if (!telemetryCurrent) "SIN CONFIRMAR" else when (record?.autoMode) { true -> "AUTOMÁTICO"; false -> "MANUAL"; null -> "Sin dato" })
-                        Text(if (autoMode) "Los sliders manuales quedan bloqueados." else "Puedes ajustar ventilador y LED manualmente.")
+                        Text(
+                            when (control?.autoMode) {
+                                true -> "Los sliders manuales quedan bloqueados."
+                                false -> "Puedes ajustar ventilador y LED manualmente."
+                                null -> "Espera a que la configuración remota esté disponible."
+                            }
+                        )
                     }
                     DashboardDetail.TEMPERATURE -> {
                         DetailPair("Valor", currentRecord?.temperature?.let { "${formatNumber(it)} °C" } ?: "Sin lectura")
@@ -728,20 +777,32 @@ private fun DashboardDetailDialog(
                         Text("El riego se bloquea con nivel bajo o una lectura desconocida.")
                     }
                     DashboardDetail.FAN -> {
-                        DetailPair("Orden actual", "${control?.fanPower ?: 0} %")
+                        DetailPair("Orden actual", control?.fanPower?.let { "$it %" } ?: "Sin dato")
                         DetailPair("Salida ESP32", if (telemetryCurrent) ControlPolicy.actuatorPwmLabel(record?.fanOn, record?.fanPower) else "SIN CONFIRMAR")
                         DetailPair("Ventilador físico", "SIN CONFIRMAR")
                         Text("El ESP32 no tiene sensor de corriente ni RPM; la salida PWM no demuestra que el ventilador esté conectado o girando.")
-                        Slider(fanPower, { fanPower = it }, valueRange = 0f..100f, steps = 19, enabled = !autoMode && !uiState.isUpdatingControl)
+                        Slider(
+                            fanPower,
+                            { fanPower = it },
+                            valueRange = 0f..100f,
+                            steps = 19,
+                            enabled = control != null && !autoMode && !uiState.isUpdatingControl
+                        )
                         Text("Nueva potencia: ${fanPower.roundToInt()} %")
                     }
                     DashboardDetail.GROW_LED -> {
-                        DetailPair("Orden actual", "${control?.ledPower ?: 0} %")
+                        DetailPair("Orden actual", control?.ledPower?.let { "$it %" } ?: "Sin dato")
                         DetailPair("Salida ESP32", if (telemetryCurrent) ControlPolicy.actuatorPwmLabel(record?.ledOn, record?.ledPower) else "SIN CONFIRMAR")
                         DetailPair("Tira LED física", "SIN CONFIRMAR")
                         DetailPair("Alimentación", "Configurable según el LED instalado")
                         Text("Sin medición de corriente o tensión, la app no puede confirmar que la tira LED esté conectada o encendida.")
-                        Slider(ledPower, { ledPower = it }, valueRange = 0f..100f, steps = 19, enabled = !autoMode && !uiState.isUpdatingControl)
+                        Slider(
+                            ledPower,
+                            { ledPower = it },
+                            valueRange = 0f..100f,
+                            steps = 19,
+                            enabled = control != null && !autoMode && !uiState.isUpdatingControl
+                        )
                         Text("Nueva intensidad: ${ledPower.roundToInt()} %")
                     }
                     DashboardDetail.PUMP -> {
@@ -749,7 +810,7 @@ private fun DashboardDetailDialog(
                         DetailPair("Bomba física", "SIN CONFIRMAR")
                         DetailPair(
                             "Duración",
-                            durationLabel(control?.pumpDurationMs ?: ControlPolicy.PUMP_DURATION_MS)
+                            control?.pumpDurationMs?.let(::durationLabel) ?: "Sin dato"
                         )
                         DetailPair("Protección", irrigationSafety(currentRecord?.soilHumidity, currentRecord?.waterLevel))
                     }
@@ -758,14 +819,14 @@ private fun DashboardDetailDialog(
         },
         confirmButton = {
             when (detail) {
-                DashboardDetail.MODE -> TextButton(onClick = { onAutoModeChange(!autoMode) }, enabled = !uiState.isUpdatingControl) {
+                DashboardDetail.MODE -> TextButton(onClick = { onAutoModeChange(!autoMode) }, enabled = control != null && !uiState.isUpdatingControl) {
                     Text(if (autoMode) "Cambiar a manual" else "Cambiar a automático")
                 }
-                DashboardDetail.FAN -> TextButton(onClick = { onFanPowerChange(fanPower.roundToInt()) }, enabled = !autoMode && !uiState.isUpdatingControl) { Text("Aplicar") }
-                DashboardDetail.GROW_LED -> TextButton(onClick = { onLedPowerChange(ledPower.roundToInt()) }, enabled = !autoMode && !uiState.isUpdatingControl) { Text("Aplicar") }
+                DashboardDetail.FAN -> TextButton(onClick = { onFanPowerChange(fanPower.roundToInt()) }, enabled = control != null && !autoMode && !uiState.isUpdatingControl) { Text("Aplicar") }
+                DashboardDetail.GROW_LED -> TextButton(onClick = { onLedPowerChange(ledPower.roundToInt()) }, enabled = control != null && !autoMode && !uiState.isUpdatingControl) { Text("Aplicar") }
                 DashboardDetail.PUMP -> TextButton(
                     onClick = onPumpRequest,
-                    enabled = !uiState.isUpdatingControl && ControlPolicy.irrigationDecision(
+                    enabled = control != null && !uiState.isUpdatingControl && ControlPolicy.irrigationDecision(
                         currentRecord?.soilHumidity,
                         currentRecord?.waterLevel
                     ).allowed

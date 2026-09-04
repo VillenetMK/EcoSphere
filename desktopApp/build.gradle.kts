@@ -12,7 +12,7 @@ plugins {
 }
 
 group = "com.example.ecosphere"
-version = "1.4.6"
+version = "1.4.7"
 
 kotlin {
     jvmToolchain(17)
@@ -45,10 +45,10 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb
             )
             packageName = "EcoSphere"
-            packageVersion = "1.4.6"
+            packageVersion = "1.4.7"
             description = "EcoSphere - Sistema inteligente de microclima"
             vendor = "EcoSphere"
-            modules("java.net.http")
+            modules("java.net.http", "java.prefs", "jdk.httpserver")
         }
     }
 }

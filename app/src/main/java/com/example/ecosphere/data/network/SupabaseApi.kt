@@ -6,6 +6,7 @@ import com.example.ecosphere.data.model.DeviceControl
 import com.example.ecosphere.data.model.HistoryMonthSummary
 import com.example.ecosphere.data.model.SensorRecord
 import com.example.ecosphere.data.model.UsernameLoginResponse
+import com.example.ecosphere.shared.PairingWindowStatus
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
@@ -73,6 +74,14 @@ interface SupabaseApi {
         @Header("Content-Type") contentType: String = "application/json",
         @Body body: Map<String, String> = emptyMap()
     ): List<ControllerAdminStatus>
+
+    @POST("rest/v1/rpc/controller_open_pairing_window")
+    suspend fun openControllerPairingWindow(
+        @Header("apikey") apiKey: String,
+        @Header("Authorization") authorization: String,
+        @Header("Content-Type") contentType: String = "application/json",
+        @Body body: Map<String, @JvmSuppressWildcards Any>
+    ): List<PairingWindowStatus>
 
     @POST("rest/v1/rpc/replace_active_controller")
     suspend fun replaceActiveController(

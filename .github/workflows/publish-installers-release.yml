@@ -38,11 +38,11 @@ jobs:
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           $msi = Get-ChildItem -Path desktopApp/build/compose/binaries/main/msi -Filter *.msi -Recurse | Select-Object -First 1
           if (-not $msi) { throw 'MSI not found' }
-          Copy-Item $msi.FullName dist/EcoSphere-1.4.4-Windows-x64.msi
+          Copy-Item $msi.FullName dist/EcoSphere-1.4.7-Windows-x64.msi
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: release-windows
-          path: dist/EcoSphere-1.4.4-Windows-x64.msi
+          path: dist/EcoSphere-1.4.7-Windows-x64.msi
           if-no-files-found: error
 
   linux:
@@ -68,11 +68,11 @@ jobs:
           mkdir -p dist
           DEB=$(find desktopApp/build/compose/binaries/main/deb -name '*.deb' | head -n 1)
           test -n "$DEB"
-          cp "$DEB" dist/EcoSphere-1.4.4-Linux-amd64.deb
+          cp "$DEB" dist/EcoSphere-1.4.7-Linux-amd64.deb
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: release-linux
-          path: dist/EcoSphere-1.4.4-Linux-amd64.deb
+          path: dist/EcoSphere-1.4.7-Linux-amd64.deb
           if-no-files-found: error
 
   android:
@@ -93,13 +93,13 @@ jobs:
       - name: Build Android APK
         run: |
           chmod +x gradlew
-          ./gradlew :sharedCore:test :app:testDebugUnitTest :app:assembleDebug --stacktrace --no-daemon
+          ./gradlew :sharedCore:test :app:testDebugUnitTest :app:lintDebug :app:assembleDebug --stacktrace --no-daemon
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/EcoSphere-1.4.10-Android.apk
+          cp app/build/outputs/apk/debug/app-debug.apk dist/EcoSphere-1.4.13-Android.apk
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: release-android
-          path: dist/EcoSphere-1.4.10-Android.apk
+          path: dist/EcoSphere-1.4.13-Android.apk
           if-no-files-found: error
 
   release:
@@ -118,17 +118,17 @@ jobs:
           merge-multiple: true
       - name: Verify installers
         run: |
-          test -s dist/EcoSphere-1.4.4-Windows-x64.msi
-          test -s dist/EcoSphere-1.4.4-Linux-amd64.deb
-          test -s dist/EcoSphere-1.4.10-Android.apk
+          test -s dist/EcoSphere-1.4.7-Windows-x64.msi
+          test -s dist/EcoSphere-1.4.7-Linux-amd64.deb
+          test -s dist/EcoSphere-1.4.13-Android.apk
           sha256sum dist/* > dist/SHA256SUMS.txt
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: v1.4.10
+          RELEASE_TAG: v1.4.13
         run: |
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$RELEASE_TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "EcoSphere 1.4.10" --notes "Corrige la presentación de telemetría vencida en Android, Windows y Linux: las lecturas antiguas permanecen en el historial, pero nunca se muestran como estado físico actual ni habilitan el riego."
+            gh release create "$RELEASE_TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "EcoSphere 1.4.13" --notes "Auditoría integral: controles sin modo lectura, firmware con gateway y protección antirrepetición, errores sanitizados, respaldo sensible desactivado y consumo del historial optimizado."
           fi

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
+  authErrorMessage,
   DEFAULT_PHONE_INPUT,
   formatPhoneInput,
   normalizeDni,
@@ -58,6 +59,21 @@ test('exige una contraseña larga y su confirmación exacta', () => {
   assert.equal(validatePassword('una-clave-segura-2026', 'una-clave-segura-2026').valid, true);
   assert.equal(validatePassword('corta', 'corta').valid, false);
   assert.equal(validatePassword('una-clave-segura-2026', 'otra-clave-segura').valid, false);
+});
+
+test('los errores de autenticación no muestran detalles internos del servidor', () => {
+  assert.equal(
+    authErrorMessage(new Error('permission denied for table private.user_profiles'), 'No se pudo iniciar sesión.'),
+    'No se pudo iniciar sesión.',
+  );
+  assert.equal(
+    authErrorMessage(new Error('Invalid login credentials'), 'No se pudo iniciar sesión.'),
+    'Usuario o contraseña incorrectos.',
+  );
+  assert.equal(
+    authErrorMessage(new Error('network timeout'), 'No se pudo iniciar sesión.'),
+    'No se pudo conectar con EcoSphere. Revisa tu conexión e inténtalo nuevamente.',
+  );
 });
 
 test('el registro contiene los campos obligatorios y los proveedores aprobados', async () => {
@@ -191,6 +207,8 @@ test('el retorno OAuth de Android vuelve al APK y no renderiza el portal web', a
   assert.match(bridge, /ecosphere_client.*android/);
   assert.match(bridge, /new URL\('ecosphere:\/\/auth-callback'\)/);
   assert.match(bridge, /location\.replace\(callback\.toString\(\)\)/);
+  assert.doesNotMatch(bridge, /access_token|callback\.hash|window\.location\.hash/);
+  assert.match(bridge, /\['code', 'error', 'error_code', 'error_description'\]/);
   assert.match(nativeSupabase, /ANDROID_OAUTH_RETURN_URL/);
   assert.match(nativeSupabase, /\?ecosphere_client=android/);
   assert.match(nativeAuth, /redirectUrl = NativeSupabase\.ANDROID_OAUTH_RETURN_URL/);

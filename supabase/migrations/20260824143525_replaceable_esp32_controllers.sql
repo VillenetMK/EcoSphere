@@ -88,12 +88,6 @@ create index controller_events_ecosystem_created_idx
 create index controller_events_controller_id_idx
   on private.controller_events (controller_id)
   where controller_id is not null;
-create index controller_events_actor_user_id_idx
-  on private.controller_events (actor_user_id)
-  where actor_user_id is not null;
-create index device_controllers_activated_by_idx
-  on private.device_controllers (activated_by)
-  where activated_by is not null;
 
 alter table private.ecosystems enable row level security;
 alter table private.ecosystems force row level security;
@@ -101,25 +95,6 @@ alter table private.device_controllers enable row level security;
 alter table private.device_controllers force row level security;
 alter table private.controller_events enable row level security;
 alter table private.controller_events force row level security;
-
-create policy "deny_direct_ecosystem_access"
-  on private.ecosystems
-  for all
-  to public
-  using (false)
-  with check (false);
-create policy "deny_direct_controller_access"
-  on private.device_controllers
-  for all
-  to public
-  using (false)
-  with check (false);
-create policy "deny_direct_controller_event_access"
-  on private.controller_events
-  for all
-  to public
-  using (false)
-  with check (false);
 
 revoke all on table private.ecosystems from public, anon, authenticated;
 revoke all on table private.device_controllers from public, anon, authenticated;
@@ -278,7 +253,7 @@ declare
   v_hardware_uid text := upper(regexp_replace(coalesce(p_hardware_uid, ''), '[^0-9A-Fa-f]', '', 'g'));
   v_secret text := lower(trim(coalesce(p_device_secret, '')));
   v_secret_hash bytea;
-  v_code_plain text := upper(pg_catalog.encode(extensions.gen_random_bytes(6), 'hex'));
+  v_code_plain text := upper(extensions.encode(extensions.gen_random_bytes(6), 'hex'));
   v_code_hash bytea;
   v_controller private.device_controllers%rowtype;
   v_expires_at timestamptz := now() + interval '15 minutes';
@@ -701,3 +676,5 @@ grant execute on function public.controller_sync(
   integer,
   integer
 ) to anon;
+
+

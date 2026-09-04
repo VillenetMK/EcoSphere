@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.example.ecosphere.shared.ControlPolicy
 import com.example.ecosphere.ui.viewmodel.EcoSphereUiState
 import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.roundToInt
@@ -702,34 +703,12 @@ private fun formatTimestamp(value: String?): String {
     if (value.isNullOrBlank()) return "Sin registro"
 
     return try {
-        val normalized = normalizeSupabaseTimestamp(value)
-        val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
-        }
-        val date = parser.parse(normalized) ?: return value
+        val millis = ControlPolicy.timestampMillis(value) ?: return value
 
         SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).apply {
             timeZone = TimeZone.getDefault()
-        }.format(date)
+        }.format(Date(millis))
     } catch (_: Exception) {
         value.replace("T", " ").substringBefore("+").substringBefore("Z")
     }
-}
-
-private fun normalizeSupabaseTimestamp(value: String): String {
-    val zone = when {
-        value.endsWith("Z") -> "Z"
-        value.contains("+") -> "+" + value.substringAfter("+")
-        value.drop(10).contains("-") -> "-" + value.substringAfterLast("-")
-        else -> "Z"
-    }
-
-    val withoutZone = value
-        .removeSuffix("Z")
-        .substringBefore("+")
-        .let { text -> if (text.drop(10).contains("-")) text.substringBeforeLast("-") else text }
-
-    val base = withoutZone.substringBefore(".")
-    val millis = withoutZone.substringAfter(".", "0").padEnd(3, '0').take(3)
-    return "$base.$millis$zone"
 }

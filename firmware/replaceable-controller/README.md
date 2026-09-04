@@ -16,13 +16,20 @@ Requiere `ArduinoJson`, `HTTPClient`, `WiFiClientSecure` y `Preferences`.
 ```cpp
 #include "EcoSphereControllerClient.h"
 
-EcoSphereControllerClient controller(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, ROOT_CA);
+EcoSphereControllerClient controller(SUPABASE_URL, ROOT_CA);
 uint64_t heartbeatSequence = 0;
 
 void setup() {
   Serial.begin(115200);
   // Conectar Wi-Fi como ya lo hace el firmware actual.
-  if (!controller.begin()) Serial.println("No se pudo crear la identidad del ESP32");
+  if (!controller.begin()) {
+    Serial.println("No se pudo crear la identidad del ESP32");
+    return;
+  }
+  // Estos dos valores identifican físicamente esta placa para que un
+  // administrador autorice el reemplazo. No revelan el secreto del dispositivo.
+  Serial.printf("UID EcoSphere: %s\n", controller.hardwareUid());
+  Serial.printf("Prueba EcoSphere: %s\n", controller.pairingClaimProof());
 }
 
 void requestPairing() {
@@ -52,14 +59,16 @@ void sendState() {
 }
 ```
 
-`ROOT_CA` debe contener el certificado raíz válido para `*.supabase.co`. No use `setInsecure()` y no coloque una clave `service_role` en el ESP32.
+`ROOT_CA` debe contener el certificado raíz válido para `*.supabase.co`. No use `setInsecure()` y no coloque una clave `service_role` ni una clave publicable en el ESP32. La biblioteca llama exclusivamente a `controller-gateway`; la identidad se comprueba con el secreto único de la placa.
 
 ## Versión mínima y señales desconectadas
 
-La telemetría de humedad del suelo requiere exactamente el firmware validado
-`2.0.5+replaceable`. Supabase mantiene el heartbeat y el control de versiones
-anteriores, pero guarda `soil_humidity` como `null` para evitar mostrar un
-GPIO34 flotante como una medición física.
+Use firmware `2.1.0+replaceable` o posterior. En cada arranque, la biblioteca
+genera un nonce aleatorio de 128 bits y lo combina con una secuencia creciente;
+Supabase rechaza repeticiones y órdenes de arranques anteriores. La telemetría
+de suelo sólo se acepta para compilaciones `replaceable` compatibles y se
+guarda como `null` para firmware inseguro, evitando presentar un GPIO34
+flotante como una medición física.
 
 GPIO34 del ESP32 no dispone de pull-up/pull-down interno. Instale una
 resistencia de **47 kΩ a 100 kΩ entre GPIO34 y GND**, cerca del ESP32. Sin esa
@@ -76,11 +85,16 @@ circuito supervisado con resistencia de fin de línea.
 
 ## Reemplazo
 
-1. Encienda el ESP32 de reserva y solicite su código de vinculación.
+1. Encienda el ESP32 de reserva y copie de su puerto serie el **UID EcoSphere** y la **Prueba EcoSphere**.
 2. Entre como administrador con el autenticador habilitado.
-3. Abra **Diagnóstico del sistema → Controlador ESP32 reemplazable**.
-4. Ingrese el código de 12 caracteres y pulse **Usar como reemplazo**.
-5. La primera sincronización segura desactiva automáticamente el acceso anónimo antiguo.
+3. Abra **Diagnóstico del sistema → Controlador ESP32 reemplazable**, ingrese ambos valores y pulse **Autorizar este ESP32**.
+4. Antes de que pasen dos minutos, solicite localmente el código con `beginPairing()`.
+5. Ingrese el código temporal de 12 caracteres y pulse **Usar como reemplazo**.
+6. La primera sincronización 2.1 válida activa de forma irreversible el protocolo estricto.
+
+La prueba tiene 24 caracteres hexadecimales y se deriva localmente del secreto de
+la placa. La aplicación no guarda la prueba y el secreto de 256 bits nunca se
+muestra ni sale del ESP32 salvo hacia el gateway, protegido por TLS.
 
 El controlador anterior pasa a reserva y deja de escribir. Las órdenes, usuarios y registros históricos continúan perteneciendo al mismo EcoSphere.
 

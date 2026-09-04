@@ -114,3 +114,4 @@ revoke all on function public.controller_begin_pairing(text, text, text)
   from public, anon, authenticated;
 grant execute on function public.controller_begin_pairing(text, text, text)
   to anon;
+

@@ -21,16 +21,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import com.example.ecosphere.shared.ClientErrorMessages
 import com.example.ecosphere.shared.ControlPolicy
 import com.example.ecosphere.shared.ControllerAdminStatus
+import com.example.ecosphere.shared.ControllerPairing
 import com.example.ecosphere.shared.DeviceControl
 import com.example.ecosphere.shared.EcoSphereConfig
 import com.example.ecosphere.shared.SensorRecord
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import java.net.URI
 import java.net.URLEncoder
@@ -39,6 +43,7 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import java.nio.charset.StandardCharsets
 import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
@@ -47,6 +52,13 @@ private val AppBackground = Color(0xFF0B0F0D)
 private val AppSurface = Color(0xFF121915)
 private val AppSurface2 = Color(0xFF17221C)
 private val Muted = Color(0xFFAAB8AF)
+private const val DASHBOARD_REFRESH_MS = 2_000L
+private const val HISTORY_REFRESH_MS = 30_000L
+
+private fun Exception.userMessage(fallback: String): String {
+    if (this is CancellationException) throw this
+    return ClientErrorMessages.safe(message, fallback)
+}
 
 private enum class Destination(val label: String) {
     DASHBOARD("Panel principal"),
@@ -77,24 +89,52 @@ private class EcoSphereApi(
         return gson.fromJson(json, type)
     }
 
+    private fun requireSuccess(response: HttpResponse<String>) {
+        if (response.statusCode() in 200..299) return
+
+        val body = response.body().lowercase()
+        val message = when {
+            body.contains("manual fan control is disabled in automatic mode") ->
+                "Desactiva el modo automático antes de ajustar el ventilador."
+            body.contains("manual led control is disabled in automatic mode") ->
+                "Desactiva el modo automático antes de ajustar la iluminación."
+            body.contains("manual watering is disabled in automatic mode") ->
+                "Desactiva el modo automático antes de solicitar riego manual."
+            body.contains("pairing code is invalid or expired") ->
+                "El código del controlador es inválido o expiró."
+            body.contains("active two-factor session required") ->
+                "Confirma de nuevo tu autenticador para realizar esta acción administrativa."
+            body.contains("replacement controller firmware does not support") ->
+                "Actualiza el firmware del ESP32 antes de usarlo como reemplazo."
+            body.contains("watering denied:") ->
+                "El riego fue bloqueado porque las condiciones actuales no son seguras."
+            response.statusCode() == 401 -> "Tu sesión expiró. Inicia sesión nuevamente."
+            response.statusCode() == 403 -> "Tu cuenta no tiene permiso para realizar esta acción."
+            response.statusCode() == 429 || body.contains("rate limit") || body.contains("cooldown") ->
+                "Se enviaron demasiadas órdenes. Espera un momento e inténtalo nuevamente."
+            else -> "No se pudo completar la solicitud (HTTP ${response.statusCode()})."
+        }
+        throw IllegalStateException(message)
+    }
+
     suspend fun latestRecord(): SensorRecord? = withContext(Dispatchers.IO) {
         val req = requestBuilder("rest/v1/sensor_records?select=*&order=created_at.desc&limit=1").GET().build()
         val res = client.send(req, HttpResponse.BodyHandlers.ofString())
-        require(res.statusCode() in 200..299) { "HTTP ${res.statusCode()}: ${res.body()}" }
+        requireSuccess(res)
         parseList<SensorRecord>(res.body()).firstOrNull()
     }
 
     suspend fun deviceControl(): DeviceControl? = withContext(Dispatchers.IO) {
         val req = requestBuilder("rest/v1/device_control?id=eq.1&select=*").GET().build()
         val res = client.send(req, HttpResponse.BodyHandlers.ofString())
-        require(res.statusCode() in 200..299) { "HTTP ${res.statusCode()}: ${res.body()}" }
+        requireSuccess(res)
         parseList<DeviceControl>(res.body()).firstOrNull()
     }
 
     suspend fun history(limit: Int = 200): List<SensorRecord> = withContext(Dispatchers.IO) {
         val req = requestBuilder("rest/v1/sensor_records?select=*&order=created_at.desc&limit=$limit").GET().build()
         val res = client.send(req, HttpResponse.BodyHandlers.ofString())
-        require(res.statusCode() in 200..299) { "HTTP ${res.statusCode()}: ${res.body()}" }
+        requireSuccess(res)
         parseList<SensorRecord>(res.body())
     }
 
@@ -105,7 +145,7 @@ private class EcoSphereApi(
             .POST(HttpRequest.BodyPublishers.ofString(json))
             .build()
         val res = client.send(req, HttpResponse.BodyHandlers.ofString())
-        require(res.statusCode() in 200..299) { "HTTP ${res.statusCode()}: ${res.body()}" }
+        requireSuccess(res)
         parseList<DeviceControl>(res.body()).firstOrNull()
     }
 
@@ -115,9 +155,26 @@ private class EcoSphereApi(
             .POST(HttpRequest.BodyPublishers.ofString("{}"))
             .build()
         val res = client.send(req, HttpResponse.BodyHandlers.ofString())
-        require(res.statusCode() in 200..299) { "HTTP ${res.statusCode()}: ${res.body()}" }
+        requireSuccess(res)
         parseList<ControllerAdminStatus>(res.body()).firstOrNull()
     }
+
+    suspend fun openControllerPairingWindow(hardwareUid: String, claimProof: String) =
+        withContext(Dispatchers.IO) {
+            val json = gson.toJson(
+                mapOf(
+                    "p_expected_hardware_uid" to hardwareUid,
+                    "p_expected_claim_proof" to claimProof,
+                    "p_minutes" to 2
+                )
+            )
+            val req = requestBuilder("rest/v1/rpc/controller_open_pairing_window")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(json))
+                .build()
+            val res = client.send(req, HttpResponse.BodyHandlers.ofString())
+            requireSuccess(res)
+        }
 
     suspend fun replaceActiveController(pairingCode: String): ControllerAdminStatus? = withContext(Dispatchers.IO) {
         val json = gson.toJson(mapOf("p_pairing_code" to pairingCode.trim()))
@@ -126,7 +183,7 @@ private class EcoSphereApi(
             .POST(HttpRequest.BodyPublishers.ofString(json))
             .build()
         val res = client.send(req, HttpResponse.BodyHandlers.ofString())
-        require(res.statusCode() in 200..299) { "HTTP ${res.statusCode()}: ${res.body()}" }
+        requireSuccess(res)
         parseList<ControllerAdminStatus>(res.body()).firstOrNull()
     }
 
@@ -224,6 +281,7 @@ private fun EcoSphereDesktopApp(
     val api = remember { EcoSphereApi(accessToken) }
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
+    val dashboardMutex = remember { Mutex() }
 
     var destination by remember { mutableStateOf(Destination.DASHBOARD) }
     var record by remember { mutableStateOf<SensorRecord?>(null) }
@@ -236,37 +294,81 @@ private fun EcoSphereDesktopApp(
     var controllerBusy by remember { mutableStateOf(false) }
     var controllerMessage by remember { mutableStateOf<String?>(null) }
 
-    suspend fun refresh(loadHistory: Boolean = false) {
+    suspend fun withDashboardLock(block: suspend () -> Unit) {
+        dashboardMutex.lock()
         try {
-            val latest = api.latestRecord()
-            val device = api.deviceControl()
-            record = latest
-            control = device
-            if (loadHistory) history = api.history()
+            block()
+        } finally {
+            dashboardMutex.unlock()
+        }
+    }
+
+    suspend fun refresh() {
+        withDashboardLock {
+            try {
+                val latest = api.latestRecord()
+                val device = api.deviceControl()
+                record = latest
+                control = device
+                error = null
+            } catch (e: Exception) {
+                error = e.userMessage("Error de conexión")
+            } finally {
+                loading = false
+            }
+        }
+    }
+
+    suspend fun runControl(
+        failureMessage: String,
+        action: suspend () -> DeviceControl?
+    ) {
+        actionBusy = true
+        try {
+            withDashboardLock {
+                val updatedControl = action()
+                record = api.latestRecord()
+                control = updatedControl ?: api.deviceControl()
+                error = null
+            }
+        } catch (e: Exception) {
+            snackbar.showSnackbar(e.userMessage(failureMessage))
+        } finally {
+            actionBusy = false
+        }
+    }
+
+    suspend fun refreshHistory() {
+        try {
+            history = api.history()
             error = null
         } catch (e: Exception) {
-            error = e.message ?: "Error de conexión"
-        } finally {
-            loading = false
+            error = e.userMessage("Error cargando el historial")
         }
     }
 
     LaunchedEffect(Unit) {
         refresh()
         while (true) {
-            delay(2_000)
-            refresh(destination == Destination.HISTORY)
+            delay(DASHBOARD_REFRESH_MS)
+            refresh()
         }
     }
 
     LaunchedEffect(destination) {
-        if (destination == Destination.HISTORY) refresh(loadHistory = true)
+        if (destination == Destination.HISTORY) {
+            refreshHistory()
+            while (true) {
+                delay(HISTORY_REFRESH_MS)
+                refreshHistory()
+            }
+        }
         if (destination == Destination.DIAGNOSTICS && profileRole == "admin") {
             try {
                 controllerStatus = api.controllerAdminStatus()
                 controllerMessage = null
             } catch (e: Exception) {
-                controllerMessage = e.message ?: "No se pudo consultar el controlador"
+                controllerMessage = e.userMessage("No se pudo consultar el controlador")
             }
         }
     }
@@ -295,26 +397,17 @@ private fun EcoSphereDesktopApp(
                         onRefresh = { scope.launch { loading = true; refresh() } },
                         onAutoMode = { enabled ->
                             scope.launch {
-                                actionBusy = true
-                                try { api.setAutoMode(enabled); refresh() }
-                                catch (e: Exception) { snackbar.showSnackbar(e.message ?: "Error") }
-                                finally { actionBusy = false }
+                                runControl("No se pudo cambiar el modo") { api.setAutoMode(enabled) }
                             }
                         },
                         onFanPower = { power ->
                             scope.launch {
-                                actionBusy = true
-                                try { api.setFanPower(power); refresh() }
-                                catch (e: Exception) { snackbar.showSnackbar(e.message ?: "Error") }
-                                finally { actionBusy = false }
+                                runControl("No se pudo ajustar el ventilador") { api.setFanPower(power) }
                             }
                         },
                         onLedPower = { power ->
                             scope.launch {
-                                actionBusy = true
-                                try { api.setLedPower(power); refresh() }
-                                catch (e: Exception) { snackbar.showSnackbar(e.message ?: "Error") }
-                                finally { actionBusy = false }
+                                runControl("No se pudo ajustar la iluminación") { api.setLedPower(power) }
                             }
                         },
                         onPump = {
@@ -327,14 +420,8 @@ private fun EcoSphereDesktopApp(
                                 if (!decision.allowed) {
                                     snackbar.showSnackbar(decision.message)
                                 } else {
-                                    actionBusy = true
-                                    try {
+                                    runControl("Error solicitando riego") {
                                         api.requestPump(ControlPolicy.PUMP_DURATION_MS)
-                                        refresh()
-                                    } catch (e: Exception) {
-                                        snackbar.showSnackbar(e.message ?: "Error solicitando riego")
-                                    } finally {
-                                        actionBusy = false
                                     }
                                 }
                             }
@@ -350,20 +437,49 @@ private fun EcoSphereDesktopApp(
                         controllerStatus = controllerStatus,
                         controllerBusy = controllerBusy,
                         controllerMessage = controllerMessage,
+                        onAuthorizeController = { hardwareUid, claimProof ->
+                            scope.launch {
+                                val normalizedUid = ControllerPairing.hardwareUidOrNull(hardwareUid)
+                                val normalizedProof = ControllerPairing.claimProofOrNull(claimProof)
+                                when {
+                                    normalizedUid == null -> {
+                                        controllerMessage = "El UID debe contener exactamente 12 caracteres hexadecimales."
+                                    }
+                                    normalizedProof == null -> {
+                                        controllerMessage = "La prueba debe contener exactamente 24 caracteres hexadecimales."
+                                    }
+                                    else -> {
+                                        controllerBusy = true
+                                        controllerMessage = null
+                                        try {
+                                            api.openControllerPairingWindow(normalizedUid, normalizedProof)
+                                            controllerMessage = "ESP32 autorizado por dos minutos. Solicita ahora su código temporal."
+                                        } catch (e: Exception) {
+                                            controllerMessage = e.userMessage("No se pudo autorizar el controlador")
+                                        } finally {
+                                            controllerBusy = false
+                                        }
+                                    }
+                                }
+                            }
+                        },
                         onReplaceController = { pairingCode ->
                             scope.launch {
-                                if (pairingCode.replace("-", "").length != 12) {
+                                val normalizedCode = ControllerPairing.pairingCodeOrNull(pairingCode)
+                                if (normalizedCode == null) {
                                     controllerMessage = "Ingresa el código completo del ESP32."
                                 } else {
                                     controllerBusy = true
                                     controllerMessage = null
                                     try {
-                                        controllerStatus = api.replaceActiveController(pairingCode)
-                                            ?: api.controllerAdminStatus()
-                                        control = api.deviceControl()
+                                        withDashboardLock {
+                                            controllerStatus = api.replaceActiveController(normalizedCode)
+                                                ?: api.controllerAdminStatus()
+                                            control = api.deviceControl()
+                                        }
                                         controllerMessage = "Controlador reemplazado sin perder historial ni configuración."
                                     } catch (e: Exception) {
-                                        controllerMessage = e.message ?: "No se pudo reemplazar el controlador"
+                                        controllerMessage = e.userMessage("No se pudo reemplazar el controlador")
                                     } finally {
                                         controllerBusy = false
                                     }
@@ -419,7 +535,7 @@ private fun NavigationPane(
                 when (profileRole) {
                     "admin" -> "Administrador"
                     "operator" -> "Operador"
-                    else -> "Visualizador"
+                    else -> "Operador"
                 },
                 color = Muted,
                 fontSize = 11.sp
@@ -429,7 +545,7 @@ private fun NavigationPane(
                 Text("Cerrar sesión")
             }
             Spacer(Modifier.height(12.dp))
-            Text("EcoSphere Desktop 1.4.6", color = Muted, fontSize = 11.sp)
+            Text("EcoSphere Desktop 1.4.7", color = Muted, fontSize = 11.sp)
         }
     }
 }
@@ -542,7 +658,15 @@ private fun StatusPanel(
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                SmallStatus("Modo", if (control?.autoMode == true) "Automático" else "Manual", Modifier.weight(1f))
+                SmallStatus(
+                    "Modo",
+                    when (control?.autoMode) {
+                        true -> "Automático"
+                        false -> "Manual"
+                        null -> "Sin confirmar"
+                    },
+                    Modifier.weight(1f)
+                )
                 SmallStatus("Último ESP32", formatDate(control?.lastSeenAt), Modifier.weight(1f))
             }
             SmallStatus("Última telemetría", formatDate(record?.createdAt), Modifier.fillMaxWidth())
@@ -663,14 +787,22 @@ private fun ControlPanel(
 ) {
     var fanLocal by remember(control?.fanPower) { mutableFloatStateOf((control?.fanPower ?: 0).toFloat()) }
     var ledLocal by remember(control?.ledPower) { mutableFloatStateOf((control?.ledPower ?: 0).toFloat()) }
-    val manual = control?.autoMode != true
+    val manual = control?.autoMode == false
 
     Surface(Modifier.fillMaxWidth(), color = AppSurface, shape = RoundedCornerShape(18.dp)) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column {
                     Text("Modo de operación", fontWeight = FontWeight.SemiBold)
-                    Text(if (manual) "Control manual habilitado" else "El ESP32 decide según las lecturas", color = Muted, fontSize = 12.sp)
+                    Text(
+                        when (control?.autoMode) {
+                            true -> "El ESP32 decide según las lecturas"
+                            false -> "Control manual habilitado"
+                            null -> "Configuración remota sin confirmar"
+                        },
+                        color = Muted,
+                        fontSize = 12.sp
+                    )
                 }
                 Switch(
                     checked = control?.autoMode == true,
@@ -682,7 +814,7 @@ private fun ControlPanel(
             ControlSlider(
                 title = "Potencia del ventilador",
                 value = fanLocal,
-                enabled = manual && !actionBusy,
+                enabled = control != null && manual && !actionBusy,
                 onValue = { fanLocal = it },
                 onCommit = { onFanPower(fanLocal.roundToInt()) }
             )
@@ -690,7 +822,7 @@ private fun ControlPanel(
             ControlSlider(
                 title = "Intensidad LED grow",
                 value = ledLocal,
-                enabled = manual && !actionBusy,
+                enabled = control != null && manual && !actionBusy,
                 onValue = { ledLocal = it },
                 onCommit = { onLedPower(ledLocal.roundToInt()) }
             )
@@ -776,12 +908,27 @@ private fun DiagnosticsScreen(
     controllerStatus: ControllerAdminStatus?,
     controllerBusy: Boolean,
     controllerMessage: String?,
+    onAuthorizeController: (String, String) -> Unit,
     onReplaceController: (String) -> Unit
 ) {
     val online = control?.isOnlineNow() == true
     val currentRecord = ControlPolicy.currentTelemetry(record, control)
     val telemetryCurrent = currentRecord != null
+    val currentSoil = currentRecord?.soilHumidity?.takeIf { it.isFinite() }
+    val currentWater = currentRecord?.waterLevel?.lowercase()
+    var hardwareUid by remember { mutableStateOf("") }
+    var claimProof by remember { mutableStateOf("") }
     var pairingCode by remember { mutableStateOf("") }
+
+    LaunchedEffect(controllerMessage) {
+        when {
+            controllerMessage?.startsWith("ESP32 autorizado") == true -> {
+                hardwareUid = ""
+                claimProof = ""
+            }
+            controllerMessage?.startsWith("Controlador reemplazado") == true -> pairingCode = ""
+        }
+    }
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(28.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -794,8 +941,24 @@ private fun DiagnosticsScreen(
         DiagnosticRow("ESP32", if (online) "OK" else "SIN CONEXIÓN", control?.lastSeenAt ?: "Sin heartbeat")
         DiagnosticRow("BME280", if (currentRecord?.temperature != null && currentRecord.airHumidity != null) "OK" else "SIN CONFIRMAR", "Temperatura y humedad del aire")
         DiagnosticRow("BH1750", if (currentRecord?.lightLux != null) "OK" else "SIN CONFIRMAR", "Sensor de iluminación")
-        DiagnosticRow("Humedad de suelo", if (currentRecord?.soilHumidity != null) "OK" else "SIN CONFIRMAR", currentRecord?.soilHumidity?.let { "${it.roundToInt()} %" } ?: "Sin lectura actual")
-        DiagnosticRow("Nivel de agua", if (currentRecord?.waterLevel != null) "OK" else "SIN CONFIRMAR", currentRecord?.let { waterLabel(it.waterLevel) } ?: "Sin lectura actual")
+        DiagnosticRow(
+            "Humedad de suelo",
+            when {
+                currentSoil == null -> "SIN CONFIRMAR"
+                currentSoil >= ControlPolicy.SOIL_MANUAL_DENY_THRESHOLD -> "ADVERTENCIA · RIEGO BLOQUEADO"
+                else -> "OK"
+            },
+            currentSoil?.let { "${it.roundToInt()} %" } ?: "Sin lectura actual"
+        )
+        DiagnosticRow(
+            "Nivel de agua",
+            when (currentWater) {
+                "high" -> "OK"
+                "low" -> "ADVERTENCIA · RIEGO BLOQUEADO"
+                else -> "SIN CONFIRMAR"
+            },
+            currentRecord?.let { waterLabel(it.waterLevel) } ?: "Sin lectura actual"
+        )
         DiagnosticRow(
             "Ventilador",
             if (telemetryCurrent) "SALIDA ESP32" else "SIN CONFIRMAR",
@@ -820,20 +983,57 @@ private fun DiagnosticsScreen(
                 ) {
                     Text("Controlador ESP32 reemplazable", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     Text(
-                        if (controllerStatus?.controllerStatus == "active") {
-                            "Activo ${controllerStatus.hardwareUidMasked.orEmpty()}${controllerStatus.firmwareVersion?.let { " · firmware $it" }.orEmpty()}"
-                        } else {
-                            "Aún no hay un controlador seguro vinculado."
+                        when {
+                            controllerStatus == null -> "Estado del controlador sin confirmar."
+                            controllerStatus.controllerStatus == "active" -> {
+                                "Activo ${controllerStatus.hardwareUidMasked.orEmpty()}${controllerStatus.firmwareVersion?.let { " · firmware $it" }.orEmpty()}"
+                            }
+                            else -> "Aún no hay un controlador seguro vinculado."
                         },
                         color = Muted,
                         fontSize = 12.sp
                     )
                     Text(
-                        if (controllerStatus?.secureMode == true) "Modo seguro habilitado" else "Modo de transición activo",
+                        when (controllerStatus?.secureMode) {
+                            true -> "Modo seguro habilitado"
+                            false -> "Modo de transición activo"
+                            null -> "Estado de seguridad sin confirmar"
+                        },
                         color = EcoGreen,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
+                    Text("1. Autoriza físicamente el nuevo ESP32", fontWeight = FontWeight.SemiBold)
+                    OutlinedTextField(
+                        value = hardwareUid,
+                        onValueChange = { hardwareUid = it.uppercase().take(14) },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("UID EcoSphere") },
+                        placeholder = { Text("ABCD-EF12-3456") },
+                        singleLine = true,
+                        enabled = !controllerBusy
+                    )
+                    OutlinedTextField(
+                        value = claimProof,
+                        onValueChange = { claimProof = it.uppercase().take(29) },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Prueba EcoSphere") },
+                        placeholder = { Text("ABCD-EF12-3456-7890-ABCD-EF12") },
+                        singleLine = true,
+                        enabled = !controllerBusy
+                    )
+                    Button(
+                        onClick = { onAuthorizeController(hardwareUid, claimProof) },
+                        enabled = !controllerBusy && hardwareUid.isNotBlank() && claimProof.isNotBlank()
+                    ) {
+                        Text(if (controllerBusy) "Procesando…" else "Autorizar este ESP32")
+                    }
+                    Text(
+                        "La autorización dura dos minutos. Solicita después el código temporal en la placa.",
+                        color = Muted,
+                        fontSize = 12.sp
+                    )
+                    Text("2. Confirma el código temporal", fontWeight = FontWeight.SemiBold)
                     OutlinedTextField(
                         value = pairingCode,
                         onValueChange = { pairingCode = it.uppercase().take(14) },
@@ -844,13 +1044,10 @@ private fun DiagnosticsScreen(
                         enabled = !controllerBusy
                     )
                     Button(
-                        onClick = {
-                            onReplaceController(pairingCode)
-                            pairingCode = ""
-                        },
+                        onClick = { onReplaceController(pairingCode) },
                         enabled = !controllerBusy && pairingCode.isNotBlank()
                     ) {
-                        Text(if (controllerBusy) "Vinculando…" else "Usar como reemplazo")
+                        Text(if (controllerBusy) "Procesando…" else "Usar como reemplazo")
                     }
                     if (!controllerMessage.isNullOrBlank()) {
                         Text(controllerMessage, color = Muted, fontSize = 12.sp)
@@ -887,7 +1084,9 @@ private fun waterLabel(value: String?): String = ControlPolicy.waterLevelLabel(v
 private fun formatDate(value: String?): String {
     if (value.isNullOrBlank()) return "Sin registro"
     return try {
-        OffsetDateTime.parse(value).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
+        OffsetDateTime.parse(value)
+            .atZoneSameInstant(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))
     } catch (_: Exception) {
         value
     }

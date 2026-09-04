@@ -27,6 +27,7 @@ Toda cuenta `admin` exige un segundo factor TOTP. En el primer acceso administra
 2. En DNS, apuntar el dominio a GitHub Pages siguiendo la documentación oficial. Para `www`, usar un CNAME hacia `villenetmk.github.io`.
 3. En GitHub Pages, establecer `ecospherecontrol.com` como dominio personalizado y mantener HTTPS obligatorio.
 4. En Supabase Auth, establecer como Site URL `https://ecospherecontrol.com` y conservar temporalmente `https://villenetmk.github.io/EcoSphere/` entre las redirecciones permitidas durante la transición.
+   Conservar también `https://villenetmk.github.io/EcoSphere/?ecosphere_client=android`, que es el retorno PKCE usado por la aplicación Android antes de abrir su enlace local `ecosphere://auth-callback`.
 5. Crear las aplicaciones OAuth de Google y GitHub. En ambos proveedores, la URI de retorno es:
 
    `https://kslzmrddrhfyyrxyfmbw.supabase.co/auth/v1/callback`
@@ -42,4 +43,10 @@ Referencias oficiales: [dominio personalizado en GitHub Pages](https://docs.gith
 
 ## Transición del ESP32
 
-Las políticas anónimas actuales se mantienen únicamente para no desconectar el ESP32 y las aplicaciones instaladas. Para cerrarlas sin detener el sistema hace falta incorporar el firmware actual, asignar una identidad separada al dispositivo y migrar la inserción de telemetría. Las credenciales del dispositivo no deben reutilizar cuentas humanas.
+El cliente reemplazable usa una identidad física, un secreto aleatorio por placa,
+un gateway Edge y protección antirrepetición por arranque. Mientras el controlador
+instalado siga en firmware 2.0.3, el acceso anónimo heredado permanece disponible
+para evitar una interrupción. Al flashear `2.1.0+replaceable` y completar su primera
+sincronización válida, la base activa el protocolo estricto y rechaza
+automáticamente las llamadas directas heredadas. Las credenciales del dispositivo
+nunca se reutilizan como cuentas humanas.

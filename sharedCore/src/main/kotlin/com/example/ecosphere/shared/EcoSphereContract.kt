@@ -1,8 +1,8 @@
 package com.example.ecosphere.shared
 
 import com.google.gson.annotations.SerializedName
-import java.util.Calendar
-import java.util.TimeZone
+import java.text.SimpleDateFormat
+import java.util.Locale
 import kotlin.math.roundToInt
 
 object EcoSphereConfig {
@@ -59,6 +59,61 @@ data class ControllerAdminStatus(
     @SerializedName("last_seen_at") val lastSeenAt: String? = null,
     @SerializedName("secure_mode") val secureMode: Boolean = false
 )
+
+data class PairingWindowStatus(
+    @SerializedName("pairing_open_until") val pairingOpenUntil: String? = null
+)
+
+object ControllerPairing {
+    private val separators = Regex("[\\s-]")
+
+    fun hardwareUidOrNull(value: String): String? = normalizedHexOrNull(value, 12)
+
+    fun claimProofOrNull(value: String): String? = normalizedHexOrNull(value, 24)
+
+    fun pairingCodeOrNull(value: String): String? = normalizedHexOrNull(value, 12)
+
+    private fun normalizedHexOrNull(value: String, length: Int): String? {
+        val normalized = value.replace(separators, "").uppercase()
+        return normalized.takeIf {
+            it.length == length && it.all { character -> character in '0'..'9' || character in 'A'..'F' }
+        }
+    }
+}
+
+object ClientErrorMessages {
+    private val safeMessages = setOf(
+        "Tu sesión expiró. Inicia sesión nuevamente.",
+        "Tu cuenta no tiene permiso para realizar esta acción.",
+        "Desactiva el modo automático antes de ajustar el ventilador.",
+        "Desactiva el modo automático antes de ajustar la iluminación.",
+        "Desactiva el modo automático antes de solicitar riego manual.",
+        "El código del controlador es inválido o expiró.",
+        "El riego fue bloqueado porque las condiciones actuales no son seguras.",
+        "Confirma de nuevo tu autenticador para realizar esta acción administrativa.",
+        "Actualiza el firmware del ESP32 antes de usarlo como reemplazo.",
+        "Se enviaron demasiadas órdenes. Espera un momento e inténtalo nuevamente."
+    )
+
+    fun safe(unsafeMessage: String?, fallback: String): String {
+        val message = unsafeMessage.orEmpty().trim()
+        val normalized = message.lowercase()
+        return when {
+            message in safeMessages -> message
+            Regex("^No se pudo completar la solicitud \\(HTTP [0-9]{3}\\)\\.$").matches(message) -> message
+            "http 401" in normalized || "unauthorized" in normalized ->
+                "Tu sesión expiró. Inicia sesión nuevamente."
+            "http 403" in normalized || "forbidden" in normalized ->
+                "Tu cuenta no tiene permiso para realizar esta acción."
+            "http 429" in normalized || "rate limit" in normalized || "cooldown" in normalized ->
+                "Se enviaron demasiadas órdenes. Espera un momento e inténtalo nuevamente."
+            "timeout" in normalized || "failed to connect" in normalized
+                || "unable to resolve host" in normalized || "network" in normalized ->
+                "No se pudo conectar con EcoSphere. Revisa tu conexión e inténtalo nuevamente."
+            else -> fallback
+        }
+    }
+}
 
 data class HistoryMonthSummary(
     @SerializedName("month_key") val monthKey: String,
@@ -182,7 +237,7 @@ object ControlPolicy {
         timeoutMs: Long = ONLINE_TIMEOUT_MS
     ): Boolean {
         if (createdAt.isNullOrBlank()) return false
-        val createdAtMillis = parseSupabaseUtcMillis(createdAt) ?: return false
+        val createdAtMillis = timestampMillis(createdAt) ?: return false
         val ageMs = nowMillis - createdAtMillis
         return ageMs in -CLOCK_SKEW_TOLERANCE_MS..timeoutMs
     }
@@ -194,37 +249,23 @@ object ControlPolicy {
         timeoutMs: Long = ONLINE_TIMEOUT_MS
     ): Boolean {
         if (!esp32Online || lastSeenAt.isNullOrBlank()) return false
-        val lastSeenMillis = parseSupabaseUtcMillis(lastSeenAt) ?: return false
+        val lastSeenMillis = timestampMillis(lastSeenAt) ?: return false
         val ageMs = nowMillis - lastSeenMillis
         return ageMs in -CLOCK_SKEW_TOLERANCE_MS..timeoutMs
     }
 
-    private fun parseSupabaseUtcMillis(value: String): Long? {
-        return try {
-            val noZone = value.substringBefore("+").substringBefore("Z")
-            val dateAndTime = noZone.split("T")
-            if (dateAndTime.size != 2) return null
-
-            val date = dateAndTime[0].split("-")
-            val time = dateAndTime[1].split(":")
-            if (date.size != 3 || time.size != 3) return null
-
-            val secondsPart = time[2]
-            Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
-                clear()
-                set(Calendar.YEAR, date[0].toInt())
-                set(Calendar.MONTH, date[1].toInt() - 1)
-                set(Calendar.DAY_OF_MONTH, date[2].toInt())
-                set(Calendar.HOUR_OF_DAY, time[0].toInt())
-                set(Calendar.MINUTE, time[1].toInt())
-                set(Calendar.SECOND, secondsPart.substringBefore(".").toInt())
-                set(
-                    Calendar.MILLISECOND,
-                    secondsPart.substringAfter(".", "0").padEnd(3, '0').take(3).toInt()
-                )
-            }.timeInMillis
-        } catch (_: Exception) {
-            null
-        }
+    fun timestampMillis(value: String?): Long? {
+        if (value.isNullOrBlank()) return null
+        val match = Regex(
+            "^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2})(?:\\.(\\d{1,9}))?(Z|[+-]\\d{2}:\\d{2})?$"
+        ).matchEntire(value.trim()) ?: return null
+        val base = match.groupValues[1]
+        val millis = match.groupValues[2].ifEmpty { "0" }.padEnd(3, '0').take(3)
+        val zone = match.groupValues[3].ifEmpty { "Z" }
+        return runCatching {
+            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.US).apply {
+                isLenient = false
+            }.parse("$base.$millis$zone")?.time
+        }.getOrNull()
     }
 }

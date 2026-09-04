@@ -8,6 +8,7 @@ import com.example.ecosphere.data.model.SensorRecord
 import com.example.ecosphere.data.network.SupabaseApi
 import com.example.ecosphere.data.network.SupabaseConfig
 import com.example.ecosphere.shared.ControlPolicy
+import com.example.ecosphere.shared.PairingWindowStatus
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -74,6 +75,21 @@ class SensorRepository(
         return api.getControllerAdminStatus(
             apiKey = apiKey,
             authorization = authorization()
+        ).firstOrNull()
+    }
+
+    suspend fun openControllerPairingWindow(
+        hardwareUid: String,
+        claimProof: String
+    ): PairingWindowStatus? {
+        return api.openControllerPairingWindow(
+            apiKey = apiKey,
+            authorization = authorization(),
+            body = mapOf(
+                "p_expected_hardware_uid" to hardwareUid,
+                "p_expected_claim_proof" to claimProof,
+                "p_minutes" to 2
+            )
         ).firstOrNull()
     }
 

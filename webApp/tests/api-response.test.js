@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { readJsonResponse } from '../api-response.js';
+import { clientErrorMessage, readJsonResponse } from '../api-response.js';
 
-test('muestra sólo el mensaje útil de un error estructurado de Supabase', async () => {
+test('no expone detalles internos de un error estructurado de Supabase', async () => {
   const response = new Response(JSON.stringify({
     code: 'ECOSPHERE_CONTROL_RATE_LIMIT',
     details: null,
@@ -13,7 +13,7 @@ test('muestra sólo el mensaje útil de un error estructurado de Supabase', asyn
 
   await assert.rejects(
     readJsonResponse(response),
-    { message: 'Estás enviando órdenes demasiado rápido.' },
+    { message: 'Se enviaron demasiadas órdenes. Espera un momento e inténtalo nuevamente.' },
   );
 });
 
@@ -25,11 +25,35 @@ test('conserva una respuesta correcta y admite un cuerpo vacío', async () => {
   assert.equal(empty, null);
 });
 
-test('usa un mensaje HTTP legible cuando el servidor no responde con JSON', async () => {
+test('no expone cuerpos de error no estructurados', async () => {
   const response = new Response('Servicio temporalmente no disponible', { status: 503 });
 
   await assert.rejects(
     readJsonResponse(response),
-    { message: 'HTTP 503: Servicio temporalmente no disponible' },
+    { message: 'No se pudo completar la solicitud (HTTP 503).' },
+  );
+});
+
+test('traduce una denegación de permisos sin mostrar nombres de tablas', async () => {
+  const response = new Response(JSON.stringify({
+    code: '42501',
+    hint: 'GRANT UPDATE ON public.device_control TO authenticated;',
+    message: 'permission denied for table device_control',
+  }), { status: 403 });
+
+  await assert.rejects(
+    readJsonResponse(response),
+    { message: 'Tu cuenta no tiene permiso para realizar esta acción.' },
+  );
+});
+
+test('los errores locales desconocidos tampoco exponen detalles internos', () => {
+  assert.equal(
+    clientErrorMessage(new Error('permission denied for table private.secret_table'), 'Error seguro.'),
+    'Error seguro.',
+  );
+  assert.equal(
+    clientErrorMessage(new TypeError('Failed to fetch'), 'Error seguro.'),
+    'No se pudo conectar con EcoSphere. Revisa tu conexión e inténtalo nuevamente.',
   );
 });

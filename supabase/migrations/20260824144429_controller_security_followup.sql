@@ -84,3 +84,4 @@ create policy "admin_mfa_required_device_control_update"
     )
     or (select auth.jwt())->>'aal' = 'aal2'
   );
+

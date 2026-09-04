@@ -282,3 +282,4 @@ comment on function private.control_command_impl(text, integer) is
   'Validated operator control with idempotent set-points, rolling quotas, strict pump safety and immutable audit.';
 
 commit;
+

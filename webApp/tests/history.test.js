@@ -43,6 +43,25 @@ test('resume calidad, agua baja y antigüedad sin presentar datos parciales como
   assert.equal(analysis.stale, true);
 });
 
+test('la antigüedad conserva timestamps ya convertidos a milisegundos', () => {
+  const newest = Date.parse('2026-08-23T20:00:00.000Z');
+  const analysis = analyzeHistory([
+    record(0, { created_at: '2026-08-23T20:00:00.000Z' }),
+  ], newest + 1_000);
+
+  assert.equal(analysis.newestAgeLabel, 'hace unos segundos');
+  assert.equal(analysis.stale, false);
+});
+
+test('una fecha demasiado futura se marca como inválida para el estado actual', () => {
+  const analysis = analyzeHistory([
+    record(0, { created_at: '2026-08-23T20:02:00.000Z' }),
+  ], NOW);
+
+  assert.equal(analysis.newestAgeLabel, 'con fecha futura');
+  assert.equal(analysis.stale, true);
+});
+
 test('prioriza una variación brusca sobre la advertencia repetida de agua baja', () => {
   const analysis = analyzeHistory([record(10, { soil_humidity: 100 }), record(5, { soil_humidity: 0 })], NOW);
   assert.equal(analysis.records[0].historyStatus.code, 'abrupt-soil-change');

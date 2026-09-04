@@ -8,14 +8,22 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.ecosphere.data.model.DeviceControl
 import com.example.ecosphere.data.repository.SensorRepository
+import com.example.ecosphere.shared.ClientErrorMessages
 import com.example.ecosphere.shared.ControlPolicy
+import com.example.ecosphere.shared.ControllerPairing
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 
 class EcoSphereViewModel(
     private val repository: SensorRepository
 ) : ViewModel() {
+
+    private var historyJob: Job? = null
+    private val dashboardMutex = Mutex()
 
     var uiState by mutableStateOf(EcoSphereUiState())
         private set
@@ -42,7 +50,8 @@ class EcoSphereViewModel(
     }
 
     fun refreshHistory() {
-        viewModelScope.launch {
+        historyJob?.cancel()
+        historyJob = viewModelScope.launch {
             uiState = uiState.copy(isLoadingHistory = true, error = null)
             try {
                 val months = repository.getHistoryMonths()
@@ -70,7 +79,7 @@ class EcoSphereViewModel(
                 uiState = uiState.copy(
                     isLoadingHistory = false,
                     isLoadingMoreHistory = false,
-                    error = e.message ?: "Error cargando el historial"
+                    error = e.userMessage("Error cargando el historial")
                 )
             }
         }
@@ -79,7 +88,8 @@ class EcoSphereViewModel(
     fun selectHistoryMonth(monthKey: String) {
         if (monthKey == uiState.selectedHistoryMonth && uiState.history.isNotEmpty()) return
 
-        viewModelScope.launch {
+        historyJob?.cancel()
+        historyJob = viewModelScope.launch {
             uiState = uiState.copy(
                 isLoadingHistory = true,
                 isLoadingMoreHistory = false,
@@ -103,7 +113,7 @@ class EcoSphereViewModel(
             } catch (e: Exception) {
                 uiState = uiState.copy(
                     isLoadingHistory = false,
-                    error = e.message ?: "Error cargando el mes seleccionado"
+                    error = e.userMessage("Error cargando el mes seleccionado")
                 )
             }
         }
@@ -113,7 +123,8 @@ class EcoSphereViewModel(
         val monthKey = uiState.selectedHistoryMonth ?: return
         if (uiState.isLoadingHistory || uiState.isLoadingMoreHistory || !uiState.historyHasMore) return
 
-        viewModelScope.launch {
+        historyJob?.cancel()
+        historyJob = viewModelScope.launch {
             uiState = uiState.copy(isLoadingMoreHistory = true, error = null)
             try {
                 val nextPage = repository.getHistoryByMonth(
@@ -133,7 +144,7 @@ class EcoSphereViewModel(
             } catch (e: Exception) {
                 uiState = uiState.copy(
                     isLoadingMoreHistory = false,
-                    error = e.message ?: "Error cargando más registros"
+                    error = e.userMessage("Error cargando más registros")
                 )
             }
         }
@@ -154,7 +165,7 @@ class EcoSphereViewModel(
             } catch (e: Exception) {
                 uiState = uiState.copy(
                     isLoadingControlAudit = false,
-                    controlAuditError = e.message ?: "No se pudo cargar el registro de actividad"
+                    controlAuditError = e.userMessage("No se pudo cargar el registro de actividad")
                 )
             }
         }
@@ -164,29 +175,31 @@ class EcoSphereViewModel(
         showLoading: Boolean,
         clearControlMessage: Boolean
     ) {
-        if (showLoading) {
-            uiState = uiState.copy(
-                isLoading = true,
-                error = null,
-                controlMessage = if (clearControlMessage) null else uiState.controlMessage
-            )
-        }
+        withDashboardLock {
+            if (showLoading) {
+                uiState = uiState.copy(
+                    isLoading = true,
+                    error = null,
+                    controlMessage = if (clearControlMessage) null else uiState.controlMessage
+                )
+            }
 
-        try {
-            val record = repository.getLatestRecord()
-            val deviceControl = repository.getDeviceControl()
+            try {
+                val record = repository.getLatestRecord()
+                val deviceControl = repository.getDeviceControl()
 
-            uiState = uiState.copy(
-                isLoading = false,
-                record = record,
-                deviceControl = deviceControl,
-                error = if (record == null) "No hay registros todavía en Supabase." else null
-            )
-        } catch (e: Exception) {
-            uiState = uiState.copy(
-                isLoading = false,
-                error = e.message ?: "Error sincronizando con Supabase"
-            )
+                uiState = uiState.copy(
+                    isLoading = false,
+                    record = record,
+                    deviceControl = deviceControl,
+                    error = if (record == null) "No hay registros todavía en Supabase." else null
+                )
+            } catch (e: Exception) {
+                uiState = uiState.copy(
+                    isLoading = false,
+                    error = e.userMessage("Error sincronizando con EcoSphere")
+                )
+            }
         }
     }
 
@@ -203,32 +216,70 @@ class EcoSphereViewModel(
                 )
             } catch (e: Exception) {
                 uiState = uiState.copy(
-                    controllerMessage = e.message ?: "No se pudo consultar el controlador"
+                    controllerMessage = e.userMessage("No se pudo consultar el controlador")
                 )
             }
         }
     }
 
     fun replaceActiveController(pairingCode: String) {
-        if (pairingCode.replace("-", "").length != 12) {
+        val normalizedCode = ControllerPairing.pairingCodeOrNull(pairingCode)
+        if (normalizedCode == null) {
             uiState = uiState.copy(controllerMessage = "Ingresa el código completo del ESP32.")
             return
         }
 
         viewModelScope.launch {
-            uiState = uiState.copy(isReplacingController = true, controllerMessage = null)
+            uiState = uiState.copy(isControllerBusy = true, controllerMessage = null)
             try {
-                val status = repository.replaceActiveController(pairingCode)
+                val (status, updatedControl) = withDashboardLock {
+                    val status = repository.replaceActiveController(normalizedCode)
+                        ?: repository.getControllerAdminStatus()
+                    status to repository.getDeviceControl()
+                }
                 uiState = uiState.copy(
-                    isReplacingController = false,
-                    controllerStatus = status ?: repository.getControllerAdminStatus(),
-                    deviceControl = repository.getDeviceControl(),
+                    isControllerBusy = false,
+                    controllerStatus = status,
+                    deviceControl = updatedControl,
                     controllerMessage = "Controlador reemplazado sin perder historial ni configuración."
                 )
             } catch (e: Exception) {
                 uiState = uiState.copy(
-                    isReplacingController = false,
-                    controllerMessage = e.message ?: "No se pudo reemplazar el controlador"
+                    isControllerBusy = false,
+                    controllerMessage = e.userMessage("No se pudo reemplazar el controlador")
+                )
+            }
+        }
+    }
+
+    fun openControllerPairingWindow(hardwareUid: String, claimProof: String) {
+        val normalizedUid = ControllerPairing.hardwareUidOrNull(hardwareUid)
+        if (normalizedUid == null) {
+            uiState = uiState.copy(
+                controllerMessage = "El UID debe contener exactamente 12 caracteres hexadecimales."
+            )
+            return
+        }
+        val normalizedProof = ControllerPairing.claimProofOrNull(claimProof)
+        if (normalizedProof == null) {
+            uiState = uiState.copy(
+                controllerMessage = "La prueba debe contener exactamente 24 caracteres hexadecimales."
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            uiState = uiState.copy(isControllerBusy = true, controllerMessage = null)
+            try {
+                repository.openControllerPairingWindow(normalizedUid, normalizedProof)
+                uiState = uiState.copy(
+                    isControllerBusy = false,
+                    controllerMessage = "ESP32 autorizado por dos minutos. Solicita ahora su código temporal."
+                )
+            } catch (e: Exception) {
+                uiState = uiState.copy(
+                    isControllerBusy = false,
+                    controllerMessage = e.userMessage("No se pudo autorizar el controlador")
                 )
             }
         }
@@ -288,19 +339,21 @@ class EcoSphereViewModel(
             )
 
             try {
-                val updatedControl = action()
-                val latestRecord = repository.getLatestRecord()
+                val (latestRecord, updatedControl) = withDashboardLock {
+                    val control = action() ?: repository.getDeviceControl()
+                    repository.getLatestRecord() to control
+                }
 
                 uiState = uiState.copy(
                     isUpdatingControl = false,
                     record = latestRecord,
-                    deviceControl = updatedControl ?: repository.getDeviceControl(),
+                    deviceControl = updatedControl,
                     controlMessage = successMessage
                 )
             } catch (e: Exception) {
                 uiState = uiState.copy(
                     isUpdatingControl = false,
-                    error = e.message ?: "Error actualizando control"
+                    error = e.userMessage("Error actualizando el control")
                 )
             }
         }
@@ -316,6 +369,20 @@ class EcoSphereViewModel(
                     return EcoSphereViewModel(repository) as T
                 }
             }
+        }
+    }
+
+    private fun Exception.userMessage(fallback: String): String {
+        if (this is CancellationException) throw this
+        return ClientErrorMessages.safe(message, fallback)
+    }
+
+    private suspend fun <T> withDashboardLock(block: suspend () -> T): T {
+        dashboardMutex.lock()
+        return try {
+            block()
+        } finally {
+            dashboardMutex.unlock()
         }
     }
 }

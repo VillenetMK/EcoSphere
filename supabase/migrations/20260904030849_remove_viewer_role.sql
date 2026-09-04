@@ -1,8 +1,3 @@
--- EcoSphere
--- Copyright (c) 2026 Gabriel Enrique Villenet Montero.
--- Todos los derechos reservados. Uso sujeto al archivo LICENSE.
-
-begin;
 
 -- Existing read-only accounts become operators without changing their approval
 -- or blocked status. Administrator accounts remain untouched.
@@ -97,5 +92,3 @@ revoke all on function public.admin_set_user_access(uuid, text, text)
   from public, anon, service_role;
 grant execute on function public.admin_set_user_access(uuid, text, text)
   to authenticated;
-
-commit;

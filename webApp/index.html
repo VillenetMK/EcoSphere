@@ -163,7 +163,7 @@
         <span id="currentUserRole">Acceso autorizado</span>
         <button type="button" data-auth-signout>Cerrar sesión</button>
       </div>
-      <div class="version">EcoSphere Web 1.6.8</div>
+      <div class="version">EcoSphere Web 1.6.9</div>
     </aside>
 
     <main class="main">
@@ -318,14 +318,25 @@
             <strong id="controllerStatusTitle">Consultando controlador…</strong>
             <p id="controllerStatusDetail">El historial y las órdenes pertenecen al sistema, no a una placa específica.</p>
           </div>
-          <form id="controllerPairingForm" class="controller-pairing-form">
-            <label for="controllerPairingCode">Código mostrado por el ESP32</label>
-            <div>
-              <input id="controllerPairingCode" name="controllerPairingCode" type="text" inputmode="text" autocomplete="off" maxlength="14" placeholder="ABCD-EF12-3456" required />
-              <button id="replaceControllerBtn" class="primary-btn" type="submit">Usar como reemplazo</button>
-            </div>
-            <small>El controlador anterior pasará a reserva y dejará de enviar datos.</small>
-          </form>
+          <div class="controller-pairing-actions">
+            <form id="controllerAuthorizationForm" class="controller-pairing-form">
+              <label for="controllerHardwareUid">1. Identidad mostrada por el nuevo ESP32</label>
+              <div class="controller-identity-fields">
+                <input id="controllerHardwareUid" name="controllerHardwareUid" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="14" placeholder="UID · ABCD-EF12-3456" required />
+                <input id="controllerClaimProof" name="controllerClaimProof" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="29" placeholder="PRUEBA · ABCD-EF12-3456-7890-ABCD-EF12" required />
+              </div>
+              <button id="authorizeControllerBtn" class="secondary-btn" type="submit">Autorizar este ESP32</button>
+              <small>La autorización dura dos minutos y estos valores no se guardan en el navegador.</small>
+            </form>
+            <form id="controllerPairingForm" class="controller-pairing-form">
+              <label for="controllerPairingCode">2. Código temporal mostrado por el ESP32</label>
+              <div>
+                <input id="controllerPairingCode" name="controllerPairingCode" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="14" placeholder="ABCD-EF12-3456" required />
+                <button id="replaceControllerBtn" class="primary-btn" type="submit">Usar como reemplazo</button>
+              </div>
+              <small>El controlador anterior pasará a reserva y dejará de enviar datos.</small>
+            </form>
+          </div>
         </section>
         <div id="diagnosticGroups" class="diagnostic-groups"></div>
       </section>
@@ -344,19 +355,19 @@
       </header>
 
       <div class="platform-downloads">
-        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/latest/download/EcoSphere-1.4.4-Windows-x64.msi">
+        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/latest/download/EcoSphere-1.4.7-Windows-x64.msi">
           <img class="platform-icon" src="icons/ic_windows.svg" alt="" aria-hidden="true" />
-          <div><strong>Windows</strong><span>Windows 10/11 · x64</span><small>Instalador MSI · versión 1.4.4</small></div>
+          <div><strong>Windows</strong><span>Windows 10/11 · x64</span><small>Instalador MSI · versión 1.4.7</small></div>
           <span class="platform-action">Descargar MSI</span>
         </a>
-        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/latest/download/EcoSphere-1.4.4-Linux-amd64.deb">
+        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/latest/download/EcoSphere-1.4.7-Linux-amd64.deb">
           <img class="platform-icon" src="icons/ic_linux.svg" alt="" aria-hidden="true" />
-          <div><strong>Linux</strong><span>Ubuntu/Debian · amd64</span><small>Paquete DEB · versión 1.4.4</small></div>
+          <div><strong>Linux</strong><span>Ubuntu/Debian · amd64</span><small>Paquete DEB · versión 1.4.7</small></div>
           <span class="platform-action">Descargar DEB</span>
         </a>
-        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/latest/download/EcoSphere-1.4.10-Android.apk">
+        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/latest/download/EcoSphere-1.4.13-Android.apk">
           <img class="platform-icon" src="icons/ic_android.svg" alt="" aria-hidden="true" />
-          <div><strong>Android</strong><span>Android 7 o posterior</span><small>Archivo APK · versión 1.4.10</small></div>
+          <div><strong>Android</strong><span>Android 7 o posterior</span><small>Archivo APK · versión 1.4.13</small></div>
           <span class="platform-action">Descargar APK</span>
         </a>
       </div>

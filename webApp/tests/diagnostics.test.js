@@ -55,6 +55,18 @@ test('un sistema offline nunca presenta los datos históricos como actuales', ()
   assert.equal(findItem(model, 'Ventilador').status, 'ÚLTIMO ESTADO');
 });
 
+test('un heartbeat offline impide confirmar actuadores aunque el registro sea reciente', () => {
+  const model = buildDiagnosticModel(
+    freshRecord(),
+    { esp32_online: false, last_seen_at: '2026-08-23T19:59:55.000Z' },
+    NOW,
+  );
+
+  assert.equal(model.headline, 'ESP32 sin conexión');
+  assert.equal(findItem(model, 'Ventilador').status, 'ÚLTIMO ESTADO');
+  assert.equal(findItem(model, 'BME280').status, 'DATO ANTIGUO');
+});
+
 test('nivel bajo y suelo húmedo generan advertencias cuando el dato es reciente', () => {
   const model = buildDiagnosticModel(
     freshRecord({ soil_humidity: 100, water_level: 'low' }),

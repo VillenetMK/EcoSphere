@@ -79,6 +79,7 @@ function actuatorStatus(name, reading, hasReading, fresh, outputActive) {
 export function buildDiagnosticModel(record, control, nowMillis = Date.now()) {
   const online = isDeviceOnline(control, nowMillis);
   const fresh = isTelemetryFresh(record, nowMillis);
+  const current = online && fresh;
   const telemetryAge = relativeAge(record?.created_at, nowMillis);
   const heartbeatAge = relativeAge(control?.last_seen_at, nowMillis);
 
@@ -111,7 +112,7 @@ export function buildDiagnosticModel(record, control, nowMillis = Date.now()) {
       name: 'BME280',
       hasReading: temperature !== null && airHumidity !== null,
       reading: bmeReading,
-      fresh,
+      fresh: current,
       missingDetail: 'El último registro no incluye temperatura y humedad del aire válidas.',
       staleDetail: `Última lectura recibida ${telemetryAge}; no debe interpretarse como actual.`,
     }),
@@ -119,7 +120,7 @@ export function buildDiagnosticModel(record, control, nowMillis = Date.now()) {
       name: 'BH1750',
       hasReading: light !== null,
       reading: light === null ? 'Iluminación: --' : `Iluminación: ${light.toFixed(1)} lux`,
-      fresh,
+      fresh: current,
       missingDetail: 'El último registro no incluye una lectura válida de iluminación.',
       staleDetail: `Última lectura recibida ${telemetryAge}; no debe interpretarse como actual.`,
     }),
@@ -127,7 +128,7 @@ export function buildDiagnosticModel(record, control, nowMillis = Date.now()) {
 
   if (soil === null) {
     sensors.push(item('Humedad de suelo', 'SIN DATOS', 'unknown', 'Humedad: --', 'No existe una lectura válida; el riego permanece bloqueado por seguridad.'));
-  } else if (!fresh) {
+  } else if (!current) {
     sensors.push(item(
       'Humedad de suelo',
       'DATO ANTIGUO',
@@ -145,7 +146,7 @@ export function buildDiagnosticModel(record, control, nowMillis = Date.now()) {
 
   if (!VALID_WATER_LEVELS.has(water)) {
     sensors.push(item('Nivel de agua', 'SIN DATOS', 'unknown', waterLevelLabel(water), 'No existe una lectura válida; el riego permanece bloqueado por seguridad.'));
-  } else if (!fresh) {
+  } else if (!current) {
     sensors.push(item(
       'Nivel de agua',
       'DATO ANTIGUO',
@@ -165,9 +166,9 @@ export function buildDiagnosticModel(record, control, nowMillis = Date.now()) {
   const led = validNumber(record?.led_power);
   const pump = typeof record?.pump_on === 'boolean' ? record.pump_on : null;
   const actuators = [
-    actuatorStatus('Ventilador', actuatorPwmLabel(record?.fan_on, fan), fan !== null || typeof record?.fan_on === 'boolean', fresh, record?.fan_on === true || (fan ?? 0) > 0),
-    actuatorStatus('LED Grow', actuatorPwmLabel(record?.led_on, led), led !== null || typeof record?.led_on === 'boolean', fresh, record?.led_on === true || (led ?? 0) > 0),
-    actuatorStatus('Bomba', actuatorSwitchLabel(pump), pump !== null, fresh, pump === true),
+    actuatorStatus('Ventilador', actuatorPwmLabel(record?.fan_on, fan), fan !== null || typeof record?.fan_on === 'boolean', current, record?.fan_on === true || (fan ?? 0) > 0),
+    actuatorStatus('LED Grow', actuatorPwmLabel(record?.led_on, led), led !== null || typeof record?.led_on === 'boolean', current, record?.led_on === true || (led ?? 0) > 0),
+    actuatorStatus('Bomba', actuatorSwitchLabel(pump), pump !== null, current, pump === true),
   ];
 
   const groups = [

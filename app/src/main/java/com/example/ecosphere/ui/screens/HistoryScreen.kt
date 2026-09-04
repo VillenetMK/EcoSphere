@@ -35,8 +35,8 @@ import com.example.ecosphere.data.model.SensorRecord
 import com.example.ecosphere.shared.ControlPolicy
 import com.example.ecosphere.ui.icons.EcoSphereIcons
 import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
-import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -280,13 +280,21 @@ private fun HistoryRecordCard(record: SensorRecord) {
             HistoryPair(EcoSphereIcons.SoilHumidity, "Humedad suelo", record.soilHumidity?.let { "${formatValue(it)} %" } ?: "Sin dato")
             HistoryPair(EcoSphereIcons.Light, "Iluminación", record.lightLux?.let { "${formatValue(it)} lx" } ?: "Sin dato")
             HistoryPair(EcoSphereIcons.WaterLevel, "Depósito", waterLevelLabel(record.waterLevel))
-            HistoryPair(EcoSphereIcons.Fan, "Ventilador", actuatorLabel(record.fanOn, record.fanPower))
-            HistoryPair(EcoSphereIcons.Pump, "Bomba", if (record.pumpOn == true) "Encendida" else "Apagada")
-            HistoryPair(EcoSphereIcons.GrowLed, "LED grow", actuatorLabel(record.ledOn, record.ledPower))
+            HistoryPair(EcoSphereIcons.Fan, "Ventilador", ControlPolicy.actuatorPwmLabel(record.fanOn, record.fanPower))
+            HistoryPair(EcoSphereIcons.Pump, "Bomba", ControlPolicy.actuatorSwitchLabel(record.pumpOn))
+            HistoryPair(EcoSphereIcons.GrowLed, "LED grow", ControlPolicy.actuatorPwmLabel(record.ledOn, record.ledPower))
             HistoryPair(
-                if (record.autoMode == true) EcoSphereIcons.AutoMode else EcoSphereIcons.ManualMode,
+                when (record.autoMode) {
+                    true -> EcoSphereIcons.AutoMode
+                    false -> EcoSphereIcons.ManualMode
+                    null -> EcoSphereIcons.Offline
+                },
                 "Modo",
-                if (record.autoMode == true) "Automático" else "Manual"
+                when (record.autoMode) {
+                    true -> "Automático"
+                    false -> "Manual"
+                    null -> "Sin registro"
+                }
             )
         }
     }
@@ -320,14 +328,6 @@ private fun HistoryPair(icon: ImageVector, label: String, value: String) {
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold
         )
-    }
-}
-
-private fun actuatorLabel(on: Boolean?, power: Int?): String {
-    return if (on == true) {
-        power?.let { "Encendido · $it %" } ?: "Encendido"
-    } else {
-        "Apagado"
     }
 }
 
@@ -372,20 +372,10 @@ private fun formatHistory(value: String?, pattern: String, fallback: String): St
     if (value.isNullOrBlank()) return fallback
 
     return try {
-        val normalized = normalizeIsoTimestamp(value)
-        val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
-        }
+        val millis = ControlPolicy.timestampMillis(value) ?: return value
         val output = SimpleDateFormat(pattern, Locale.getDefault())
-        parser.parse(normalized)?.let(output::format) ?: value
+        output.format(Date(millis))
     } catch (_: Exception) {
         value
     }
-}
-
-private fun normalizeIsoTimestamp(value: String): String {
-    val noZone = value.substringBefore("+").substringBefore("Z")
-    val base = noZone.substringBefore(".")
-    val fraction = noZone.substringAfter(".", "0").padEnd(3, '0').take(3)
-    return "$base.$fraction"
 }

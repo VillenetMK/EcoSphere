@@ -1,5 +1,6 @@
 export const HISTORY_CONFIG = Object.freeze({
   staleAfterMs: 30000,
+  clockSkewToleranceMs: 60000,
   abruptSoilDelta: 40,
   abruptWindowMs: 15000,
   defaultPageSize: 25,
@@ -35,6 +36,11 @@ export function numericValue(value) {
 }
 
 function timestamp(value) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (value instanceof Date) {
+    const millis = value.getTime();
+    return Number.isNaN(millis) ? null : millis;
+  }
   const parsed = Date.parse(value);
   return Number.isNaN(parsed) ? null : parsed;
 }
@@ -58,7 +64,8 @@ export function formatDuration(durationMs) {
 export function historyAgeLabel(value, nowMillis = Date.now()) {
   const recordedAt = timestamp(value);
   if (recordedAt === null) return 'sin fecha válida';
-  const age = Math.max(0, nowMillis - recordedAt);
+  const age = nowMillis - recordedAt;
+  if (age < -HISTORY_CONFIG.clockSkewToleranceMs) return 'con fecha futura';
   if (age < 5000) return 'hace unos segundos';
   return `hace ${formatDuration(age)}`;
 }
@@ -130,6 +137,7 @@ export function analyzeHistory(records, nowMillis = Date.now()) {
   const lowWaterRecords = sorted.filter(record => String(record.water_level ?? '').toLowerCase() === 'low').length;
   const abruptChanges = enriched.filter(record => record.historyStatus.code === 'abrupt-soil-change').length;
   const completeRecords = enriched.filter(record => record.availableReadings === 5).length;
+  const newestAge = newestAt === null ? null : nowMillis - newestAt;
 
   return {
     records: enriched,
@@ -137,7 +145,9 @@ export function analyzeHistory(records, nowMillis = Date.now()) {
     newestAt,
     oldestAt,
     newestAgeLabel: newestAt === null ? 'sin registros' : historyAgeLabel(newestAt, nowMillis),
-    stale: newestAt === null || nowMillis - newestAt > HISTORY_CONFIG.staleAfterMs,
+    stale: newestAge === null
+      || newestAge < -HISTORY_CONFIG.clockSkewToleranceMs
+      || newestAge > HISTORY_CONFIG.staleAfterMs,
     rangeLabel: newestAt === null || oldestAt === null ? 'Sin rango' : formatDuration(newestAt - oldestAt),
     completeness: possibleReadings ? Math.round((availableReadings / possibleReadings) * 100) : 0,
     completeRecords,

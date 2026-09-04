@@ -72,10 +72,13 @@ fun MobileEcoSphereApp(
     onLedPowerChange: (Int) -> Unit,
     onPumpRequest: () -> Unit,
     onRefreshController: () -> Unit,
+    onAuthorizeController: (String, String) -> Unit,
     onReplaceController: (String) -> Unit
 ) {
     var destinationName by rememberSaveable { mutableStateOf(MobileDestination.DASHBOARD.name) }
-    val destination = MobileDestination.valueOf(destinationName)
+    val destination = MobileDestination.entries
+        .firstOrNull { it.name == destinationName }
+        ?: MobileDestination.DASHBOARD
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
     val availableDestinations = MobileDestination.entries.filter { item ->
@@ -90,7 +93,7 @@ fun MobileEcoSphereApp(
 
         when (destination) {
             MobileDestination.HISTORY -> onRefreshHistory()
-            MobileDestination.DIAGNOSTICS -> onRefreshController()
+            MobileDestination.DIAGNOSTICS -> if (profileRole == "admin") onRefreshController()
             MobileDestination.AUDIT -> onRefreshControlAudit()
             else -> Unit
         }
@@ -195,9 +198,9 @@ fun MobileEcoSphereApp(
                         onRefresh = onRefresh,
                         isAdmin = profileRole == "admin",
                         controllerStatus = uiState.controllerStatus,
-                        isReplacingController = uiState.isReplacingController,
+                        isControllerBusy = uiState.isControllerBusy,
                         controllerMessage = uiState.controllerMessage,
-                        onRefreshController = onRefreshController,
+                        onAuthorizeController = onAuthorizeController,
                         onReplaceController = onReplaceController
                     )
 
@@ -261,7 +264,7 @@ private fun MobileAccountScreen(
                     text = when (profileRole) {
                         "admin" -> "Administrador"
                         "operator" -> "Operador"
-                        else -> "Visualizador"
+                        else -> "Operador"
                     },
                     color = MobileNavigationGreen,
                     fontWeight = FontWeight.SemiBold
