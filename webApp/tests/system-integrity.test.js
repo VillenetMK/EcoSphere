@@ -119,6 +119,39 @@ test('Android cancela la carga histórica anterior al cambiar de mes', async () 
   assert.ok((viewModel.match(/historyJob\?\.cancel\(\)/g) || []).length >= 3);
 });
 
+test('los clientes no inventan estados ni habilitan controles sin datos remotos', async () => {
+  const [web, mobileShell, mobileDashboard, mobileHistory, mobileDiagnostics, desktop] = await Promise.all([
+    read('webApp/app.js'),
+    read('app/src/main/java/com/example/ecosphere/ui/mobile/MobileEcoSphereApp.kt'),
+    read('app/src/main/java/com/example/ecosphere/ui/screens/InteractiveDashboardScreen.kt'),
+    read('app/src/main/java/com/example/ecosphere/ui/screens/HistoryScreen.kt'),
+    read('app/src/main/java/com/example/ecosphere/ui/screens/DiagnosticsScreen.kt'),
+    read('desktopApp/src/main/kotlin/com/example/ecosphere/desktop/Main.kt'),
+  ]);
+  assert.match(web, /!deviceControl \? 'Sin confirmar'/);
+  assert.match(web, /!controllerStatus[\s\S]*Estado de seguridad sin confirmar/);
+  assert.doesNotMatch(mobileShell, /MobileDestination\.valueOf/);
+  assert.match(mobileDashboard, /controlsAvailable && !isUpdating/);
+  assert.match(mobileDashboard, /enabled = control != null && !autoMode/);
+  assert.match(mobileHistory, /ControlPolicy\.actuatorSwitchLabel\(record\.pumpOn\)/);
+  assert.match(mobileHistory, /null -> "Sin registro"/);
+  assert.match(mobileDiagnostics, /null -> "Estado de seguridad sin confirmar"/);
+  assert.match(desktop, /null -> "Configuración remota sin confirmar"/);
+  assert.match(desktop, /"low" -> "ADVERTENCIA · RIEGO BLOQUEADO"/);
+});
+
+test('las órdenes manuales no compiten con una actualización automática antigua', async () => {
+  const [android, desktop] = await Promise.all([
+    read('app/src/main/java/com/example/ecosphere/ui/viewmodel/EcoSphereViewModel.kt'),
+    read('desktopApp/src/main/kotlin/com/example/ecosphere/desktop/Main.kt'),
+  ]);
+  for (const source of [android, desktop]) {
+    assert.match(source, /Mutex\(\)/);
+    assert.match(source, /withDashboardLock/);
+  }
+  assert.match(desktop, /runControl\("No se pudo cambiar el modo"\)/);
+});
+
 test('el service worker sólo almacena GET válidos y no responde HTML a recursos', async () => {
   const worker = await read('webApp/sw.js');
   assert.match(worker, /event\.request\.method !== 'GET'/);

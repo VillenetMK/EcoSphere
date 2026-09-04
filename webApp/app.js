@@ -191,8 +191,8 @@ function renderDashboard() {
   const currentRecord = telemetryCurrent ? latestRecord : null;
   const auto = !!deviceControl?.auto_mode;
   $('systemStatus').textContent = online ? 'Sistema conectado' : 'Sistema sin conexión';
-  $('modeValue').textContent = auto ? 'Automático' : 'Manual';
-  $('modeIcon').src = iconPath(auto ? 'ic_auto_mode' : 'ic_manual_mode');
+  $('modeValue').textContent = !deviceControl ? 'Sin confirmar' : auto ? 'Automático' : 'Manual';
+  $('modeIcon').src = iconPath(!deviceControl ? 'ic_offline' : auto ? 'ic_auto_mode' : 'ic_manual_mode');
   $('lastEsp32').textContent = formatDate(deviceControl?.last_seen_at);
   $('espIcon').src = iconPath(online ? 'ic_online' : 'ic_offline');
   $('lastTelemetry').textContent = formatDate(latestRecord?.created_at);
@@ -225,7 +225,9 @@ function renderDashboard() {
   $('autoMode').checked = auto;
   const canOperate = ['operator', 'admin'].includes(currentProfile?.role);
   $('autoMode').disabled = busy || !deviceControl || !canOperate;
-  $('modeHint').textContent = auto ? 'El ESP32 controla los actuadores' : 'Control manual habilitado';
+  $('modeHint').textContent = !deviceControl
+    ? 'Configuración remota sin confirmar'
+    : auto ? 'El ESP32 controla los actuadores' : 'Control manual habilitado';
 
   const fan = Number(deviceControl?.fan_power ?? 0);
   const led = Number(deviceControl?.led_power ?? 0);
@@ -377,9 +379,11 @@ function renderDiagnostics() {
   const isAdmin = currentProfile?.role === 'admin';
   pairingPanel.hidden = !isAdmin;
   if (isAdmin) {
-    const statusLabel = controllerStatus?.controller_status === 'active'
-      ? 'Controlador activo'
-      : 'Aún no hay un controlador seguro vinculado';
+    const statusLabel = !controllerStatus
+      ? 'Estado del controlador sin confirmar'
+      : controllerStatus.controller_status === 'active'
+        ? 'Controlador activo'
+        : 'Aún no hay un controlador seguro vinculado';
     const identity = controllerStatus?.hardware_uid_masked
       ? ` · ${controllerStatus.hardware_uid_masked}`
       : '';
@@ -387,9 +391,11 @@ function renderDiagnostics() {
       ? ` · firmware ${controllerStatus.firmware_version}`
       : '';
     $('controllerStatusTitle').textContent = statusLabel;
-    $('controllerStatusDetail').textContent = controllerStatus?.secure_mode
-      ? `Modo seguro habilitado${identity}${firmware}`
-      : `Modo de transición activo${identity}${firmware}`;
+    $('controllerStatusDetail').textContent = !controllerStatus
+      ? 'Estado de seguridad sin confirmar'
+      : controllerStatus.secure_mode
+        ? `Modo seguro habilitado${identity}${firmware}`
+        : `Modo de transición activo${identity}${firmware}`;
   }
 }
 

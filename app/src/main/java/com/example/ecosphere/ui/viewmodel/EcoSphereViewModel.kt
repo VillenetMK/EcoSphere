@@ -16,12 +16,14 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 
 class EcoSphereViewModel(
     private val repository: SensorRepository
 ) : ViewModel() {
 
     private var historyJob: Job? = null
+    private val dashboardMutex = Mutex()
 
     var uiState by mutableStateOf(EcoSphereUiState())
         private set
@@ -173,29 +175,31 @@ class EcoSphereViewModel(
         showLoading: Boolean,
         clearControlMessage: Boolean
     ) {
-        if (showLoading) {
-            uiState = uiState.copy(
-                isLoading = true,
-                error = null,
-                controlMessage = if (clearControlMessage) null else uiState.controlMessage
-            )
-        }
+        withDashboardLock {
+            if (showLoading) {
+                uiState = uiState.copy(
+                    isLoading = true,
+                    error = null,
+                    controlMessage = if (clearControlMessage) null else uiState.controlMessage
+                )
+            }
 
-        try {
-            val record = repository.getLatestRecord()
-            val deviceControl = repository.getDeviceControl()
+            try {
+                val record = repository.getLatestRecord()
+                val deviceControl = repository.getDeviceControl()
 
-            uiState = uiState.copy(
-                isLoading = false,
-                record = record,
-                deviceControl = deviceControl,
-                error = if (record == null) "No hay registros todavía en Supabase." else null
-            )
-        } catch (e: Exception) {
-            uiState = uiState.copy(
-                isLoading = false,
-                error = e.userMessage("Error sincronizando con EcoSphere")
-            )
+                uiState = uiState.copy(
+                    isLoading = false,
+                    record = record,
+                    deviceControl = deviceControl,
+                    error = if (record == null) "No hay registros todavía en Supabase." else null
+                )
+            } catch (e: Exception) {
+                uiState = uiState.copy(
+                    isLoading = false,
+                    error = e.userMessage("Error sincronizando con EcoSphere")
+                )
+            }
         }
     }
 
@@ -228,11 +232,15 @@ class EcoSphereViewModel(
         viewModelScope.launch {
             uiState = uiState.copy(isControllerBusy = true, controllerMessage = null)
             try {
-                val status = repository.replaceActiveController(normalizedCode)
+                val (status, updatedControl) = withDashboardLock {
+                    val status = repository.replaceActiveController(normalizedCode)
+                        ?: repository.getControllerAdminStatus()
+                    status to repository.getDeviceControl()
+                }
                 uiState = uiState.copy(
                     isControllerBusy = false,
-                    controllerStatus = status ?: repository.getControllerAdminStatus(),
-                    deviceControl = repository.getDeviceControl(),
+                    controllerStatus = status,
+                    deviceControl = updatedControl,
                     controllerMessage = "Controlador reemplazado sin perder historial ni configuración."
                 )
             } catch (e: Exception) {
@@ -331,13 +339,15 @@ class EcoSphereViewModel(
             )
 
             try {
-                val updatedControl = action()
-                val latestRecord = repository.getLatestRecord()
+                val (latestRecord, updatedControl) = withDashboardLock {
+                    val control = action() ?: repository.getDeviceControl()
+                    repository.getLatestRecord() to control
+                }
 
                 uiState = uiState.copy(
                     isUpdatingControl = false,
                     record = latestRecord,
-                    deviceControl = updatedControl ?: repository.getDeviceControl(),
+                    deviceControl = updatedControl,
                     controlMessage = successMessage
                 )
             } catch (e: Exception) {
@@ -365,5 +375,14 @@ class EcoSphereViewModel(
     private fun Exception.userMessage(fallback: String): String {
         if (this is CancellationException) throw this
         return ClientErrorMessages.safe(message, fallback)
+    }
+
+    private suspend fun <T> withDashboardLock(block: suspend () -> T): T {
+        dashboardMutex.lock()
+        return try {
+            block()
+        } finally {
+            dashboardMutex.unlock()
+        }
     }
 }

@@ -34,6 +34,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import java.net.URI
 import java.net.URLEncoder
@@ -280,6 +281,7 @@ private fun EcoSphereDesktopApp(
     val api = remember { EcoSphereApi(accessToken) }
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
+    val dashboardMutex = remember { Mutex() }
 
     var destination by remember { mutableStateOf(Destination.DASHBOARD) }
     var record by remember { mutableStateOf<SensorRecord?>(null) }
@@ -292,17 +294,47 @@ private fun EcoSphereDesktopApp(
     var controllerBusy by remember { mutableStateOf(false) }
     var controllerMessage by remember { mutableStateOf<String?>(null) }
 
-    suspend fun refresh() {
+    suspend fun withDashboardLock(block: suspend () -> Unit) {
+        dashboardMutex.lock()
         try {
-            val latest = api.latestRecord()
-            val device = api.deviceControl()
-            record = latest
-            control = device
-            error = null
-        } catch (e: Exception) {
-            error = e.userMessage("Error de conexión")
+            block()
         } finally {
-            loading = false
+            dashboardMutex.unlock()
+        }
+    }
+
+    suspend fun refresh() {
+        withDashboardLock {
+            try {
+                val latest = api.latestRecord()
+                val device = api.deviceControl()
+                record = latest
+                control = device
+                error = null
+            } catch (e: Exception) {
+                error = e.userMessage("Error de conexión")
+            } finally {
+                loading = false
+            }
+        }
+    }
+
+    suspend fun runControl(
+        failureMessage: String,
+        action: suspend () -> DeviceControl?
+    ) {
+        actionBusy = true
+        try {
+            withDashboardLock {
+                val updatedControl = action()
+                record = api.latestRecord()
+                control = updatedControl ?: api.deviceControl()
+                error = null
+            }
+        } catch (e: Exception) {
+            snackbar.showSnackbar(e.userMessage(failureMessage))
+        } finally {
+            actionBusy = false
         }
     }
 
@@ -365,26 +397,17 @@ private fun EcoSphereDesktopApp(
                         onRefresh = { scope.launch { loading = true; refresh() } },
                         onAutoMode = { enabled ->
                             scope.launch {
-                                actionBusy = true
-                                try { api.setAutoMode(enabled); refresh() }
-                                catch (e: Exception) { snackbar.showSnackbar(e.userMessage("No se pudo cambiar el modo")) }
-                                finally { actionBusy = false }
+                                runControl("No se pudo cambiar el modo") { api.setAutoMode(enabled) }
                             }
                         },
                         onFanPower = { power ->
                             scope.launch {
-                                actionBusy = true
-                                try { api.setFanPower(power); refresh() }
-                                catch (e: Exception) { snackbar.showSnackbar(e.userMessage("No se pudo ajustar el ventilador")) }
-                                finally { actionBusy = false }
+                                runControl("No se pudo ajustar el ventilador") { api.setFanPower(power) }
                             }
                         },
                         onLedPower = { power ->
                             scope.launch {
-                                actionBusy = true
-                                try { api.setLedPower(power); refresh() }
-                                catch (e: Exception) { snackbar.showSnackbar(e.userMessage("No se pudo ajustar la iluminación")) }
-                                finally { actionBusy = false }
+                                runControl("No se pudo ajustar la iluminación") { api.setLedPower(power) }
                             }
                         },
                         onPump = {
@@ -397,14 +420,8 @@ private fun EcoSphereDesktopApp(
                                 if (!decision.allowed) {
                                     snackbar.showSnackbar(decision.message)
                                 } else {
-                                    actionBusy = true
-                                    try {
+                                    runControl("Error solicitando riego") {
                                         api.requestPump(ControlPolicy.PUMP_DURATION_MS)
-                                        refresh()
-                                    } catch (e: Exception) {
-                                        snackbar.showSnackbar(e.userMessage("Error solicitando riego"))
-                                    } finally {
-                                        actionBusy = false
                                     }
                                 }
                             }
@@ -455,9 +472,11 @@ private fun EcoSphereDesktopApp(
                                     controllerBusy = true
                                     controllerMessage = null
                                     try {
-                                        controllerStatus = api.replaceActiveController(normalizedCode)
-                                            ?: api.controllerAdminStatus()
-                                        control = api.deviceControl()
+                                        withDashboardLock {
+                                            controllerStatus = api.replaceActiveController(normalizedCode)
+                                                ?: api.controllerAdminStatus()
+                                            control = api.deviceControl()
+                                        }
                                         controllerMessage = "Controlador reemplazado sin perder historial ni configuración."
                                     } catch (e: Exception) {
                                         controllerMessage = e.userMessage("No se pudo reemplazar el controlador")
@@ -639,7 +658,15 @@ private fun StatusPanel(
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                SmallStatus("Modo", if (control?.autoMode == true) "Automático" else "Manual", Modifier.weight(1f))
+                SmallStatus(
+                    "Modo",
+                    when (control?.autoMode) {
+                        true -> "Automático"
+                        false -> "Manual"
+                        null -> "Sin confirmar"
+                    },
+                    Modifier.weight(1f)
+                )
                 SmallStatus("Último ESP32", formatDate(control?.lastSeenAt), Modifier.weight(1f))
             }
             SmallStatus("Última telemetría", formatDate(record?.createdAt), Modifier.fillMaxWidth())
@@ -760,14 +787,22 @@ private fun ControlPanel(
 ) {
     var fanLocal by remember(control?.fanPower) { mutableFloatStateOf((control?.fanPower ?: 0).toFloat()) }
     var ledLocal by remember(control?.ledPower) { mutableFloatStateOf((control?.ledPower ?: 0).toFloat()) }
-    val manual = control?.autoMode != true
+    val manual = control?.autoMode == false
 
     Surface(Modifier.fillMaxWidth(), color = AppSurface, shape = RoundedCornerShape(18.dp)) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(22.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column {
                     Text("Modo de operación", fontWeight = FontWeight.SemiBold)
-                    Text(if (manual) "Control manual habilitado" else "El ESP32 decide según las lecturas", color = Muted, fontSize = 12.sp)
+                    Text(
+                        when (control?.autoMode) {
+                            true -> "El ESP32 decide según las lecturas"
+                            false -> "Control manual habilitado"
+                            null -> "Configuración remota sin confirmar"
+                        },
+                        color = Muted,
+                        fontSize = 12.sp
+                    )
                 }
                 Switch(
                     checked = control?.autoMode == true,
@@ -779,7 +814,7 @@ private fun ControlPanel(
             ControlSlider(
                 title = "Potencia del ventilador",
                 value = fanLocal,
-                enabled = manual && !actionBusy,
+                enabled = control != null && manual && !actionBusy,
                 onValue = { fanLocal = it },
                 onCommit = { onFanPower(fanLocal.roundToInt()) }
             )
@@ -787,7 +822,7 @@ private fun ControlPanel(
             ControlSlider(
                 title = "Intensidad LED grow",
                 value = ledLocal,
-                enabled = manual && !actionBusy,
+                enabled = control != null && manual && !actionBusy,
                 onValue = { ledLocal = it },
                 onCommit = { onLedPower(ledLocal.roundToInt()) }
             )
@@ -879,6 +914,8 @@ private fun DiagnosticsScreen(
     val online = control?.isOnlineNow() == true
     val currentRecord = ControlPolicy.currentTelemetry(record, control)
     val telemetryCurrent = currentRecord != null
+    val currentSoil = currentRecord?.soilHumidity?.takeIf { it.isFinite() }
+    val currentWater = currentRecord?.waterLevel?.lowercase()
     var hardwareUid by remember { mutableStateOf("") }
     var claimProof by remember { mutableStateOf("") }
     var pairingCode by remember { mutableStateOf("") }
@@ -904,8 +941,24 @@ private fun DiagnosticsScreen(
         DiagnosticRow("ESP32", if (online) "OK" else "SIN CONEXIÓN", control?.lastSeenAt ?: "Sin heartbeat")
         DiagnosticRow("BME280", if (currentRecord?.temperature != null && currentRecord.airHumidity != null) "OK" else "SIN CONFIRMAR", "Temperatura y humedad del aire")
         DiagnosticRow("BH1750", if (currentRecord?.lightLux != null) "OK" else "SIN CONFIRMAR", "Sensor de iluminación")
-        DiagnosticRow("Humedad de suelo", if (currentRecord?.soilHumidity != null) "OK" else "SIN CONFIRMAR", currentRecord?.soilHumidity?.let { "${it.roundToInt()} %" } ?: "Sin lectura actual")
-        DiagnosticRow("Nivel de agua", if (currentRecord?.waterLevel != null) "OK" else "SIN CONFIRMAR", currentRecord?.let { waterLabel(it.waterLevel) } ?: "Sin lectura actual")
+        DiagnosticRow(
+            "Humedad de suelo",
+            when {
+                currentSoil == null -> "SIN CONFIRMAR"
+                currentSoil >= ControlPolicy.SOIL_MANUAL_DENY_THRESHOLD -> "ADVERTENCIA · RIEGO BLOQUEADO"
+                else -> "OK"
+            },
+            currentSoil?.let { "${it.roundToInt()} %" } ?: "Sin lectura actual"
+        )
+        DiagnosticRow(
+            "Nivel de agua",
+            when (currentWater) {
+                "high" -> "OK"
+                "low" -> "ADVERTENCIA · RIEGO BLOQUEADO"
+                else -> "SIN CONFIRMAR"
+            },
+            currentRecord?.let { waterLabel(it.waterLevel) } ?: "Sin lectura actual"
+        )
         DiagnosticRow(
             "Ventilador",
             if (telemetryCurrent) "SALIDA ESP32" else "SIN CONFIRMAR",
@@ -930,16 +983,22 @@ private fun DiagnosticsScreen(
                 ) {
                     Text("Controlador ESP32 reemplazable", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     Text(
-                        if (controllerStatus?.controllerStatus == "active") {
-                            "Activo ${controllerStatus.hardwareUidMasked.orEmpty()}${controllerStatus.firmwareVersion?.let { " · firmware $it" }.orEmpty()}"
-                        } else {
-                            "Aún no hay un controlador seguro vinculado."
+                        when {
+                            controllerStatus == null -> "Estado del controlador sin confirmar."
+                            controllerStatus.controllerStatus == "active" -> {
+                                "Activo ${controllerStatus.hardwareUidMasked.orEmpty()}${controllerStatus.firmwareVersion?.let { " · firmware $it" }.orEmpty()}"
+                            }
+                            else -> "Aún no hay un controlador seguro vinculado."
                         },
                         color = Muted,
                         fontSize = 12.sp
                     )
                     Text(
-                        if (controllerStatus?.secureMode == true) "Modo seguro habilitado" else "Modo de transición activo",
+                        when (controllerStatus?.secureMode) {
+                            true -> "Modo seguro habilitado"
+                            false -> "Modo de transición activo"
+                            null -> "Estado de seguridad sin confirmar"
+                        },
                         color = EcoGreen,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold

@@ -168,16 +168,22 @@ fun DiagnosticsScreen(
                     ) {
                         Text("Controlador ESP32 reemplazable", fontWeight = FontWeight.Bold)
                         Text(
-                            if (controllerStatus?.controllerStatus == "active") {
-                                "Activo ${controllerStatus.hardwareUidMasked.orEmpty()}${controllerStatus.firmwareVersion?.let { " · firmware $it" }.orEmpty()}"
-                            } else {
-                                "Aún no hay un controlador seguro vinculado."
+                            when {
+                                controllerStatus == null -> "Estado del controlador sin confirmar."
+                                controllerStatus.controllerStatus == "active" -> {
+                                    "Activo ${controllerStatus.hardwareUidMasked.orEmpty()}${controllerStatus.firmwareVersion?.let { " · firmware $it" }.orEmpty()}"
+                                }
+                                else -> "Aún no hay un controlador seguro vinculado."
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            if (controllerStatus?.secureMode == true) "Modo seguro habilitado" else "Modo de transición activo",
+                            when (controllerStatus?.secureMode) {
+                                true -> "Modo seguro habilitado"
+                                false -> "Modo de transición activo"
+                                null -> "Estado de seguridad sin confirmar"
+                            },
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary
                         )

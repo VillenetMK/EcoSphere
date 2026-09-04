@@ -76,7 +76,9 @@ fun MobileEcoSphereApp(
     onReplaceController: (String) -> Unit
 ) {
     var destinationName by rememberSaveable { mutableStateOf(MobileDestination.DASHBOARD.name) }
-    val destination = MobileDestination.valueOf(destinationName)
+    val destination = MobileDestination.entries
+        .firstOrNull { it.name == destinationName }
+        ?: MobileDestination.DASHBOARD
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val coroutineScope = rememberCoroutineScope()
     val availableDestinations = MobileDestination.entries.filter { item ->

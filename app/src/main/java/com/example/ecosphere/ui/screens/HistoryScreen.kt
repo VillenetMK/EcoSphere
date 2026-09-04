@@ -280,13 +280,21 @@ private fun HistoryRecordCard(record: SensorRecord) {
             HistoryPair(EcoSphereIcons.SoilHumidity, "Humedad suelo", record.soilHumidity?.let { "${formatValue(it)} %" } ?: "Sin dato")
             HistoryPair(EcoSphereIcons.Light, "Iluminación", record.lightLux?.let { "${formatValue(it)} lx" } ?: "Sin dato")
             HistoryPair(EcoSphereIcons.WaterLevel, "Depósito", waterLevelLabel(record.waterLevel))
-            HistoryPair(EcoSphereIcons.Fan, "Ventilador", actuatorLabel(record.fanOn, record.fanPower))
-            HistoryPair(EcoSphereIcons.Pump, "Bomba", if (record.pumpOn == true) "Encendida" else "Apagada")
-            HistoryPair(EcoSphereIcons.GrowLed, "LED grow", actuatorLabel(record.ledOn, record.ledPower))
+            HistoryPair(EcoSphereIcons.Fan, "Ventilador", ControlPolicy.actuatorPwmLabel(record.fanOn, record.fanPower))
+            HistoryPair(EcoSphereIcons.Pump, "Bomba", ControlPolicy.actuatorSwitchLabel(record.pumpOn))
+            HistoryPair(EcoSphereIcons.GrowLed, "LED grow", ControlPolicy.actuatorPwmLabel(record.ledOn, record.ledPower))
             HistoryPair(
-                if (record.autoMode == true) EcoSphereIcons.AutoMode else EcoSphereIcons.ManualMode,
+                when (record.autoMode) {
+                    true -> EcoSphereIcons.AutoMode
+                    false -> EcoSphereIcons.ManualMode
+                    null -> EcoSphereIcons.Offline
+                },
                 "Modo",
-                if (record.autoMode == true) "Automático" else "Manual"
+                when (record.autoMode) {
+                    true -> "Automático"
+                    false -> "Manual"
+                    null -> "Sin registro"
+                }
             )
         }
     }
@@ -320,14 +328,6 @@ private fun HistoryPair(icon: ImageVector, label: String, value: String) {
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold
         )
-    }
-}
-
-private fun actuatorLabel(on: Boolean?, power: Int?): String {
-    return if (on == true) {
-        power?.let { "Encendido · $it %" } ?: "Encendido"
-    } else {
-        "Apagado"
     }
 }
 
