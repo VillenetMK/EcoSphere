@@ -86,46 +86,33 @@ class SensorRepository(
     }
 
     suspend fun updateAutoMode(enabled: Boolean): DeviceControl? {
-        return updateDeviceControl(mapOf("auto_mode" to enabled))
+        return executeControlCommand("auto_mode", if (enabled) 1 else 0)
     }
 
     suspend fun updateFanPower(power: Int): DeviceControl? {
         val safePower = ControlPolicy.clampPower(power)
-        return updateDeviceControl(
-            mapOf(
-                "fan_power" to safePower,
-                "fan_target" to (safePower > 0)
-            )
-        )
+        return executeControlCommand("fan_power", safePower)
     }
 
     suspend fun updateLedPower(power: Int): DeviceControl? {
         val safePower = ControlPolicy.clampPower(power)
-        return updateDeviceControl(
-            mapOf(
-                "led_power" to safePower,
-                "led_target" to (safePower > 0)
-            )
-        )
+        return executeControlCommand("led_power", safePower)
     }
 
     suspend fun requestPump(
-        currentRequest: Long,
         durationMs: Int = ControlPolicy.PUMP_DURATION_MS
     ): DeviceControl? {
-        return updateDeviceControl(
-            mapOf(
-                "pump_request" to currentRequest + 1,
-                "pump_duration_ms" to durationMs
-            )
-        )
+        return executeControlCommand("pump", durationMs)
     }
 
-    private suspend fun updateDeviceControl(body: Map<String, Any>): DeviceControl? {
-        return api.updateDeviceControl(
+    private suspend fun executeControlCommand(action: String, value: Int): DeviceControl? {
+        return api.executeControlCommand(
             apiKey = apiKey,
             authorization = authorization(),
-            body = body
+            body = mapOf(
+                "p_action" to action,
+                "p_value" to value
+            )
         ).firstOrNull()
     }
 

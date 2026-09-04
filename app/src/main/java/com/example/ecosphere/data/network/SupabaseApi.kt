@@ -9,7 +9,6 @@ import com.example.ecosphere.data.model.UsernameLoginResponse
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
-import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Query
 
@@ -51,12 +50,11 @@ interface SupabaseApi {
         @Header("Authorization") authorization: String
     ): List<DeviceControl>
 
-    @PATCH("rest/v1/device_control?id=eq.1")
-    suspend fun updateDeviceControl(
+    @POST("rest/v1/rpc/control_command")
+    suspend fun executeControlCommand(
         @Header("apikey") apiKey: String,
         @Header("Authorization") authorization: String,
         @Header("Content-Type") contentType: String = "application/json",
-        @Header("Prefer") prefer: String = "return=representation",
         @Body body: Map<String, @JvmSuppressWildcards Any>
     ): List<DeviceControl>
 

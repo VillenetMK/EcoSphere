@@ -269,10 +269,8 @@ class EcoSphereViewModel(
             return
         }
 
-        val currentRequest = uiState.deviceControl?.pumpRequest ?: 0L
         updateControl(null) {
             repository.requestPump(
-                currentRequest = currentRequest,
                 durationMs = ControlPolicy.PUMP_DURATION_MS
             )
         }

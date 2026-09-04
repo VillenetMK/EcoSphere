@@ -94,19 +94,6 @@ async function apiGet(path) {
   return response.json();
 }
 
-async function apiPatch(path, body) {
-  const response = await fetch(`${SUPABASE_URL}/${path}`, {
-    method: 'PATCH',
-    headers: await headers({
-      'Content-Type': 'application/json',
-      Prefer: 'return=representation',
-    }),
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-  return response.json();
-}
-
 async function apiPost(path, body = {}) {
   const response = await fetch(`${SUPABASE_URL}/${path}`, {
     method: 'POST',
@@ -445,14 +432,13 @@ function setRefreshLoading(value) {
   });
 }
 
-async function updateControl(body) {
-  if (!['operator', 'admin'].includes(currentProfile?.role)) {
-    toast('Tu cuenta tiene acceso de sólo lectura.');
-    return;
-  }
+async function updateControl(action, value) {
   setBusy(true);
   try {
-    const result = await apiPatch('rest/v1/device_control?id=eq.1', body);
+    const result = await apiPost('rest/v1/rpc/control_command', {
+      p_action: action,
+      p_value: value,
+    });
     deviceControl = result[0] ?? deviceControl;
     await refresh();
   } catch (error) {
@@ -596,7 +582,7 @@ $('copyDiagnosticsBtn').addEventListener('click', async () => {
 });
 
 $('autoMode').addEventListener('change', event => {
-  updateControl({ auto_mode: event.target.checked });
+  updateControl('auto_mode', event.target.checked ? 1 : 0);
 });
 
 $('fanPower').addEventListener('input', event => {
@@ -604,7 +590,7 @@ $('fanPower').addEventListener('input', event => {
 });
 $('fanPower').addEventListener('change', event => {
   const power = clampPower(event.target.value);
-  updateControl({ fan_power: power, fan_target: power > 0 });
+  updateControl('fan_power', power);
 });
 
 $('ledPower').addEventListener('input', event => {
@@ -612,7 +598,7 @@ $('ledPower').addEventListener('input', event => {
 });
 $('ledPower').addEventListener('change', event => {
   const power = clampPower(event.target.value);
-  updateControl({ led_power: power, led_target: power > 0 });
+  updateControl('led_power', power);
 });
 
 $('pumpBtn').addEventListener('click', async () => {
@@ -625,10 +611,7 @@ $('pumpBtn').addEventListener('click', async () => {
     toast(decision.message);
     return;
   }
-  await updateControl({
-    pump_request: Number(deviceControl?.pump_request ?? 0) + 1,
-    pump_duration_ms: CONTROL_POLICY.pumpDurationMs,
-  });
+  await updateControl('pump', CONTROL_POLICY.pumpDurationMs);
 });
 
 document.querySelectorAll('.nav-item').forEach(button => {
