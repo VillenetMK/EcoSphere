@@ -11,7 +11,7 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@supabase/supabase-js": "2.112.3"
+    "@supabase/supabase-js": "2.114.0"
   },
   "devDependencies": {
     "esbuild": "0.28.2"
