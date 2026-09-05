@@ -584,7 +584,7 @@ $('controllerAuthorizationForm').addEventListener('submit', async event => {
     });
     uidInput.value = '';
     proofInput.value = '';
-    toast('ESP32 autorizado por dos minutos. Solicita ahora su código temporal.');
+    toast('ESP32 autorizado por dos minutos. En el Monitor Serie a 115200, envía P una sola vez.');
   } catch (error) {
     toast(clientErrorMessage(error, 'No se pudo autorizar el controlador.'));
   } finally {

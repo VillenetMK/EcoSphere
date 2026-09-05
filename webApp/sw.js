@@ -4,7 +4,7 @@
  * Todos los derechos reservados. Uso sujeto al archivo LICENSE.
  */
 
-const CACHE = 'ecosphere-web-v1.6.9-audit-fixes';
+const CACHE = 'ecosphere-web-v1.6.10-pairing-guidance';
 const ASSETS = [
   './',
   './index.html',

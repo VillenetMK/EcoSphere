@@ -19,6 +19,9 @@ function safeErrorMessage(status, serverMessage = '') {
   if (message.includes('pairing code is invalid or expired')) {
     return 'El código del controlador es inválido o expiró.';
   }
+  if (message.includes('a controller pairing request is already pending')) {
+    return 'Ya existe un código temporal pendiente. Búscalo en el Monitor Serie y úsalo antes de que expire.';
+  }
   if (message.includes('active two-factor session required')) {
     return 'Confirma de nuevo tu autenticador para realizar esta acción administrativa.';
   }
@@ -48,6 +51,7 @@ const SAFE_CLIENT_MESSAGES = new Set([
   'Desactiva el modo automático antes de ajustar la iluminación.',
   'Desactiva el modo automático antes de solicitar riego manual.',
   'El código del controlador es inválido o expiró.',
+  'Ya existe un código temporal pendiente. Búscalo en el Monitor Serie y úsalo antes de que expire.',
   'Confirma de nuevo tu autenticador para realizar esta acción administrativa.',
   'Actualiza el firmware del ESP32 antes de usarlo como reemplazo.',
   'El riego fue bloqueado porque las condiciones actuales no son seguras.',

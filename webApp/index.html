@@ -163,7 +163,7 @@
         <span id="currentUserRole">Acceso autorizado</span>
         <button type="button" data-auth-signout>Cerrar sesión</button>
       </div>
-      <div class="version">EcoSphere Web 1.6.9</div>
+      <div class="version">EcoSphere Web 1.6.10</div>
     </aside>
 
     <main class="main">
@@ -326,7 +326,7 @@
                 <input id="controllerClaimProof" name="controllerClaimProof" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="29" placeholder="PRUEBA · ABCD-EF12-3456-7890-ABCD-EF12" required />
               </div>
               <button id="authorizeControllerBtn" class="secondary-btn" type="submit">Autorizar este ESP32</button>
-              <small>La autorización dura dos minutos y estos valores no se guardan en el navegador.</small>
+              <small>La autorización dura dos minutos. Después, envía P una sola vez desde el Monitor Serie a 115200.</small>
             </form>
             <form id="controllerPairingForm" class="controller-pairing-form">
               <label for="controllerPairingCode">2. Código temporal mostrado por el ESP32</label>
