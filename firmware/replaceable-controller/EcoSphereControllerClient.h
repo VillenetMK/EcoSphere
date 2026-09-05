@@ -111,19 +111,19 @@ class EcoSphereControllerClient {
 
  private:
   static void encodeHex(const uint8_t* bytes, size_t length, char* output) {
-    static constexpr char HEX[] = "0123456789abcdef";
+    static constexpr char HEX_DIGITS_LOWER[] = "0123456789abcdef";
     for (size_t i = 0; i < length; ++i) {
-      output[i * 2] = HEX[(bytes[i] >> 4) & 0x0F];
-      output[i * 2 + 1] = HEX[bytes[i] & 0x0F];
+      output[i * 2] = HEX_DIGITS_LOWER[(bytes[i] >> 4) & 0x0F];
+      output[i * 2 + 1] = HEX_DIGITS_LOWER[bytes[i] & 0x0F];
     }
     output[length * 2] = '\0';
   }
 
   static void encodeHexUpper(const uint8_t* bytes, size_t length, char* output) {
-    static constexpr char HEX[] = "0123456789ABCDEF";
+    static constexpr char HEX_DIGITS_UPPER[] = "0123456789ABCDEF";
     for (size_t i = 0; i < length; ++i) {
-      output[i * 2] = HEX[(bytes[i] >> 4) & 0x0F];
-      output[i * 2 + 1] = HEX[bytes[i] & 0x0F];
+      output[i * 2] = HEX_DIGITS_UPPER[(bytes[i] >> 4) & 0x0F];
+      output[i * 2 + 1] = HEX_DIGITS_UPPER[bytes[i] & 0x0F];
     }
     output[length * 2] = '\0';
   }
