@@ -28,6 +28,7 @@ test('la identidad del controlador no depende del firmware copiado', async () =>
   assert.match(firmware, /ecosphere-pairing-v1:/);
   assert.match(firmware, /mbedtls_md\(/);
   assert.match(firmware, /encodeHexUpper\(digest, 12, pairingClaimProof_\)/);
+  assert.doesNotMatch(firmware, /\b(?:static\s+)?(?:const|constexpr)\s+char\s+HEX\s*\[/);
   assert.doesNotMatch(firmware, /service_role/i);
   assert.doesNotMatch(firmware, /setInsecure/);
 });
