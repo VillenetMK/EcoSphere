@@ -47,6 +47,20 @@ test('traduce una denegación de permisos sin mostrar nombres de tablas', async 
   );
 });
 
+test('explica que ya existe un código temporal en vez de mostrar HTTP 500', async () => {
+  const response = new Response(JSON.stringify({
+    code: '55000',
+    details: null,
+    hint: null,
+    message: 'a controller pairing request is already pending',
+  }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+
+  await assert.rejects(
+    readJsonResponse(response),
+    { message: 'Ya existe un código temporal pendiente. Búscalo en el Monitor Serie y úsalo antes de que expire.' },
+  );
+});
+
 test('los errores locales desconocidos tampoco exponen detalles internos', () => {
   assert.equal(
     clientErrorMessage(new Error('permission denied for table private.secret_table'), 'Error seguro.'),
