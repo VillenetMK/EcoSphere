@@ -70,7 +70,8 @@ class EcoSphereControllerClient {
     JsonDocument response;
     if (!postGateway(payload, response)) return String();
     if (!response.is<JsonArray>() || response.size() == 0) return String();
-    return response[0]["pairing_code"] | String();
+    const String pairingCode = response[0]["pairing_code"] | String();
+    return isValidPairingCode(pairingCode) ? pairingCode : String();
   }
 
   // Sends heartbeat and optional telemetry. Only the controller selected by the
@@ -126,6 +127,30 @@ class EcoSphereControllerClient {
       output[i * 2 + 1] = HEX_DIGITS_UPPER[bytes[i] & 0x0F];
     }
     output[length * 2] = '\0';
+  }
+
+  static bool isHexCharacter(char value) {
+    return (value >= '0' && value <= '9')
+        || (value >= 'A' && value <= 'F')
+        || (value >= 'a' && value <= 'f');
+  }
+
+  static bool isValidPairingCode(const String& code) {
+    if (code.length() == 12) {
+      for (size_t i = 0; i < 12; ++i) {
+        if (!isHexCharacter(code[i])) return false;
+      }
+      return true;
+    }
+
+    if (code.length() != 14 || code[4] != '-' || code[9] != '-') {
+      return false;
+    }
+    for (size_t i = 0; i < 14; ++i) {
+      if (i == 4 || i == 9) continue;
+      if (!isHexCharacter(code[i])) return false;
+    }
+    return true;
   }
 
   bool buildPairingClaimProof() {

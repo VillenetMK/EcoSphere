@@ -89,7 +89,7 @@ circuito supervisado con resistencia de fin de línea.
 2. Entre como administrador con el autenticador habilitado.
 3. Abra **Diagnóstico del sistema → Controlador ESP32 reemplazable**, ingrese ambos valores y pulse **Autorizar este ESP32**.
 4. Antes de que pasen dos minutos, solicite localmente el código con `beginPairing()`.
-5. Ingrese el código temporal de 12 caracteres y pulse **Usar como reemplazo**.
+5. Ingrese el código temporal de 12 dígitos hexadecimales y pulse **Usar como reemplazo**. Supabase lo muestra agrupado como `XXXX-XXXX-XXXX` (14 caracteres al contar los dos guiones); el cliente acepta tanto la forma agrupada como los 12 dígitos sin guiones.
 6. La primera sincronización 2.1 válida activa de forma irreversible el protocolo estricto.
 
 La prueba tiene 24 caracteres hexadecimales y se deriva localmente del secreto de

@@ -33,6 +33,22 @@ test('la identidad del controlador no depende del firmware copiado', async () =>
   assert.doesNotMatch(firmware, /setInsecure/);
 });
 
+test('el firmware acepta el código temporal agrupado que devuelve Supabase', async () => {
+  const firmware = await readFile(
+    new URL('firmware/replaceable-controller/EcoSphereControllerClient.h', root),
+    'utf8',
+  );
+  const readme = await readFile(
+    new URL('firmware/replaceable-controller/README.md', root),
+    'utf8',
+  );
+
+  assert.match(firmware, /isValidPairingCode\(pairingCode\)/);
+  assert.match(firmware, /code\.length\(\) != 14/);
+  assert.match(firmware, /code\[4\] != '-' \|\| code\[9\] != '-'/);
+  assert.match(readme, /XXXX-XXXX-XXXX.*14 caracteres/);
+});
+
 test('la vinculación aparece en diagnóstico y exige administrador', async () => {
   const [html, app] = await Promise.all([
     readFile(new URL('webApp/index.html', root), 'utf8'),
