@@ -9,10 +9,10 @@ import {
   actuatorPwmLabel,
   actuatorSwitchLabel,
   clampPower,
-  irrigationDecision,
-  irrigationStatus,
   isDeviceOnline,
   isTelemetryCurrent,
+  manualIrrigationDecision,
+  normalizeControlPermissions,
   waterLevelLabel,
 } from './control-policy.js';
 import { buildDiagnosticModel, technicalReport } from './diagnostics.js';
@@ -42,6 +42,8 @@ let historyMetric = 'soil_humidity';
 let refreshTimer = null;
 let currentProfile = null;
 let controllerStatus = null;
+let currentControlPermissions = normalizeControlPermissions(null);
+let applicationGeneration = 0;
 
 function normalizeSeparatedHex(value) {
   return String(value).replace(/[\s-]/g, '').toUpperCase();
@@ -116,12 +118,25 @@ async function apiPost(path, body = {}) {
 }
 
 async function loadLatest() {
-  const [records, controls] = await Promise.all([
-    apiGet('rest/v1/sensor_records?select=*&order=created_at.desc&limit=1'),
-    apiGet('rest/v1/device_control?id=eq.1&select=*'),
-  ]);
-  latestRecord = records[0] ?? null;
-  deviceControl = controls[0] ?? null;
+  const generation = applicationGeneration;
+  try {
+    const [records, controls, permissions] = await Promise.all([
+      apiGet('rest/v1/sensor_records?select=*&order=created_at.desc&limit=1'),
+      apiGet('rest/v1/device_control?id=eq.1&select=*'),
+      apiPost('rest/v1/rpc/my_control_permissions'),
+    ]);
+    if (generation !== applicationGeneration || !currentProfile) return false;
+    latestRecord = records[0] ?? null;
+    deviceControl = controls[0] ?? null;
+    currentControlPermissions = normalizeControlPermissions(permissions);
+    return true;
+  } catch (error) {
+    if (generation === applicationGeneration) {
+      currentControlPermissions = normalizeControlPermissions(null);
+      renderDashboard();
+    }
+    throw error;
+  }
 }
 
 async function loadHistory() {
@@ -143,7 +158,7 @@ async function refresh({ manual = false } = {}) {
   refreshing = true;
   if (manual) setRefreshLoading(true);
   try {
-    await loadLatest();
+    if (!await loadLatest()) return;
     if (activeScreen === 'history' && (manual || Date.now() - lastHistoryLoadedAt >= 30000)) {
       await loadHistory();
     }
@@ -205,7 +220,7 @@ function renderDashboard() {
   $('airHumidityValue').textContent = formatNumber(currentRecord?.air_humidity, '%');
   $('soilHumidityValue').textContent = formatNumber(currentRecord?.soil_humidity, '%');
   $('lightValue').textContent = formatNumber(currentRecord?.light_lux, 'lux');
-  $('waterValue').textContent = currentRecord ? waterLevelLabel(currentRecord.water_level) : '--';
+  $('waterValue').textContent = currentRecord ? waterLevelLabel(currentRecord?.water_level) : '--';
 
   const reportedMode = telemetryCurrent ? latestRecord?.auto_mode : null;
   $('fanState').textContent = telemetryCurrent
@@ -237,15 +252,11 @@ function renderDashboard() {
   $('ledPowerLabel').textContent = `${led} %`;
   $('fanPower').disabled = busy || auto || !deviceControl || !canOperate;
   $('ledPower').disabled = busy || auto || !deviceControl || !canOperate;
-  const irrigation = irrigationDecision(
-    currentRecord?.soil_humidity,
-    currentRecord?.water_level,
+  const irrigation = manualIrrigationDecision(
+    latestRecord, deviceControl, currentProfile, currentControlPermissions,
   );
   $('pumpBtn').disabled = busy || !deviceControl || !irrigation.allowed || !canOperate;
-  $('pumpHint').textContent = irrigationStatus(
-    currentRecord?.soil_humidity,
-    currentRecord?.water_level,
-  );
+  $('pumpHint').textContent = irrigation.message;
 }
 
 function renderHistory() {
@@ -340,7 +351,7 @@ function renderHistoryChart(records) {
 }
 
 function renderDiagnostics() {
-  currentDiagnosticModel = buildDiagnosticModel(latestRecord, deviceControl);
+  currentDiagnosticModel = buildDiagnosticModel(latestRecord, deviceControl, Date.now(), currentControlPermissions);
   const model = currentDiagnosticModel;
   const summary = $('diagnosticSummary');
   summary.className = `diagnostic-summary severity-${model.severity}`;
@@ -657,16 +668,23 @@ $('ledPower').addEventListener('change', event => {
 });
 
 $('pumpBtn').addEventListener('click', async () => {
-  const currentRecord = isTelemetryCurrent(latestRecord, deviceControl) ? latestRecord : null;
-  const decision = irrigationDecision(
-    currentRecord?.soil_humidity,
-    currentRecord?.water_level,
-  );
-  if (!decision.allowed) {
-    toast(decision.message);
-    return;
+  if (busy) return;
+  setBusy(true);
+  try {
+    if (!await loadLatest()) return;
+    const decision = manualIrrigationDecision(
+      latestRecord, deviceControl, currentProfile, currentControlPermissions,
+    );
+    if (!decision.allowed) {
+      toast(decision.message);
+      return;
+    }
+    await updateControl('pump', CONTROL_POLICY.pumpDurationMs);
+  } catch (error) {
+    toast(clientErrorMessage(error, 'No se pudo comprobar el permiso de riego. Intenta nuevamente.'));
+  } finally {
+    setBusy(false);
   }
-  await updateControl('pump', CONTROL_POLICY.pumpDurationMs);
 });
 
 document.querySelectorAll('.nav-item').forEach(button => {
@@ -707,6 +725,8 @@ if ('serviceWorker' in navigator) {
 }
 
 function startApplication({ profile }) {
+  applicationGeneration += 1;
+  currentControlPermissions = normalizeControlPermissions(null);
   currentProfile = profile;
   $('authGate').hidden = true;
   $('app').hidden = false;
@@ -721,6 +741,8 @@ function startApplication({ profile }) {
 }
 
 function stopApplication() {
+  applicationGeneration += 1;
+  currentControlPermissions = normalizeControlPermissions(null);
   $('app').hidden = true;
   $('authGate').hidden = false;
   if (refreshTimer) clearInterval(refreshTimer);

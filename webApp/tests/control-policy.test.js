@@ -12,9 +12,12 @@ import {
   actuatorSwitchLabel,
   clampPower,
   irrigationDecision,
+  irrigationStatus,
   isDeviceOnline,
   isTelemetryCurrent,
   isTelemetryFresh,
+  manualIrrigationDecision,
+  normalizeControlPermissions,
   waterLevelLabel,
 } from '../control-policy.js';
 
@@ -32,6 +35,73 @@ test('el riego se bloquea con suelo húmedo o nivel bajo', () => {
 test('el riego sólo se permite con suelo seguro y agua disponible', () => {
   assert.equal(irrigationDecision(35, 'high').allowed, true);
   assert.equal(irrigationDecision(59.9, 'HIGH').allowed, true);
+});
+
+test('el permiso de suelo húmedo exige un booleano autorizado en la respuesta del servidor', () => {
+  for (const result of [
+    { allow_wet_soil_manual_watering: true },
+    [{ allow_wet_soil_manual_watering: true }],
+  ]) {
+    assert.equal(normalizeControlPermissions(result).allowWetSoilManualWatering, true);
+  }
+  for (const result of [
+    null, undefined, {}, [], true,
+    { allow_wet_soil_manual_watering: false },
+    { allow_wet_soil_manual_watering: 'true' },
+    { allow_wet_soil_manual_watering: 1 },
+    { role: 'admin', username: 'Hever' },
+    [{ allow_wet_soil_manual_watering: true }, { allow_wet_soil_manual_watering: false }],
+  ]) {
+    assert.equal(normalizeControlPermissions(result).allowWetSoilManualWatering, false);
+  }
+});
+
+test('el permiso permite suelo húmedo sin cambiar la regla del resto de cuentas', () => {
+  const authorized = normalizeControlPermissions({ allow_wet_soil_manual_watering: true });
+  assert.equal(irrigationDecision(60, 'high', authorized).allowed, true);
+  assert.equal(irrigationDecision(100, 'high', authorized).allowed, true);
+  assert.match(irrigationStatus(70, 'high', authorized), /suelo húmedo autorizado para tu cuenta/);
+  assert.equal(irrigationDecision(70, 'high').reason, 'soil-too-wet');
+  assert.equal(irrigationDecision(70, 'high', normalizeControlPermissions(null)).reason, 'soil-too-wet');
+  assert.equal(irrigationDecision(70, 'high', { allowWetSoilManualWatering: 'true' }).allowed, false);
+});
+
+test('el permiso no omite el sensor de suelo ni la disponibilidad de agua', () => {
+  const authorized = normalizeControlPermissions({ allow_wet_soil_manual_watering: true });
+  for (const soil of [null, undefined, '', NaN, Infinity, -1, 101]) {
+    assert.equal(irrigationDecision(soil, 'high', authorized).reason, 'missing-soil-reading');
+  }
+  assert.equal(irrigationDecision(70, 'low', authorized).reason, 'low-water');
+  assert.equal(irrigationDecision(70, null, authorized).reason, 'missing-water-reading');
+  assert.equal(irrigationDecision(70, 'unknown', authorized).reason, 'missing-water-reading');
+});
+
+test('el permiso conserva sesión aprobada, modo manual, conexión y telemetría vigente', () => {
+  const now = Date.parse('2026-09-09T22:00:00.000Z');
+  const timestamp = new Date(now - 1000).toISOString();
+  const record = { created_at: timestamp, soil_humidity: 70, water_level: 'high' };
+  const control = { auto_mode: false, esp32_online: true, last_seen_at: timestamp };
+  const profile = { role: 'operator', status: 'approved' };
+  const permissions = normalizeControlPermissions({ allow_wet_soil_manual_watering: true });
+  const decide = (overrides = {}) => manualIrrigationDecision(
+    Object.hasOwn(overrides, 'record') ? overrides.record : record,
+    Object.hasOwn(overrides, 'control') ? overrides.control : control,
+    Object.hasOwn(overrides, 'profile') ? overrides.profile : profile,
+    Object.hasOwn(overrides, 'permissions') ? overrides.permissions : permissions,
+    now,
+  );
+  assert.equal(decide().allowed, true);
+  assert.equal(decide({ permissions: normalizeControlPermissions(null) }).reason, 'soil-too-wet');
+  assert.equal(decide({ profile: null }).reason, 'operator-required');
+  assert.equal(decide({ profile: { ...profile, status: 'pending' } }).reason, 'operator-required');
+  assert.equal(decide({ profile: { ...profile, role: 'viewer' } }).reason, 'operator-required');
+  assert.equal(decide({ control: { ...control, auto_mode: true } }).reason, 'automatic-mode');
+  assert.equal(decide({ control: { ...control, auto_mode: null } }).reason, 'automatic-mode');
+  assert.equal(decide({ control: { ...control, esp32_online: false } }).reason, 'telemetry-unavailable');
+  assert.equal(decide({ control: null }).reason, 'telemetry-unavailable');
+  assert.equal(decide({ record: null }).reason, 'telemetry-unavailable');
+  assert.equal(decide({ record: { ...record, created_at: new Date(now - 31000).toISOString() } }).reason, 'telemetry-unavailable');
+  assert.equal(decide({ control: { ...control, last_seen_at: new Date(now - 31000).toISOString() } }).reason, 'telemetry-unavailable');
 });
 
 test('la potencia queda limitada entre cero y cien', () => {
