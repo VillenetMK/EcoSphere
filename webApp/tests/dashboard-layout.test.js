@@ -64,6 +64,7 @@ test('el estado reportado y los controles remotos permanecen separados', async (
     app.indexOf("$('pumpBtn').addEventListener"),
     app.indexOf("document.querySelectorAll('.nav-item')"),
   );
-  assert.match(pumpHandler, /isTelemetryCurrent\(latestRecord, deviceControl\)/);
+  assert.match(pumpHandler, /await loadLatest\(\)/);
+  assert.match(pumpHandler, /manualIrrigationDecision\(\s*latestRecord, deviceControl, currentProfile, currentControlPermissions/);
   assert.doesNotMatch(pumpHandler, /irrigationDecision\(\s*latestRecord/);
 });

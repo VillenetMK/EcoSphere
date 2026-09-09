@@ -54,7 +54,8 @@ void sendState() {
   JsonDocument commands;
   if (controller.sync(++heartbeatSequence, FIRMWARE_VERSION, true, telemetry.as<JsonObjectConst>(), commands)) {
     // Aplicar fan_target, fan_power, led_target, led_power, auto_mode,
-    // pump_request y pump_duration_ms usando la lógica actual del sketch.
+    // pump_request, pump_duration_ms, pump_authorized,
+    // pump_expires_at_epoch y pump_allow_wet_soil con las protecciones siguientes.
   }
 }
 ```
@@ -82,6 +83,36 @@ hilos; ambos se reportan como `low`. En EcoSphere ese valor significa **agua no
 confirmada**, no confirma la presencia física del sensor y siempre bloquea la
 bomba. Para mostrar un estado separado de “sensor desconectado” se necesita un
 circuito supervisado con resistencia de fin de línea.
+
+## Permiso de riego manual con suelo húmedo
+
+La web consulta `my_control_permissions()` para la cuenta autenticada. El
+servidor sólo concede la excepción a cuentas aprobadas con una autorización
+explícita en `private.manual_watering_permissions`; no depende del nombre
+visible ni de metadatos modificables por el usuario. El resto de las cuentas
+conserva el bloqueo a partir del 60 % de humedad.
+
+El firmware completo necesita la integración de `2.1.3+replaceable`: cambiar
+únicamente el servidor no elimina el bloqueo local de versiones anteriores.
+La respuesta de `controller_sync` incluye `pump_allow_wet_soil` ligado al
+`pump_request` vigente, y el gateway conserva ese campo. El sketch debe:
+
+- establecer la secuencia inicial sin ejecutar órdenes anteriores al arranque;
+- aceptar sólo órdenes nuevas con `pump_authorized=true`, caducidad vigente y
+  modo manual; nunca reutilizar una orden rechazada;
+- omitir el umbral de humedad sólo para ese pulso si `pump_allow_wet_soil=true`;
+- mantener agua disponible, lectura de suelo válida y duración máxima de 10 s;
+- detener el pulso ante caducidad, falta de agua, lectura inválida o cambio a
+  automático, y borrar la excepción al apagar la bomba.
+
+La web solicita pulsos de 3 s. Los tiempos mínimos entre riegos siguen siendo
+10 s por sistema y 60 s por operador. Los instaladores nativos anteriores no
+incluyen la interfaz de esta excepción; se puede usar la web actualizada.
+
+Las concesiones por cuenta son datos operativos privados y no se incluyen en
+las migraciones del repositorio. La prueba SQL
+`supabase/tests/manual_watering_account_permission.sql` revierte todos los
+datos y órdenes de prueba, por lo que no activa el hardware.
 
 ## Reemplazo
 
