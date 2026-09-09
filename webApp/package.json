@@ -6,12 +6,13 @@
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
-    "build": "esbuild app.js --bundle --minify --format=esm --target=es2022 --outfile=../dist/app.js",
+    "build": "esbuild app.js --bundle --minify --format=esm --target=es2022 --outfile=../dist/app.js && esbuild hever-ai/app.js --bundle --minify --format=esm --target=es2022 --outfile=../dist/hever-ai/app.js && node ../scripts/copy-ai-assets.mjs",
     "check:copyright": "node ../scripts/check-copyright.mjs",
     "test": "node --test"
   },
   "dependencies": {
-    "@supabase/supabase-js": "2.112.3"
+    "@supabase/supabase-js": "2.112.3",
+    "three": "0.128.0"
   },
   "devDependencies": {
     "esbuild": "0.28.2"

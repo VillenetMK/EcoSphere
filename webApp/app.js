@@ -27,6 +27,7 @@ import {
 import { authErrorMessage, initializeAuth } from './auth.js';
 import { clientErrorMessage, readJsonResponse } from './api-response.js';
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from './supabase-client.js';
+import { createHeverAssistant } from './hever-ai.js';
 
 let latestRecord = null;
 let deviceControl = null;
@@ -55,6 +56,28 @@ function validatedHex(value, length) {
 }
 
 const $ = (id) => document.getElementById(id);
+
+function returnToDashboard() {
+  activeScreen = 'dashboard';
+  document.querySelectorAll('button.nav-item').forEach(button => button.classList.toggle('active', button.dataset.screen === activeScreen));
+  document.querySelectorAll('.screen').forEach(screen => screen.classList.toggle('active', screen.id === activeScreen));
+}
+
+const heverAssistant = createHeverAssistant({
+  button: $('heverAiNav'),
+  host: $('heverAiHost'),
+  onRevoked: returnToDashboard,
+  request: async action => {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/hever-ai`, {
+      method: 'POST',
+      headers: await headers({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ action }),
+      cache: 'no-store',
+    });
+    try { return await readJsonResponse(response); }
+    catch (error) { error.status = response.status; throw error; }
+  },
+});
 
 const ICON_BASE = './icons';
 const HISTORY_METRIC_ICONS = {
@@ -689,6 +712,8 @@ $('pumpBtn').addEventListener('click', async () => {
 
 document.querySelectorAll('.nav-item').forEach(button => {
   button.addEventListener('click', async () => {
+    if (button.dataset.screen === 'hever-ai' && !heverAssistant.open()) return;
+    if (button.dataset.screen !== 'hever-ai') heverAssistant.close();
     activeScreen = button.dataset.screen;
     document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b === button));
     document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === activeScreen));
@@ -728,6 +753,8 @@ function startApplication({ profile }) {
   applicationGeneration += 1;
   currentControlPermissions = normalizeControlPermissions(null);
   currentProfile = profile;
+  if (activeScreen === 'hever-ai') returnToDashboard();
+  heverAssistant.checkAccess();
   $('authGate').hidden = true;
   $('app').hidden = false;
   $('currentUserName').textContent = profile.username || profile.full_name;
@@ -743,6 +770,8 @@ function startApplication({ profile }) {
 function stopApplication() {
   applicationGeneration += 1;
   currentControlPermissions = normalizeControlPermissions(null);
+  heverAssistant.reset();
+  if (activeScreen === 'hever-ai') returnToDashboard();
   $('app').hidden = true;
   $('authGate').hidden = false;
   if (refreshTimer) clearInterval(refreshTimer);

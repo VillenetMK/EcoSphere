@@ -155,6 +155,7 @@
         <button class="nav-item active" data-screen="dashboard"><img class="ui-icon nav-icon" src="icons/ic_dashboard.svg" alt="" aria-hidden="true" />Panel principal</button>
         <button class="nav-item" data-screen="history"><img class="ui-icon nav-icon" src="icons/ic_history.svg" alt="" aria-hidden="true" />Registros históricos</button>
         <button class="nav-item" data-screen="diagnostics"><img class="ui-icon nav-icon" src="icons/ic_diagnostics.svg" alt="" aria-hidden="true" />Diagnóstico del sistema</button>
+        <button id="heverAiNav" class="nav-item" data-screen="hever-ai" hidden><img class="ui-icon nav-icon" src="icons/ic_air_humidity.svg" alt="" aria-hidden="true" />Asistente de voz</button>
       </nav>
 
       <button id="downloadsBtn" class="install-btn">Descargar EcoSphere</button>
@@ -339,6 +340,9 @@
           </div>
         </section>
         <div id="diagnosticGroups" class="diagnostic-groups"></div>
+      </section>
+      <section id="hever-ai" class="screen" aria-label="Asistente de voz de Hever">
+        <div id="heverAiHost"></div>
       </section>
     </main>
   </div>
