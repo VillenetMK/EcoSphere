@@ -4,7 +4,7 @@
  * Todos los derechos reservados. Uso sujeto al archivo LICENSE.
  */
 
-const CACHE = 'ecosphere-web-v1.6.10-manual-watering-permission';
+const CACHE = 'ecosphere-web-v1.6.10-hever-voice-assistant';
 const ASSETS = [
   './',
   './index.html',

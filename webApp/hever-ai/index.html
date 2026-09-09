@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src wss://generativelanguage.googleapis.com; worker-src 'self'; form-action 'none'" />
+  <title>EcoSphere · Asistente de Hever</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <a class="saltar" href="#panel">Ir a los datos del huerto</a>
+  <div id="app">
+    <main id="escena" aria-labelledby="titulo-principal">
+      <canvas id="lienzo-orbe" aria-hidden="true"></canvas>
+      <div class="ambiente ambiente-a" aria-hidden="true"></div>
+      <div class="ambiente ambiente-b" aria-hidden="true"></div>
+      <header id="marca">
+        <span class="marca-senal"><i></i> Asistente de Hever</span>
+        <h1 id="titulo-principal">EcoSphere</h1>
+        <p>Conversa con tu biohuerto · Gemini Live</p>
+      </header>
+      <section id="dialogo" role="log" aria-label="Conversación con EcoSphere" aria-live="polite">
+        <p id="linea-usuario" class="turno usuario" hidden></p>
+        <p id="linea-ecosphere" class="turno ecosphere" hidden></p>
+      </section>
+      <div id="controles">
+        <button id="btn-voz" type="button" aria-pressed="false" aria-label="Iniciar conversación por voz" aria-describedby="estado">
+          <span class="anillo" aria-hidden="true"></span><span class="anillo anillo-dos" aria-hidden="true"></span>
+          <svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true"><path fill="currentColor" d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm7-3a7 7 0 0 1-14 0H3a9 9 0 0 0 8 8.94V24h2v-3.06A9 9 0 0 0 21 12h-2Z"/></svg>
+        </button>
+        <p id="estado" role="status" aria-live="polite">Toca para hablar con EcoSphere</p>
+        <p class="voice-privacy">Al iniciar, tu voz se envía a Gemini. El asistente consulta tus datos; no acciona la bomba.</p>
+      </div>
+      <div id="chip-contexto" aria-label="Contexto de la conversación" hidden><span id="chip-icono">🌱</span><span id="chip-texto"></span></div>
+    </main>
+    <aside id="panel" tabindex="-1" aria-labelledby="titulo-panel">
+      <div class="panel-cab"><div><span class="sobretitulo">Lecturas reales</span><h2 id="titulo-panel">Estado del huerto</h2></div>
+        <div class="panel-meta"><span id="dispositivo-estado" hidden><i></i><span></span></span><span id="fuente-datos">Supabase</span></div>
+      </div>
+      <figure id="ilustracion"><div id="ilustracion-svg" aria-hidden="true"></div><figcaption id="ilustracion-pie">Vista general del biohuerto</figcaption></figure>
+      <div id="tarjetas" aria-label="Métricas del biohuerto"></div>
+      <div id="sistema-caja" hidden><span class="sistema-titulo">Último estado reportado</span><div id="sistema-chips"></div></div>
+      <div class="grafico-caja"><div class="grafico-cab"><span id="grafico-titulo">Historial de esta sesión</span><span id="grafico-hint">toca una tarjeta</span></div><div class="grafico-lienzo"><canvas id="grafico-historial" role="img" aria-label="Esperando datos para el gráfico"></canvas></div></div>
+      <p id="pie-actualizado" role="status" aria-live="polite">Consultando las últimas lecturas…</p>
+    </aside>
+  </div>
+  <div id="aviso" role="alert" hidden></div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
