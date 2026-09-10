@@ -5,7 +5,7 @@
  */
 
 // The permanent provider key never reaches the browser. Only an authenticated,
-// explicitly permitted account can mint a single-use, constrained Live token.
+// approved account can mint a single-use, constrained Live token.
 export const MODEL = "gemini-3.1-flash-live-preview";
 const ORIGINS = new Set([
   "https://villenetmk.github.io",
@@ -15,7 +15,7 @@ const ORIGINS = new Set([
   "http://127.0.0.1:8000",
 ]);
 
-export const SYSTEM_INSTRUCTION = `Eres Ecosphere, el asistente de voz del biohuerto de guanábana de Hever.
+export const SYSTEM_INSTRUCTION = `Eres EcoSphere, el asistente de voz del biohuerto de guanábana de EcoSphere.
 Habla en español, de forma cálida, clara y breve, normalmente en dos a cuatro frases.
 Antes de afirmar cualquier lectura actual, estado del dispositivo o de los actuadores,
 llama consultar_biohuerto en ese turno. Nunca inventes datos, mediciones ni acciones.
@@ -131,7 +131,7 @@ export function createHandler(options: Options) {
     };
     try {
       // PostgREST validates the signed JWT. The RPC additionally verifies the
-      // current auth.sessions row, profile status and private account permission.
+      // current auth.sessions row, approved profile and administrator MFA.
       const access = await rpc("my_ai_access");
       if (!access.response.ok) {
         return error(access.response.status >= 500 ? 503 : 401, "No se pudo validar la sesión.");

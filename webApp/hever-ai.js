@@ -37,7 +37,7 @@ export function createHeverAssistant({ button, host, request, onRevoked = () => 
       allowed = true;
       button.hidden = false;
     } catch (_) {
-      // Access is opt-in and must be confirmed by the server for each session.
+      // The server must confirm an eligible account and active session.
     }
   }
 
@@ -45,7 +45,7 @@ export function createHeverAssistant({ button, host, request, onRevoked = () => 
     if (!allowed) return false;
     if (frame) return true;
     frame = document.createElement('iframe');
-    frame.title = 'EcoSphere · Asistente de voz de Hever';
+    frame.title = 'EcoSphere · Asistente de voz';
     frame.className = 'hever-ai-frame';
     frame.src = './hever-ai/index.html';
     frame.allow = 'microphone';
