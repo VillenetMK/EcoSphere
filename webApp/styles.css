@@ -55,4 +55,12 @@ h3{font-size:21px;margin:26px 0 12px}.status-panel{background:linear-gradient(13
 @media(max-width:900px){.hever-ai-frame{height:calc(100dvh - 190px);min-height:900px}}
 
 /* Exhibition uses explicit text labels, not color alone. */
-.demo-notice{border:1px solid var(--warning);border-radius:14px;padding:14px 16px;margin-bottom:14px;background:#241f13}.demo-notice strong{font-size:13px;letter-spacing:.03em}.demo-notice p{margin:6px 0 0;font-size:13px;line-height:1.5;color:var(--text)}.metric-card .simulated-source{color:var(--warning);font-weight:800}
+.metric-card summary{display:grid;gap:16px;cursor:pointer;list-style:none;outline-offset:6px}
+.metric-card summary::-webkit-details-marker{display:none}
+.metric-card summary:focus-visible{outline:2px solid var(--green);border-radius:4px}
+.metric-card .metric-more{font-size:12px;color:var(--muted)}
+.metric-card[open] .metric-more{display:none}
+.metric-detail{border-top:1px solid #2b3b30;padding-top:12px;margin-top:14px}
+.metric-detail small{color:var(--muted)}
+.metric-detail p{font-size:13px;line-height:1.5;color:var(--muted);margin:8px 0 0}
+details.metric-card{display:block}

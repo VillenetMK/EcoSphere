@@ -243,7 +243,11 @@ function renderDashboard() {
   const hasTelemetry = latestRecord !== null;
   $('emptyTelemetry').hidden = hasTelemetry;
   $('metricsGrid').hidden = !hasTelemetry && !environment.simulated;
-  $('demoNotice').hidden = !environment.simulated;
+  $('demoNotice').hidden = true;
+  $('environmentTitle').textContent = environment.simulated ? 'Panel ambiental' : 'Lecturas ambientales';
+  for (const id of ['temperatureDescription', 'airHumidityDescription', 'lightDescription']) {
+    $(id).hidden = !environment.simulated;
+  }
 
   $('temperatureValue').textContent = formatNumber(environment.temperature, '°C');
   $('airHumidityValue').textContent = formatNumber(environment.air_humidity, '%');
@@ -256,14 +260,9 @@ function renderDashboard() {
     $(id).textContent = environment.simulated
       ? id === 'lightSource' ? 'Estimación según LED' : 'Valor de referencia'
       : sensor;
-    $(id).classList.toggle('simulated-source', environment.simulated);
   }
-  $('soilSource').textContent = environment.simulated
-    ? telemetryCurrent ? 'REAL · sensor capacitivo' : 'REAL · sin telemetría actual'
-    : 'Sensor capacitivo';
-  $('waterSource').textContent = environment.simulated
-    ? telemetryCurrent ? 'REAL · sensor horizontal GPIO32' : 'REAL · sin telemetría actual'
-    : 'Sensor horizontal GPIO32';
+  $('soilSource').textContent = 'Sensor capacitivo';
+  $('waterSource').textContent = 'Sensor horizontal GPIO32';
 
   const reportedMode = telemetryCurrent ? latestRecord?.auto_mode : null;
   $('fanState').textContent = telemetryCurrent

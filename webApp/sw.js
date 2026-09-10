@@ -4,12 +4,12 @@
  * Todos los derechos reservados. Uso sujeto al archivo LICENSE.
  */
 
-const CACHE = 'ecosphere-web-v1.6.10-hever-led-reference';
+const CACHE = 'ecosphere-web-v1.6.11-cima-details';
 const ASSETS = [
   './',
   './index.html',
-  './styles.css',
-  './app.js',
+  './styles.css?v=20260910-cima-details',
+  './app.js?v=20260910-cima-details',
   './android-auth-return.js',
   './manifest.webmanifest',
   './icon.svg',

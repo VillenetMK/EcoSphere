@@ -95,7 +95,10 @@ function dashboardHarness() {
 test('dashboard account switch and signout clear simulated values; offline demo cannot fake controls or soil', () => {
   const { elements, run } = dashboardHarness();
   run(`startApplication({ session: { user: { id: '${heverId}' } }, profile: ${JSON.stringify(approved)} });`);
-  assert.equal(elements.get('demoNotice').hidden, false);
+  assert.equal(elements.get('demoNotice').hidden, true);
+  assert.equal(elements.get('environmentTitle').textContent, 'Panel ambiental');
+  assert.equal(elements.get('temperatureDescription').hidden, false);
+  assert.equal(elements.get('lightDescription').hidden, false);
   assert.equal(elements.get('metricsGrid').hidden, false);
   assert.equal(elements.get('temperatureValue').textContent, '25.4 °C');
   assert.equal(elements.get('temperatureSource').textContent, 'Valor de referencia');
@@ -123,6 +126,9 @@ test('dashboard account switch and signout clear simulated values; offline demo 
   assert.equal(elements.get('demoNotice').hidden, true);
   assert.equal(elements.get('temperatureValue').textContent, '--');
   assert.equal(elements.get('temperatureSource').textContent, 'BME280');
+  assert.equal(elements.get('environmentTitle').textContent, 'Lecturas ambientales');
+  assert.equal(elements.get('temperatureDescription').hidden, true);
+  assert.equal(elements.get('lightDescription').hidden, true);
   run(`latestRecord = { created_at: '${now}', temperature: 19.3, air_humidity: 47, light_lux: 91 };
     deviceControl = { esp32_online: true, last_seen_at: '${now}', auto_mode: false }; renderDashboard();`);
   assert.equal(elements.get('temperatureValue').textContent, '19.3 °C');
