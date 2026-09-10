@@ -245,8 +245,10 @@ function renderDashboard() {
   $('metricsGrid').hidden = !hasTelemetry && !environment.simulated;
   $('demoNotice').hidden = true;
   $('environmentTitle').textContent = environment.simulated ? 'Panel ambiental' : 'Lecturas ambientales';
-  for (const id of ['temperatureDescription', 'airHumidityDescription', 'lightDescription']) {
-    $(id).hidden = !environment.simulated;
+  $('environmentHint').hidden = environment.simulated;
+  for (const id of ['temperatureDetails', 'airHumidityDetails', 'lightDetails']) {
+    $(id).hidden = environment.simulated;
+    if (environment.simulated) $(id).open = false;
   }
 
   $('temperatureValue').textContent = formatNumber(environment.temperature, '°C');
@@ -257,9 +259,7 @@ function renderDashboard() {
   for (const [id, sensor] of [
     ['temperatureSource', 'BME280'], ['airHumiditySource', 'BME280'], ['lightSource', 'BH1750'],
   ]) {
-    $(id).textContent = environment.simulated
-      ? id === 'lightSource' ? 'Estimación según LED' : 'Valor de referencia'
-      : sensor;
+    $(id).textContent = environment.simulated ? '' : sensor;
   }
   $('soilSource').textContent = 'Sensor capacitivo';
   $('waterSource').textContent = 'Sensor horizontal GPIO32';

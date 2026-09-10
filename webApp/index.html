@@ -15,7 +15,7 @@
   <title>EcoSphere</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=20260910-cima-details" />
+  <link rel="stylesheet" href="styles.css?v=20260910-cima-clean" />
   <script src="android-auth-return.js"></script>
 </head>
 <body>
@@ -197,7 +197,7 @@
 
         <header class="dashboard-section-heading">
           <h3 id="environmentTitle">Lecturas ambientales</h3>
-          <p>Toca una tarjeta para ver el origen del dato</p>
+          <p id="environmentHint">Abre el detalle de cada tarjeta para consultar su fuente</p>
         </header>
         <aside id="demoNotice" hidden></aside>
         <article id="emptyTelemetry" class="empty-telemetry" hidden>
@@ -205,11 +205,11 @@
           <p>Cuando el ESP32 vuelva a enviar datos, las lecturas aparecerán aquí automáticamente.</p>
         </article>
         <div id="metricsGrid" class="metrics">
-          <details class="metric-card"><summary><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_temperature.svg" alt="" aria-hidden="true" /><span>Temperatura</span></div><strong id="temperatureValue">--</strong><span class="metric-more">Ver detalle</span></summary><div class="metric-detail"><small id="temperatureSource">BME280</small><p id="temperatureDescription" hidden>Valor fijo de ejemplo: 25.4 °C. Esta cuenta no muestra una medición de temperatura del BME280 en esta tarjeta.</p></div></details>
-          <details class="metric-card"><summary><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_air_humidity.svg" alt="" aria-hidden="true" /><span>Humedad aire</span></div><strong id="airHumidityValue">--</strong><span class="metric-more">Ver detalle</span></summary><div class="metric-detail"><small id="airHumiditySource">BME280</small><p id="airHumidityDescription" hidden>Valor fijo de ejemplo: 62 %. Esta cuenta no muestra una medición de humedad del aire del BME280 en esta tarjeta.</p></div></details>
-          <details class="metric-card"><summary><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_soil_humidity.svg" alt="" aria-hidden="true" /><span>Humedad suelo</span></div><strong id="soilHumidityValue">--</strong><span class="metric-more">Ver detalle</span></summary><div class="metric-detail"><small id="soilSource">Sensor capacitivo</small></div></details>
-          <details class="metric-card"><summary><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_light.svg" alt="" aria-hidden="true" /><span>Iluminación</span></div><strong id="lightValue">--</strong><span class="metric-more">Ver detalle</span></summary><div class="metric-detail"><small id="lightSource">BH1750</small><p id="lightDescription" hidden>Cálculo orientativo del aporte del LED: 850 lux al 100 % de potencia reportada por el ESP32. No es una lectura del BH1750 ni una medición calibrada. Si falta telemetría actual, se muestra --.</p></div></details>
-          <details class="metric-card"><summary><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_water_level.svg" alt="" aria-hidden="true" /><span>Nivel de agua</span></div><strong id="waterValue">Sin registro</strong><span class="metric-more">Ver detalle</span></summary><div class="metric-detail"><small id="waterSource">Sensor horizontal GPIO32</small></div></details>
+          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_temperature.svg" alt="" aria-hidden="true" /><span>Temperatura</span></div><strong id="temperatureValue">--</strong><details id="temperatureDetails" class="metric-source"><summary><span class="metric-more">Ver detalle</span></summary><div class="metric-detail"><small id="temperatureSource">BME280</small></div></details></article>
+          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_air_humidity.svg" alt="" aria-hidden="true" /><span>Humedad aire</span></div><strong id="airHumidityValue">--</strong><details id="airHumidityDetails" class="metric-source"><summary><span class="metric-more">Ver detalle</span></summary><div class="metric-detail"><small id="airHumiditySource">BME280</small></div></details></article>
+          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_soil_humidity.svg" alt="" aria-hidden="true" /><span>Humedad suelo</span></div><strong id="soilHumidityValue">--</strong><details id="soilDetails" class="metric-source"><summary><span class="metric-more">Ver detalle</span></summary><div class="metric-detail"><small id="soilSource">Sensor capacitivo</small></div></details></article>
+          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_light.svg" alt="" aria-hidden="true" /><span>Iluminación</span></div><strong id="lightValue">--</strong><details id="lightDetails" class="metric-source"><summary><span class="metric-more">Ver detalle</span></summary><div class="metric-detail"><small id="lightSource">BH1750</small></div></details></article>
+          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_water_level.svg" alt="" aria-hidden="true" /><span>Nivel de agua</span></div><strong id="waterValue">Sin registro</strong><details id="waterDetails" class="metric-source"><summary><span class="metric-more">Ver detalle</span></summary><div class="metric-detail"><small id="waterSource">Sensor horizontal GPIO32</small></div></details></article>
         </div>
 
         <header class="dashboard-section-heading">
@@ -432,6 +432,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="app.js?v=20260910-cima-details"></script>
+  <script type="module" src="app.js?v=20260910-cima-clean"></script>
 </body>
 </html>

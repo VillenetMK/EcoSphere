@@ -54,13 +54,11 @@ h3{font-size:21px;margin:26px 0 12px}.status-panel{background:linear-gradient(13
 .hever-ai-frame{display:block;width:100%;height:calc(100dvh - 64px);min-height:680px;border:1px solid #294536;border-radius:22px;background:#06130e}
 @media(max-width:900px){.hever-ai-frame{height:calc(100dvh - 190px);min-height:900px}}
 
-/* Exhibition uses explicit text labels, not color alone. */
-.metric-card summary{display:grid;gap:16px;cursor:pointer;list-style:none;outline-offset:6px}
-.metric-card summary::-webkit-details-marker{display:none}
-.metric-card summary:focus-visible{outline:2px solid var(--green);border-radius:4px}
+/* Metric values remain visible independently of expandable source details. */
+.metric-card{gap:16px}
+.metric-source summary{cursor:pointer;list-style:none;outline-offset:4px;font-size:12px;color:var(--muted)}
+.metric-source summary::-webkit-details-marker{display:none}
+.metric-source summary:focus-visible{outline:2px solid var(--green);border-radius:4px}
 .metric-card .metric-more{font-size:12px;color:var(--muted)}
-.metric-card[open] .metric-more{display:none}
 .metric-detail{border-top:1px solid #2b3b30;padding-top:12px;margin-top:14px}
 .metric-detail small{color:var(--muted)}
-.metric-detail p{font-size:13px;line-height:1.5;color:var(--muted);margin:8px 0 0}
-details.metric-card{display:block}
