@@ -48,12 +48,12 @@ declare
 begin
   insert into auth.users(id,email,raw_app_meta_data,is_anonymous) values
     (allowed_id,'ai-permitted-'||allowed_id||'@example.invalid','{}',false),
-    (other_id,'ai-denied-'||other_id||'@example.invalid','{}',false);
+    (other_id,'ai-other-'||other_id||'@example.invalid','{}',false);
   insert into private.user_profiles(user_id,full_name,first_name,last_name,email,
     registration_method,status,role,username) values
     (allowed_id,'Prueba Permitida','Prueba','Permitida','ai-permitted-'||allowed_id||'@example.invalid',
       'google','approved','operator','test.ai.'||left(replace(allowed_id::text,'-',''),20)),
-    (other_id,'Prueba Restringida','Prueba','Restringida','ai-denied-'||other_id||'@example.invalid',
+    (other_id,'Prueba Adicional','Prueba','Adicional','ai-other-'||other_id||'@example.invalid',
       'google','approved','operator','test.ai.'||left(replace(other_id::text,'-',''),20));
   insert into auth.sessions(id,user_id,created_at,updated_at,aal,not_after) values
     (allowed_session,allowed_id,now(),now(),'aal1',now()+interval '1 hour'),
@@ -62,9 +62,8 @@ begin
   other_claims:=jsonb_build_object('sub',other_id,'role','authenticated','session_id',other_session,'aal','aal1','is_anonymous',false)::text;
   insert into ai_test_context values(allowed_claims);
   perform set_config('request.jwt.claims',allowed_claims,true);
-  perform pg_temp.ai_assert('approved account has no implicit AI access',not public.my_ai_access());
-  insert into private.ai_permissions(user_id,enabled) values(allowed_id,true);
-  perform pg_temp.ai_assert('explicit account permission permits active approved operator',public.my_ai_access());
+  perform pg_temp.ai_assert('approved operator can use AI without a private grant',public.my_ai_access());
+  perform pg_temp.ai_assert('AI access does not grant wet-soil manual watering',not (select allow_wet_soil_manual_watering from public.my_control_permissions()));
   perform pg_temp.ai_assert('first AI session can be reserved',public.reserve_ai_session());
   perform pg_temp.ai_rejected('immediate second session is rate limited','session','AI_SESSION_RATE_LIMIT');
   update private.ai_session_usage set recent_started_at=array(select now()-i*interval '1 minute' from generate_series(1,20) as i)
@@ -75,21 +74,23 @@ begin
   perform pg_temp.ai_assert('old session timestamps are discarded',(select cardinality(recent_started_at)=1 from private.ai_session_usage where user_id=allowed_id));
 
   perform set_config('request.jwt.claims',other_claims,true);
-  perform pg_temp.ai_assert('another approved operator cannot use AI',not public.my_ai_access());
-  perform pg_temp.ai_rejected('another operator cannot read AI snapshot','snapshot','AI_ACCESS_DENIED');
-  perform pg_temp.ai_rejected('another operator cannot reserve provider session','session','AI_ACCESS_DENIED');
+  perform pg_temp.ai_assert('another approved operator can use AI without provisioning',public.my_ai_access());
+  perform pg_temp.ai_assert('another operator can read sensor snapshot',public.ai_sensor_snapshot()->>'fuente'='api');
+  perform pg_temp.ai_assert('another operator has an independent session quota',public.reserve_ai_session());
+  perform pg_temp.ai_assert('other operator has no wet-soil watering override',not (select allow_wet_soil_manual_watering from public.my_control_permissions()));
+  perform pg_temp.ai_rejected('other operator is independently rate limited','session','AI_SESSION_RATE_LIMIT');
   perform set_config('request.jwt.claims',allowed_claims,true);
   update private.user_profiles set status='blocked' where user_id=allowed_id;
-  perform pg_temp.ai_assert('blocked account permission is ineffective',not public.my_ai_access());
+  perform pg_temp.ai_assert('blocked account cannot use AI',not public.my_ai_access());
   perform pg_temp.ai_rejected('blocked account snapshot denied','snapshot','AI_ACCESS_DENIED');
   update private.user_profiles set status='pending' where user_id=allowed_id;
-  perform pg_temp.ai_assert('pending account permission is ineffective',not public.my_ai_access());
+  perform pg_temp.ai_assert('pending account cannot use AI',not public.my_ai_access());
   update private.user_profiles set status='approved',role='admin' where user_id=allowed_id;
   perform pg_temp.ai_assert('admin still needs verified MFA',not public.my_ai_access());
   perform set_config('request.jwt.claims',(allowed_claims::jsonb||'{"aal":"aal2"}')::text,true);
   perform pg_temp.ai_assert('claim alone cannot forge verified MFA session',not public.my_ai_access());
   update auth.sessions set aal='aal2' where id=allowed_session;
-  perform pg_temp.ai_assert('explicitly permitted verified admin can use AI',public.my_ai_access());
+  perform pg_temp.ai_assert('verified admin can use AI without a private grant',public.my_ai_access());
   update private.user_profiles set role='operator' where user_id=allowed_id;
   update auth.sessions set aal='aal1' where id=allowed_session;
   perform set_config('request.jwt.claims',(allowed_claims::jsonb||'{"is_anonymous":true}')::text,true);
@@ -104,9 +105,16 @@ begin
   perform set_config('request.jwt.claims',(allowed_claims::jsonb||jsonb_build_object('session_id',gen_random_uuid()))::text,true);
   perform pg_temp.ai_assert('revoked or invented session cannot use permission',not public.my_ai_access());
   perform set_config('request.jwt.claims',allowed_claims,true);
-  update private.ai_permissions set enabled=false where user_id=allowed_id;
-  perform pg_temp.ai_rejected('permission revocation is immediate','snapshot','AI_ACCESS_DENIED');
-  update private.ai_permissions set enabled=true where user_id=allowed_id;
+  insert into private.ai_permissions(user_id,enabled) values(allowed_id,false);
+  perform pg_temp.ai_assert('legacy allowlist cannot exclude an approved account',public.my_ai_access());
+  update auth.users set deleted_at=now() where id=allowed_id;
+  perform pg_temp.ai_assert('deleted identity cannot use AI',not public.my_ai_access());
+  perform pg_temp.ai_rejected('deleted account cannot reserve provider session','session','AI_ACCESS_DENIED');
+  update auth.users set deleted_at=null where id=allowed_id;
+  update private.user_profiles set status='blocked' where user_id=allowed_id;
+  perform pg_temp.ai_rejected('account blocking revokes snapshot access immediately','snapshot','AI_ACCESS_DENIED');
+  perform pg_temp.ai_rejected('account blocking revokes new provider sessions','session','AI_ACCESS_DENIED');
+  update private.user_profiles set status='approved' where user_id=allowed_id;
 
   select active_controller_id into strict active_id from public.device_control where id=1 for update;
   if active_id is null then raise exception 'TEST FIXTURE: requires an active controller'; end if;

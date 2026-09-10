@@ -31,13 +31,24 @@ test('disallowed origin is rejected before auth', async () => {
   const h = harness([]);
   assert.equal((await h.request('token', { origin: 'https://evil.example' })).status, 403);
 });
-test('another signed-in account cannot mint token or read data', async () => {
+test('ineligible signed-in account cannot mint token or read data', async () => {
   for (const action of ['token', 'data', 'access']) {
     const h = harness([{ body: false }]);
     assert.equal((await h.request(action)).status, 403);
     assert.equal(h.calls.length, 1);
     assert.ok(h.calls[0].url.endsWith('/my_ai_access'));
     assert.equal(h.calls[0].options.headers.Authorization, 'Bearer user-jwt');
+  }
+});
+test('eligible accounts can open the assistant using their own sessions', async () => {
+  for (const jwt of ['operator-one-jwt', 'operator-two-jwt', 'admin-mfa-jwt']) {
+    const h = harness([{ body: true }]);
+    const response = await h.request('access', { authorization: `Bearer ${jwt}` });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { allowed: true });
+    assert.equal(h.calls.length, 1);
+    assert.equal(h.calls[0].options.headers.Authorization, `Bearer ${jwt}`);
+    assert.equal(h.calls[0].options.body, '{}');
   }
 });
 test('invalid JWT stays unauthorized', async () => {

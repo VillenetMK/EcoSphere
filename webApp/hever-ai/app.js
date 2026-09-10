@@ -194,4 +194,4 @@ animate();
 refreshPanel();
 const pollTimer = setInterval(refreshPanel, 15000);
 const freshnessTimer = setInterval(() => { if (alive) panel.updateFreshness(); }, 1000);
-if (parent === window) { $('btn-voz').disabled = true; notice('Abre este asistente desde tu cuenta de Hever en EcoSphere.'); }
+if (parent === window) { $('btn-voz').disabled = true; notice('Abre este asistente desde tu cuenta en EcoSphere.'); }
