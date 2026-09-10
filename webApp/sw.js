@@ -4,7 +4,7 @@
  * Todos los derechos reservados. Uso sujeto al archivo LICENSE.
  */
 
-const CACHE = 'ecosphere-web-v1.6.10-hever-exhibition';
+const CACHE = 'ecosphere-web-v1.6.10-hever-led-reference';
 const ASSETS = [
   './',
   './index.html',

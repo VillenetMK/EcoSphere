@@ -88,6 +88,7 @@ fun InteractiveDashboardScreen(
     val control = uiState.deviceControl
     val online = control?.isOnlineNow() == true
     val currentRecord = ControlPolicy.currentTelemetry(record, control)
+    val ambientReadings = ExhibitionAmbient.withCurrentTelemetry(exhibitionAmbient, record, control)
     val telemetryCurrent = currentRecord != null
     var detail by remember { mutableStateOf<DashboardDetail?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -163,9 +164,9 @@ fun InteractiveDashboardScreen(
                     temperature = exhibitionAmbient?.temperature ?: currentRecord?.temperature,
                     airHumidity = exhibitionAmbient?.airHumidity ?: currentRecord?.airHumidity,
                     soilHumidity = currentRecord?.soilHumidity,
-                    lightLux = exhibitionAmbient?.lightLux ?: currentRecord?.lightLux,
+                    lightLux = if (ambientReadings != null) ambientReadings.lightLux else currentRecord?.lightLux,
                     waterLevel = currentRecord?.waterLevel,
-                    simulatedAmbient = exhibitionAmbient != null,
+                    referenceAmbient = exhibitionAmbient != null,
                     onOpen = { detail = it }
                 )
             }
@@ -420,19 +421,19 @@ private fun SensorGrid(
     soilHumidity: Double?,
     lightLux: Double?,
     waterLevel: String?,
-    simulatedAmbient: Boolean,
+    referenceAmbient: Boolean,
     onOpen: (DashboardDetail) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SensorCard(
                 Modifier.weight(1f), DashboardControlIcons.Temperature, "Temperatura",
-                temperature?.let { "${formatNumber(it)} °C" } ?: "--", if (simulatedAmbient) "SIMULADO · demostración" else "BME280",
+                temperature?.let { "${formatNumber(it)} °C" } ?: "--", if (referenceAmbient) ExhibitionAmbient.AMBIENT_LABEL else "BME280",
                 temperature?.let { (it / 50.0).toFloat() }
             ) { onOpen(DashboardDetail.TEMPERATURE) }
             SensorCard(
                 Modifier.weight(1f), DashboardControlIcons.AirHumidity, "Humedad aire",
-                airHumidity?.let { "${formatNumber(it)} %" } ?: "--", if (simulatedAmbient) "SIMULADO · demostración" else "BME280",
+                airHumidity?.let { "${formatNumber(it)} %" } ?: "--", if (referenceAmbient) ExhibitionAmbient.AMBIENT_LABEL else "BME280",
                 airHumidity?.let { (it / 100.0).toFloat() }
             ) { onOpen(DashboardDetail.AIR_HUMIDITY) }
         }
@@ -445,7 +446,7 @@ private fun SensorGrid(
             ) { onOpen(DashboardDetail.SOIL_HUMIDITY) }
             SensorCard(
                 Modifier.weight(1f), DashboardControlIcons.Light, "Iluminación",
-                lightLux?.let { "${formatNumber(it)} lx" } ?: "--", if (simulatedAmbient) "SIMULADO · demostración" else "BH1750",
+                lightLux?.let { "${formatNumber(it)} lx" } ?: "--", if (referenceAmbient) ExhibitionAmbient.LIGHT_LABEL else "BH1750",
                 lightLux?.let { (it / 20000.0).toFloat() }
             ) { onOpen(DashboardDetail.LIGHT) }
         }
@@ -695,6 +696,7 @@ private fun DashboardDetailDialog(
     val control = uiState.deviceControl
     val online = control?.isOnlineNow() == true
     val currentRecord = ControlPolicy.currentTelemetry(record, control)
+    val ambientReadings = ExhibitionAmbient.withCurrentTelemetry(exhibitionAmbient, record, control)
     val telemetryCurrent = currentRecord != null
     val autoMode = control?.autoMode == true
     var fanPower by remember(detail, control?.fanPower) { mutableFloatStateOf((control?.fanPower ?: 0).toFloat()) }
@@ -763,7 +765,7 @@ private fun DashboardDetailDialog(
                     }
                     DashboardDetail.TEMPERATURE -> {
                         DetailPair("Valor", (exhibitionAmbient?.temperature ?: currentRecord?.temperature)?.let { "${formatNumber(it)} °C" } ?: "Sin lectura")
-                        DetailPair("Origen", if (exhibitionAmbient != null) "SIMULADO · demostración" else "BME280")
+                        DetailPair("Origen", if (exhibitionAmbient != null) ExhibitionAmbient.AMBIENT_LABEL else "BME280")
                         if (exhibitionAmbient != null) {
                             Text("Ejemplo visual; no es una lectura del sensor.")
                         } else {
@@ -772,7 +774,7 @@ private fun DashboardDetailDialog(
                     }
                     DashboardDetail.AIR_HUMIDITY -> {
                         DetailPair("Valor", (exhibitionAmbient?.airHumidity ?: currentRecord?.airHumidity)?.let { "${formatNumber(it)} %" } ?: "Sin lectura")
-                        DetailPair("Origen", if (exhibitionAmbient != null) "SIMULADO · demostración" else "BME280")
+                        DetailPair("Origen", if (exhibitionAmbient != null) ExhibitionAmbient.AMBIENT_LABEL else "BME280")
                         if (exhibitionAmbient != null) {
                             Text("Ejemplo visual; no es una lectura del sensor.")
                         } else {
@@ -785,10 +787,10 @@ private fun DashboardDetailDialog(
                         DetailPair("Referencia", "35–<60 % aceptable")
                     }
                     DashboardDetail.LIGHT -> {
-                        DetailPair("Valor", (exhibitionAmbient?.lightLux ?: currentRecord?.lightLux)?.let { "${formatNumber(it)} lx" } ?: "Sin lectura")
-                        DetailPair("Origen", if (exhibitionAmbient != null) "SIMULADO · demostración" else "BH1750")
+                        DetailPair("Valor", (if (ambientReadings != null) ambientReadings.lightLux else currentRecord?.lightLux)?.let { "${formatNumber(it)} lx" } ?: "Sin lectura")
+                        DetailPair("Origen", if (exhibitionAmbient != null) ExhibitionAmbient.LIGHT_LABEL else "BH1750")
                         if (exhibitionAmbient != null) {
-                            Text("Ejemplo visual; no es una lectura del sensor.")
+                            Text("Referencia de 850 lx al 100 % de salida LED reportada por el ESP32. No es una medición del BH1750; sin telemetría actual se muestra --.")
                         } else {
                             DetailPair("Última lectura", prettyTimestamp(record?.createdAt))
                         }

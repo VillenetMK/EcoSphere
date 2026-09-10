@@ -576,6 +576,7 @@ private fun Dashboard(
 ) {
     val scroll = rememberScrollState()
     val currentRecord = ControlPolicy.currentTelemetry(record, control)
+    val ambientReadings = ExhibitionAmbient.withCurrentTelemetry(exhibitionAmbient, record, control)
     val telemetryCurrent = currentRecord != null
     Column(
         Modifier.fillMaxSize().verticalScroll(scroll).padding(28.dp),
@@ -608,12 +609,12 @@ private fun Dashboard(
         }
         if (record != null || exhibitionAmbient != null) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                MetricCard("Temperatura", format(exhibitionAmbient?.temperature ?: currentRecord?.temperature, "°C"), if (exhibitionAmbient != null) "SIMULADO · demostración" else "BME280", Modifier.weight(1f))
-                MetricCard("Humedad aire", format(exhibitionAmbient?.airHumidity ?: currentRecord?.airHumidity, "%"), if (exhibitionAmbient != null) "SIMULADO · demostración" else "BME280", Modifier.weight(1f))
+                MetricCard("Temperatura", format(exhibitionAmbient?.temperature ?: currentRecord?.temperature, "°C"), if (exhibitionAmbient != null) ExhibitionAmbient.AMBIENT_LABEL else "BME280", Modifier.weight(1f))
+                MetricCard("Humedad aire", format(exhibitionAmbient?.airHumidity ?: currentRecord?.airHumidity, "%"), if (exhibitionAmbient != null) ExhibitionAmbient.AMBIENT_LABEL else "BME280", Modifier.weight(1f))
                 MetricCard("Humedad suelo", format(currentRecord?.soilHumidity, "%"), "Sensor capacitivo", Modifier.weight(1f))
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                MetricCard("Iluminación", format(exhibitionAmbient?.lightLux ?: currentRecord?.lightLux, "lux"), if (exhibitionAmbient != null) "SIMULADO · demostración" else "BH1750", Modifier.weight(1f))
+                MetricCard("Iluminación", format(if (ambientReadings != null) ambientReadings.lightLux else currentRecord?.lightLux, "lux"), if (exhibitionAmbient != null) ExhibitionAmbient.LIGHT_LABEL else "BH1750", Modifier.weight(1f))
                 MetricCard("Nivel de agua", currentRecord?.let { waterLabel(it.waterLevel) } ?: "--", "Sensor horizontal GPIO32", Modifier.weight(1f))
                 Spacer(Modifier.weight(1f))
             }

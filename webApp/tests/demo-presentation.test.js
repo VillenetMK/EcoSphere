@@ -8,7 +8,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
-import { environmentPresentation } from '../demo-presentation.js';
+import { environmentPresentation, estimateLedLux } from '../demo-presentation.js';
 import {
   actuatorPwmLabel, actuatorSwitchLabel, isDeviceOnline, isTelemetryCurrent,
   manualIrrigationDecision, normalizeControlPermissions, waterLevelLabel,
@@ -16,6 +16,21 @@ import {
 
 const heverId = '367e842b-fd47-4c38-a3fc-c54c47732a9e';
 const approved = { status: 'approved', role: 'operator', username: 'Hever' };
+
+test('LED reference follows confirmed output, with no inferred value for invalid reports', () => {
+  for (const [power, lux] of [[0, 0], [25, 212.5], [50, 425], [100, 850]]) {
+    assert.equal(estimateLedLux({ led_on: power > 0, led_power: power }), lux);
+  }
+  for (const report of [null, {}, { led_on: true }, { led_power: 50 },
+    { led_on: true, led_power: 0 }, { led_on: false, led_power: 50 },
+    ...[null, '', '50', -1, 101, NaN, Infinity].map(led_power => ({ led_on: true, led_power }))]) {
+    assert.equal(estimateLedLux(report), null);
+  }
+  const raw = Object.freeze({ led_on: true, led_power: 50, light_lux: 73 });
+  assert.equal(environmentPresentation(raw, { userId: heverId, profile: approved }).light_lux, 425);
+  assert.equal(environmentPresentation(raw, { userId: 'gabriel', profile: approved }).light_lux, 73);
+  assert.equal(raw.light_lux, 73);
+});
 
 test('demo requires the exact approved operator session UUID, not a display name or permission', () => {
   const record = Object.freeze({ temperature: null, air_humidity: 35, light_lux: 12 });
@@ -83,7 +98,9 @@ test('dashboard account switch and signout clear simulated values; offline demo 
   assert.equal(elements.get('demoNotice').hidden, false);
   assert.equal(elements.get('metricsGrid').hidden, false);
   assert.equal(elements.get('temperatureValue').textContent, '25.4 °C');
-  assert.match(elements.get('temperatureSource').textContent, /SIMULADO/);
+  assert.equal(elements.get('temperatureSource').textContent, 'Valor de referencia');
+  assert.equal(elements.get('lightSource').textContent, 'Estimación según LED');
+  assert.equal(elements.get('lightValue').textContent, '--');
   assert.equal(elements.get('soilHumidityValue').textContent, '--');
   assert.equal(elements.get('waterValue').textContent, '--');
   assert.equal(elements.get('systemStatus').textContent, 'Sistema sin conexión');
@@ -113,4 +130,26 @@ test('dashboard account switch and signout clear simulated values; offline demo 
   assert.equal(elements.get('demoNotice').hidden, true);
   assert.equal(elements.get('temperatureValue').textContent, '--');
   assert.equal(elements.get('temperatureSource').textContent, 'BME280');
+});
+
+test('dashboard waits for LED telemetry; desired power never drives the reference', () => {
+  const { elements, run } = dashboardHarness();
+  run(`startApplication({ session: { user: { id: '${heverId}' } }, profile: ${JSON.stringify(approved)} });`);
+  const now = new Date().toISOString();
+  run(`latestRecord = { created_at: '${now}', led_on: true, led_power: 100, light_lux: 99 };
+    deviceControl = { esp32_online: true, last_seen_at: '${now}', auto_mode: false, led_power: 100 };
+    renderDashboard();`);
+  assert.equal(elements.get('lightValue').textContent, '850.0 lux');
+  run('deviceControl.led_power = 25; renderDashboard();');
+  assert.equal(elements.get('lightValue').textContent, '850.0 lux');
+  run('latestRecord.led_power = 25; renderDashboard();');
+  assert.equal(elements.get('lightValue').textContent, '212.5 lux');
+  run('latestRecord.led_on = false; latestRecord.led_power = 0; renderDashboard();');
+  assert.equal(elements.get('lightValue').textContent, '0.0 lux');
+  run('latestRecord.led_power = null; renderDashboard();');
+  assert.equal(elements.get('lightValue').textContent, '--');
+  run('latestRecord.led_on = true; latestRecord.led_power = 50; deviceControl.esp32_online = false; renderDashboard();');
+  assert.equal(elements.get('lightValue').textContent, '--');
+  run(`deviceControl.esp32_online = true; latestRecord.created_at = '2000-01-01T00:00:00Z'; renderDashboard();`);
+  assert.equal(elements.get('lightValue').textContent, '--');
 });

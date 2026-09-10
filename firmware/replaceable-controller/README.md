@@ -119,8 +119,14 @@ datos y órdenes de prueba, por lo que no activa el hardware.
 ### Demostración temporal Eureka
 
 La cuenta aprobada de Hever dispone de una vista ambiental de demostración,
-identificada como **SIMULADO**: temperatura 25,4 °C, humedad del aire 62 % y luz
-850 lux. La selección usa su identificador de sesión, no el nombre visible.
+identificada como **Valores de referencia**: temperatura 25,4 °C y humedad del
+aire 62 %. La iluminación muestra **Estimación según LED**, proporcional a la
+potencia reportada por el ESP32, con una referencia no calibrada de 850 lux al
+100 % (425 lux al 50 %, 0 lux al 0 %). Estima sólo el aporte del LED, no la luz
+ambiental ni una lectura del BH1750. Sin telemetría vigente o con un reporte
+de potencia inválido/incoherente muestra `--`. Espera la confirmación del ESP32;
+mover el deslizador por sí solo no cambia la estimación.
+La selección usa su identificador de sesión, no el nombre visible.
 Gabriel y las demás cuentas siguen viendo las lecturas reales. Los ejemplos
 no se escriben en `sensor_records`, no entran en el historial ni en la IA y
 no intervienen en las decisiones de riego.

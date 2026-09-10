@@ -253,7 +253,9 @@ function renderDashboard() {
   for (const [id, sensor] of [
     ['temperatureSource', 'BME280'], ['airHumiditySource', 'BME280'], ['lightSource', 'BH1750'],
   ]) {
-    $(id).textContent = environment.simulated ? 'SIMULADO · demostración' : sensor;
+    $(id).textContent = environment.simulated
+      ? id === 'lightSource' ? 'Estimación según LED' : 'Valor de referencia'
+      : sensor;
     $(id).classList.toggle('simulated-source', environment.simulated);
   }
   $('soilSource').textContent = environment.simulated
