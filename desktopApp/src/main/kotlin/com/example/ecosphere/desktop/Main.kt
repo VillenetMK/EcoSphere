@@ -21,6 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import com.example.ecosphere.shared.ExhibitionAmbient
+import com.example.ecosphere.shared.ExhibitionAmbientReadings
+import io.github.jan.supabase.auth.auth
 import com.example.ecosphere.shared.ClientErrorMessages
 import com.example.ecosphere.shared.ControlPolicy
 import com.example.ecosphere.shared.ControllerAdminStatus
@@ -232,6 +235,11 @@ fun main() = application {
             if (authState.page == DesktopAuthPage.APP) {
                 EcoSphereDesktopApp(
                     accessToken = authController::accessToken,
+                    exhibitionAmbient = ExhibitionAmbient.forViewer(
+                        DesktopSupabase.client.auth.currentSessionOrNull()?.user?.id,
+                        authState.profile?.status,
+                        authState.profile?.role
+                    ),
                     profileName = authState.profile?.fullName.orEmpty(),
                     profileRole = authState.profile?.role.orEmpty(),
                     onSignOut = { authScope.launch { authController.signOut() } }
@@ -274,6 +282,7 @@ fun main() = application {
 @Composable
 private fun EcoSphereDesktopApp(
     accessToken: () -> String?,
+    exhibitionAmbient: ExhibitionAmbientReadings?,
     profileName: String,
     profileRole: String,
     onSignOut: () -> Unit
@@ -390,6 +399,7 @@ private fun EcoSphereDesktopApp(
                 when (destination) {
                     Destination.DASHBOARD -> Dashboard(
                         record = record,
+                        exhibitionAmbient = exhibitionAmbient,
                         control = control,
                         loading = loading,
                         actionBusy = actionBusy,
@@ -553,6 +563,7 @@ private fun NavigationPane(
 @Composable
 private fun Dashboard(
     record: SensorRecord?,
+    exhibitionAmbient: ExhibitionAmbientReadings?,
     control: DeviceControl?,
     loading: Boolean,
     actionBusy: Boolean,
@@ -589,16 +600,20 @@ private fun Dashboard(
         )
 
         DashboardSectionTitle("Lecturas ambientales", "Toca cualquier tarjeta para abrir el detalle")
+        if (exhibitionAmbient != null) {
+            Text(ExhibitionAmbient.NOTICE, color = EcoGreen, fontWeight = FontWeight.SemiBold)
+        }
         if (record == null) {
             EmptyTelemetryCard()
-        } else {
+        }
+        if (record != null || exhibitionAmbient != null) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                MetricCard("Temperatura", format(currentRecord?.temperature, "°C"), "BME280", Modifier.weight(1f))
-                MetricCard("Humedad aire", format(currentRecord?.airHumidity, "%"), "BME280", Modifier.weight(1f))
+                MetricCard("Temperatura", format(exhibitionAmbient?.temperature ?: currentRecord?.temperature, "°C"), if (exhibitionAmbient != null) "SIMULADO · demostración" else "BME280", Modifier.weight(1f))
+                MetricCard("Humedad aire", format(exhibitionAmbient?.airHumidity ?: currentRecord?.airHumidity, "%"), if (exhibitionAmbient != null) "SIMULADO · demostración" else "BME280", Modifier.weight(1f))
                 MetricCard("Humedad suelo", format(currentRecord?.soilHumidity, "%"), "Sensor capacitivo", Modifier.weight(1f))
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                MetricCard("Iluminación", format(currentRecord?.lightLux, "lux"), "BH1750", Modifier.weight(1f))
+                MetricCard("Iluminación", format(exhibitionAmbient?.lightLux ?: currentRecord?.lightLux, "lux"), if (exhibitionAmbient != null) "SIMULADO · demostración" else "BH1750", Modifier.weight(1f))
                 MetricCard("Nivel de agua", currentRecord?.let { waterLabel(it.waterLevel) } ?: "--", "Sensor horizontal GPIO32", Modifier.weight(1f))
                 Spacer(Modifier.weight(1f))
             }

@@ -51,6 +51,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.ecosphere.shared.ExhibitionAmbient
+import com.example.ecosphere.shared.ExhibitionAmbientReadings
 import com.example.ecosphere.shared.ControlPolicy
 import com.example.ecosphere.ui.icons.DashboardControlIcons
 import com.example.ecosphere.ui.icons.EcoSphereIcons
@@ -75,6 +77,7 @@ private enum class DashboardDetail {
 @Composable
 fun InteractiveDashboardScreen(
     uiState: EcoSphereUiState,
+    exhibitionAmbient: ExhibitionAmbientReadings? = null,
     onRefresh: () -> Unit,
     onAutoModeChange: (Boolean) -> Unit,
     onFanPowerChange: (Int) -> Unit,
@@ -149,15 +152,20 @@ fun InteractiveDashboardScreen(
 
             SectionTitle("Lecturas ambientales", "Toca cualquier tarjeta para abrir el detalle")
 
+            if (exhibitionAmbient != null) {
+                MessageCard(ExhibitionAmbient.NOTICE, false)
+            }
             if (record == null) {
                 EmptyTelemetryCard()
-            } else {
+            }
+            if (record != null || exhibitionAmbient != null) {
                 SensorGrid(
-                    temperature = currentRecord?.temperature,
-                    airHumidity = currentRecord?.airHumidity,
+                    temperature = exhibitionAmbient?.temperature ?: currentRecord?.temperature,
+                    airHumidity = exhibitionAmbient?.airHumidity ?: currentRecord?.airHumidity,
                     soilHumidity = currentRecord?.soilHumidity,
-                    lightLux = currentRecord?.lightLux,
+                    lightLux = exhibitionAmbient?.lightLux ?: currentRecord?.lightLux,
                     waterLevel = currentRecord?.waterLevel,
+                    simulatedAmbient = exhibitionAmbient != null,
                     onOpen = { detail = it }
                 )
             }
@@ -200,6 +208,7 @@ fun InteractiveDashboardScreen(
         DashboardDetailDialog(
             detail = selected,
             uiState = uiState,
+            exhibitionAmbient = exhibitionAmbient,
             onDismiss = { detail = null },
             onAutoModeChange = {
                 onAutoModeChange(it)
@@ -411,18 +420,19 @@ private fun SensorGrid(
     soilHumidity: Double?,
     lightLux: Double?,
     waterLevel: String?,
+    simulatedAmbient: Boolean,
     onOpen: (DashboardDetail) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SensorCard(
                 Modifier.weight(1f), DashboardControlIcons.Temperature, "Temperatura",
-                temperature?.let { "${formatNumber(it)} °C" } ?: "--", "BME280",
+                temperature?.let { "${formatNumber(it)} °C" } ?: "--", if (simulatedAmbient) "SIMULADO · demostración" else "BME280",
                 temperature?.let { (it / 50.0).toFloat() }
             ) { onOpen(DashboardDetail.TEMPERATURE) }
             SensorCard(
                 Modifier.weight(1f), DashboardControlIcons.AirHumidity, "Humedad aire",
-                airHumidity?.let { "${formatNumber(it)} %" } ?: "--", "BME280",
+                airHumidity?.let { "${formatNumber(it)} %" } ?: "--", if (simulatedAmbient) "SIMULADO · demostración" else "BME280",
                 airHumidity?.let { (it / 100.0).toFloat() }
             ) { onOpen(DashboardDetail.AIR_HUMIDITY) }
         }
@@ -435,7 +445,7 @@ private fun SensorGrid(
             ) { onOpen(DashboardDetail.SOIL_HUMIDITY) }
             SensorCard(
                 Modifier.weight(1f), DashboardControlIcons.Light, "Iluminación",
-                lightLux?.let { "${formatNumber(it)} lx" } ?: "--", "BH1750",
+                lightLux?.let { "${formatNumber(it)} lx" } ?: "--", if (simulatedAmbient) "SIMULADO · demostración" else "BH1750",
                 lightLux?.let { (it / 20000.0).toFloat() }
             ) { onOpen(DashboardDetail.LIGHT) }
         }
@@ -674,6 +684,7 @@ private fun PowerSlider(
 private fun DashboardDetailDialog(
     detail: DashboardDetail,
     uiState: EcoSphereUiState,
+    exhibitionAmbient: ExhibitionAmbientReadings? = null,
     onDismiss: () -> Unit,
     onAutoModeChange: (Boolean) -> Unit,
     onFanPowerChange: (Int) -> Unit,
@@ -751,14 +762,22 @@ private fun DashboardDetailDialog(
                         )
                     }
                     DashboardDetail.TEMPERATURE -> {
-                        DetailPair("Valor", currentRecord?.temperature?.let { "${formatNumber(it)} °C" } ?: "Sin lectura")
-                        DetailPair("Sensor", "BME280")
-                        DetailPair("Última lectura", prettyTimestamp(record?.createdAt))
+                        DetailPair("Valor", (exhibitionAmbient?.temperature ?: currentRecord?.temperature)?.let { "${formatNumber(it)} °C" } ?: "Sin lectura")
+                        DetailPair("Origen", if (exhibitionAmbient != null) "SIMULADO · demostración" else "BME280")
+                        if (exhibitionAmbient != null) {
+                            Text("Ejemplo visual; no es una lectura del sensor.")
+                        } else {
+                            DetailPair("Última lectura", prettyTimestamp(record?.createdAt))
+                        }
                     }
                     DashboardDetail.AIR_HUMIDITY -> {
-                        DetailPair("Valor", currentRecord?.airHumidity?.let { "${formatNumber(it)} %" } ?: "Sin lectura")
-                        DetailPair("Sensor", "BME280")
-                        DetailPair("Última lectura", prettyTimestamp(record?.createdAt))
+                        DetailPair("Valor", (exhibitionAmbient?.airHumidity ?: currentRecord?.airHumidity)?.let { "${formatNumber(it)} %" } ?: "Sin lectura")
+                        DetailPair("Origen", if (exhibitionAmbient != null) "SIMULADO · demostración" else "BME280")
+                        if (exhibitionAmbient != null) {
+                            Text("Ejemplo visual; no es una lectura del sensor.")
+                        } else {
+                            DetailPair("Última lectura", prettyTimestamp(record?.createdAt))
+                        }
                     }
                     DashboardDetail.SOIL_HUMIDITY -> {
                         DetailPair("Valor", currentRecord?.soilHumidity?.let { "${formatNumber(it)} %" } ?: "Sin lectura")
@@ -766,9 +785,13 @@ private fun DashboardDetailDialog(
                         DetailPair("Referencia", "35–<60 % aceptable")
                     }
                     DashboardDetail.LIGHT -> {
-                        DetailPair("Valor", currentRecord?.lightLux?.let { "${formatNumber(it)} lx" } ?: "Sin lectura")
-                        DetailPair("Sensor", "BH1750")
-                        DetailPair("Última lectura", prettyTimestamp(record?.createdAt))
+                        DetailPair("Valor", (exhibitionAmbient?.lightLux ?: currentRecord?.lightLux)?.let { "${formatNumber(it)} lx" } ?: "Sin lectura")
+                        DetailPair("Origen", if (exhibitionAmbient != null) "SIMULADO · demostración" else "BH1750")
+                        if (exhibitionAmbient != null) {
+                            Text("Ejemplo visual; no es una lectura del sensor.")
+                        } else {
+                            DetailPair("Última lectura", prettyTimestamp(record?.createdAt))
+                        }
                     }
                     DashboardDetail.WATER_LEVEL -> {
                         DetailPair("Nivel", waterLevelDisplay(currentRecord?.waterLevel))

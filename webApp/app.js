@@ -28,6 +28,7 @@ import { authErrorMessage, initializeAuth } from './auth.js';
 import { clientErrorMessage, readJsonResponse } from './api-response.js';
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from './supabase-client.js';
 import { createHeverAssistant } from './hever-ai.js';
+import { environmentPresentation } from './demo-presentation.js';
 
 let latestRecord = null;
 let deviceControl = null;
@@ -42,6 +43,7 @@ let historyPageSize = HISTORY_CONFIG.defaultPageSize;
 let historyMetric = 'soil_humidity';
 let refreshTimer = null;
 let currentProfile = null;
+let currentUserId = null;
 let controllerStatus = null;
 let currentControlPermissions = normalizeControlPermissions(null);
 let applicationGeneration = 0;
@@ -227,6 +229,9 @@ function renderDashboard() {
   const online = onlineNow(deviceControl);
   const telemetryCurrent = isTelemetryCurrent(latestRecord, deviceControl);
   const currentRecord = telemetryCurrent ? latestRecord : null;
+  const environment = environmentPresentation(currentRecord, {
+    userId: currentUserId, profile: currentProfile,
+  });
   const auto = !!deviceControl?.auto_mode;
   $('systemStatus').textContent = online ? 'Sistema conectado' : 'Sistema sin conexión';
   $('modeValue').textContent = !deviceControl ? 'Sin confirmar' : auto ? 'Automático' : 'Manual';
@@ -237,13 +242,26 @@ function renderDashboard() {
 
   const hasTelemetry = latestRecord !== null;
   $('emptyTelemetry').hidden = hasTelemetry;
-  $('metricsGrid').hidden = !hasTelemetry;
+  $('metricsGrid').hidden = !hasTelemetry && !environment.simulated;
+  $('demoNotice').hidden = !environment.simulated;
 
-  $('temperatureValue').textContent = formatNumber(currentRecord?.temperature, '°C');
-  $('airHumidityValue').textContent = formatNumber(currentRecord?.air_humidity, '%');
+  $('temperatureValue').textContent = formatNumber(environment.temperature, '°C');
+  $('airHumidityValue').textContent = formatNumber(environment.air_humidity, '%');
   $('soilHumidityValue').textContent = formatNumber(currentRecord?.soil_humidity, '%');
-  $('lightValue').textContent = formatNumber(currentRecord?.light_lux, 'lux');
+  $('lightValue').textContent = formatNumber(environment.light_lux, 'lux');
   $('waterValue').textContent = currentRecord ? waterLevelLabel(currentRecord?.water_level) : '--';
+  for (const [id, sensor] of [
+    ['temperatureSource', 'BME280'], ['airHumiditySource', 'BME280'], ['lightSource', 'BH1750'],
+  ]) {
+    $(id).textContent = environment.simulated ? 'SIMULADO · demostración' : sensor;
+    $(id).classList.toggle('simulated-source', environment.simulated);
+  }
+  $('soilSource').textContent = environment.simulated
+    ? telemetryCurrent ? 'REAL · sensor capacitivo' : 'REAL · sin telemetría actual'
+    : 'Sensor capacitivo';
+  $('waterSource').textContent = environment.simulated
+    ? telemetryCurrent ? 'REAL · sensor horizontal GPIO32' : 'REAL · sin telemetría actual'
+    : 'Sensor horizontal GPIO32';
 
   const reportedMode = telemetryCurrent ? latestRecord?.auto_mode : null;
   $('fanState').textContent = telemetryCurrent
@@ -749,10 +767,19 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-function startApplication({ profile }) {
+function startApplication({ session, profile }) {
   applicationGeneration += 1;
   currentControlPermissions = normalizeControlPermissions(null);
+  const userId = session?.user?.id ?? null;
+  if (currentUserId !== userId) {
+    latestRecord = null;
+    deviceControl = null;
+    historyRecords = [];
+    controllerStatus = null;
+  }
+  currentUserId = userId;
   currentProfile = profile;
+  renderDashboard();
   if (activeScreen === 'hever-ai') returnToDashboard();
   heverAssistant.checkAccess();
   $('authGate').hidden = true;
@@ -781,6 +808,8 @@ function stopApplication() {
   historyRecords = [];
   controllerStatus = null;
   currentProfile = null;
+  currentUserId = null;
+  renderDashboard();
 }
 
 initializeAuth({

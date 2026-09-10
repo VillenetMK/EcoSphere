@@ -53,3 +53,6 @@ h3{font-size:21px;margin:26px 0 12px}.status-panel{background:linear-gradient(13
 /* The voice assistant is isolated from the dashboard's styles and session. */
 .hever-ai-frame{display:block;width:100%;height:calc(100dvh - 64px);min-height:680px;border:1px solid #294536;border-radius:22px;background:#06130e}
 @media(max-width:900px){.hever-ai-frame{height:calc(100dvh - 190px);min-height:900px}}
+
+/* Exhibition uses explicit text labels, not color alone. */
+.demo-notice{border:1px solid var(--warning);border-radius:14px;padding:14px 16px;margin-bottom:14px;background:#241f13}.demo-notice strong{font-size:13px;letter-spacing:.03em}.demo-notice p{margin:6px 0 0;font-size:13px;line-height:1.5;color:var(--text)}.metric-card .simulated-source{color:var(--warning);font-weight:800}

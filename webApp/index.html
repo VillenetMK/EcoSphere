@@ -199,16 +199,20 @@
           <h3>Lecturas ambientales</h3>
           <p>Toca cualquier tarjeta para abrir el detalle</p>
         </header>
+        <aside id="demoNotice" class="demo-notice" hidden>
+          <strong>MODO DEMOSTRACIÓN · DATOS SIMULADOS</strong>
+          <p>Temperatura, humedad del aire e iluminación son valores de ejemplo. Suelo, nivel de agua y estado de los actuadores muestran datos reales del ESP32.</p>
+        </aside>
         <article id="emptyTelemetry" class="empty-telemetry" hidden>
           <strong>Esperando telemetría</strong>
           <p>Cuando el ESP32 vuelva a enviar datos, las lecturas aparecerán aquí automáticamente.</p>
         </article>
         <div id="metricsGrid" class="metrics">
-          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_temperature.svg" alt="" aria-hidden="true" /><span>Temperatura</span></div><strong id="temperatureValue">--</strong><small>BME280</small></article>
-          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_air_humidity.svg" alt="" aria-hidden="true" /><span>Humedad aire</span></div><strong id="airHumidityValue">--</strong><small>BME280</small></article>
-          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_soil_humidity.svg" alt="" aria-hidden="true" /><span>Humedad suelo</span></div><strong id="soilHumidityValue">--</strong><small>Sensor capacitivo</small></article>
-          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_light.svg" alt="" aria-hidden="true" /><span>Iluminación</span></div><strong id="lightValue">--</strong><small>BH1750</small></article>
-          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_water_level.svg" alt="" aria-hidden="true" /><span>Nivel de agua</span></div><strong id="waterValue">Sin registro</strong><small>Sensor horizontal GPIO32</small></article>
+          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_temperature.svg" alt="" aria-hidden="true" /><span>Temperatura</span></div><strong id="temperatureValue">--</strong><small id="temperatureSource">BME280</small></article>
+          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_air_humidity.svg" alt="" aria-hidden="true" /><span>Humedad aire</span></div><strong id="airHumidityValue">--</strong><small id="airHumiditySource">BME280</small></article>
+          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_soil_humidity.svg" alt="" aria-hidden="true" /><span>Humedad suelo</span></div><strong id="soilHumidityValue">--</strong><small id="soilSource">Sensor capacitivo</small></article>
+          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_light.svg" alt="" aria-hidden="true" /><span>Iluminación</span></div><strong id="lightValue">--</strong><small id="lightSource">BH1750</small></article>
+          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_water_level.svg" alt="" aria-hidden="true" /><span>Nivel de agua</span></div><strong id="waterValue">Sin registro</strong><small id="waterSource">Sensor horizontal GPIO32</small></article>
         </div>
 
         <header class="dashboard-section-heading">

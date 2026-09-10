@@ -116,6 +116,36 @@ datos y órdenes de prueba, por lo que no activa el hardware.
 
 ## Reemplazo
 
+### Demostración temporal Eureka
+
+La cuenta aprobada de Hever dispone de una vista ambiental de demostración,
+identificada como **SIMULADO**: temperatura 25,4 °C, humedad del aire 62 % y luz
+850 lux. La selección usa su identificador de sesión, no el nombre visible.
+Gabriel y las demás cuentas siguen viendo las lecturas reales. Los ejemplos
+no se escriben en `sensor_records`, no entran en el historial ni en la IA y
+no intervienen en las decisiones de riego.
+
+El sketch privado `EcoSphere_Eureka_Hever.ino` versión `2.1.4+replaceable`
+omite las comunicaciones BME280/BH1750 y envía sus campos como `null`, para que
+los buses I²C bloqueados no impidan probar el resto. Mantiene el suelo en
+GPIO34, agua en GPIO32, ventilador en GPIO25, bomba en GPIO26 y LED en GPIO33.
+No contiene un generador de telemetría simulada.
+
+Para demostrar los actuadores, cargar ese firmware y abrir la web como Hever,
+esperar a que indique ESP32 conectado y seleccionar **MANUAL**. Comprobar
+físicamente cada salida por separado. El riego sigue requiriendo suelo válido
+y agua disponible, dura 3 s desde la web y conserva la espera por cuenta.
+Los valores ambientales de ejemplo no prueban conectividad ni funcionamiento
+de los sensores. Las lecturas históricas de suelo y los estados de salida no
+deben interpretarse como actuales cuando el controlador está desconectado.
+
+Al terminar la feria, retirar la vista de demostración de los clientes y
+restaurar un firmware que lea los sensores reparados. La excepción de riego
+manual de Hever es independiente: debe revocarse en el servidor cuando deje
+de ser necesaria.
+
+### Procedimiento de reemplazo
+
 1. Encienda el ESP32 de reserva y copie de su puerto serie el **UID EcoSphere** y la **Prueba EcoSphere**.
 2. Entre como administrador con el autenticador habilitado.
 3. Abra **Diagnóstico del sistema → Controlador ESP32 reemplazable**, ingrese ambos valores y pulse **Autorizar este ESP32**.
