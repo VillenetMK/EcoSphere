@@ -28,6 +28,24 @@ function safeErrorMessage(status, serverMessage = '') {
   if (message.includes('replacement controller firmware does not support')) {
     return 'Actualiza el firmware del ESP32 antes de usarlo como reemplazo.';
   }
+  if (message.includes('watering denied: system pump cooldown is active')) {
+    return 'Espera 10 segundos desde el último riego antes de volver a regar.';
+  }
+  if (message.includes('watering denied: operator pump cooldown is active')) {
+    return 'Espera 60 segundos entre riegos de tu cuenta.';
+  }
+  if (message.includes('watering denied: current telemetry is unavailable')) {
+    return 'No hay datos recientes del ESP32. Actualiza los datos antes de regar.';
+  }
+  if (message.includes('watering denied: soil sensor is unavailable')) {
+    return 'El sensor de humedad del suelo no tiene una lectura válida.';
+  }
+  if (message.includes('watering denied: soil humidity is already 60 percent or higher')) {
+    return 'La humedad del suelo es de 60 % o más. Tu cuenta no tiene habilitado el riego con suelo húmedo.';
+  }
+  if (message.includes('watering denied: water level is not sufficient')) {
+    return 'No hay suficiente agua para activar el riego.';
+  }
   if (message.includes('watering denied:')) {
     return 'El riego fue bloqueado porque las condiciones actuales no son seguras.';
   }
@@ -54,6 +72,12 @@ const SAFE_CLIENT_MESSAGES = new Set([
   'Ya existe un código temporal pendiente. Búscalo en el Monitor Serie y úsalo antes de que expire.',
   'Confirma de nuevo tu autenticador para realizar esta acción administrativa.',
   'Actualiza el firmware del ESP32 antes de usarlo como reemplazo.',
+  'Espera 10 segundos desde el último riego antes de volver a regar.',
+  'Espera 60 segundos entre riegos de tu cuenta.',
+  'No hay datos recientes del ESP32. Actualiza los datos antes de regar.',
+  'El sensor de humedad del suelo no tiene una lectura válida.',
+  'La humedad del suelo es de 60 % o más. Tu cuenta no tiene habilitado el riego con suelo húmedo.',
+  'No hay suficiente agua para activar el riego.',
   'El riego fue bloqueado porque las condiciones actuales no son seguras.',
   'Se enviaron demasiadas órdenes. Espera un momento e inténtalo nuevamente.',
 ]);

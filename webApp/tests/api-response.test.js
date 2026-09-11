@@ -71,3 +71,54 @@ test('los errores locales desconocidos tampoco exponen detalles internos', () =>
     'No se pudo conectar con EcoSphere. Revisa tu conexión e inténtalo nuevamente.',
   );
 });
+
+test('explica cada bloqueo de riego y conserva el mensaje seguro hasta la interfaz', async (t) => {
+  const cases = [
+    ['system pump cooldown is active', 429,
+      'Espera 10 segundos desde el último riego antes de volver a regar.'],
+    ['operator pump cooldown is active', 429,
+      'Espera 60 segundos entre riegos de tu cuenta.'],
+    ['current telemetry is unavailable', 400,
+      'No hay datos recientes del ESP32. Actualiza los datos antes de regar.'],
+    ['soil sensor is unavailable', 400,
+      'El sensor de humedad del suelo no tiene una lectura válida.'],
+    ['soil humidity is already 60 percent or higher', 400,
+      'La humedad del suelo es de 60 % o más. Tu cuenta no tiene habilitado el riego con suelo húmedo.'],
+    ['water level is not sufficient', 400,
+      'No hay suficiente agua para activar el riego.'],
+  ];
+
+  for (const [reason, status, expectedMessage] of cases) {
+    await t.test(reason, async () => {
+      const response = new Response(JSON.stringify({
+        message: `watering denied: ${reason}`,
+        details: 'private.internal_pump_state',
+        hint: 'Internal database diagnostic',
+      }), { status });
+
+      await assert.rejects(readJsonResponse(response), (error) => {
+        assert.equal(error.message, expectedMessage);
+        assert.equal(clientErrorMessage(error, 'Error seguro.'), expectedMessage);
+        return true;
+      });
+    });
+  }
+});
+
+test('oculta una causa desconocida de riego sin perder el fallback seguro', async () => {
+  const response = new Response(JSON.stringify({
+    message: 'watering denied: private.secret_table rejected internal cooldown configuration',
+    details: 'internal details',
+  }), { status: 400 });
+  const expectedMessage = 'El riego fue bloqueado porque las condiciones actuales no son seguras.';
+
+  await assert.rejects(readJsonResponse(response), (error) => {
+    assert.equal(error.message, expectedMessage);
+    assert.equal(clientErrorMessage(error, 'Error seguro.'), expectedMessage);
+    return true;
+  });
+  assert.equal(
+    clientErrorMessage(new Error('watering denied: private.secret_table rejected a request'), 'Error seguro.'),
+    'Error seguro.',
+  );
+});
