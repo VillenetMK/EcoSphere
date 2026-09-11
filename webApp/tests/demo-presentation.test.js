@@ -124,6 +124,18 @@ test('dashboard account switch and signout clear simulated values; offline demo 
   assert.equal(elements.get('pumpBtn').disabled, false);
   run(`latestRecord.water_level = 'low'; renderDashboard();`);
   assert.equal(elements.get('pumpBtn').disabled, true);
+  run(`latestRecord.soil_humidity = null;
+    currentControlPermissions = normalizeControlPermissions({ allow_sensorless_manual_watering: true });
+    renderDashboard();`);
+  assert.equal(elements.get('soilHumidityValue').textContent, '--');
+  assert.equal(elements.get('waterValue').textContent, 'Bajo');
+  assert.equal(elements.get('pumpBtn').disabled, false);
+  assert.equal(elements.get('pumpHint').textContent, 'Pulso manual de 3 segundos.');
+  run(`deviceControl.auto_mode = true; renderDashboard();`);
+  assert.equal(elements.get('pumpBtn').disabled, true);
+  run(`deviceControl.auto_mode = false;
+    currentControlPermissions = normalizeControlPermissions(null); renderDashboard();`);
+  assert.equal(elements.get('pumpBtn').disabled, true);
 
   run(`startApplication({ session: { user: { id: 'gabriel-admin' } }, profile: { status: 'approved', role: 'admin' } });`);
   assert.equal(elements.get('demoNotice').hidden, true);

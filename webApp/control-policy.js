@@ -22,6 +22,7 @@ export function normalizeControlPermissions(result) {
   const row = Array.isArray(result) ? (result.length === 1 ? result[0] : null) : result;
   return {
     allowWetSoilManualWatering: row?.allow_wet_soil_manual_watering === true,
+    allowSensorlessManualWatering: row?.allow_sensorless_manual_watering === true,
   };
 }
 
@@ -88,6 +89,9 @@ export function manualIrrigationDecision(record, control, profile, permissions =
   }
   if (control.auto_mode !== false) {
     return { allowed: false, reason: 'automatic-mode', message: 'Desactiva el modo automático antes de solicitar riego manual.' };
+  }
+  if (permissions?.allowSensorlessManualWatering === true) {
+    return { allowed: true, reason: 'sensorless-manual-authorized', message: 'Pulso manual de 3 segundos.' };
   }
   const decision = irrigationDecision(record.soil_humidity, record.water_level, permissions);
   return decision.allowed

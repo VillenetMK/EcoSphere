@@ -30,6 +30,7 @@ begin
   select p.user_id,s.id into strict operator_id,session_id
   from private.user_profiles p join auth.sessions s on s.user_id=p.user_id
   where p.status='approved' and p.role='operator'
+    and p.user_id<>'367e842b-fd47-4c38-a3fc-c54c47732a9e'::uuid
     and (s.not_after is null or s.not_after>now())
   order by s.created_at desc limit 1;
   perform 1 from public.device_control where id=1 for update;

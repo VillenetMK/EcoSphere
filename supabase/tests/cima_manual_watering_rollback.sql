@@ -33,6 +33,12 @@ begin
   from public.device_control c where c.id=1 for update;
 
   begin
+    select r.id into strict v_record from public.sensor_records r
+    where r.controller_id=(select active_controller_id from public.device_control where id=1)
+    order by r.created_at desc,r.id desc limit 1;
+    update public.device_control set auto_mode=false where id=1;
+    update public.sensor_records set soil_humidity=null,water_level='low',created_at=now()
+    where id=v_record;
     select * into strict v_reply from public.control_command('pump',3000);
     if v_reply.pump_request <> v_initial+1 then raise exception 'First pulse was not accepted'; end if;
     select * into strict v_reply from public.control_command('pump',3000);
@@ -51,18 +57,10 @@ begin
     update private.manual_watering_permissions
     set allow_wet_soil_manual_watering=true where user_id=v_user;
 
-    select r.id into v_record from public.sensor_records r
-    where r.controller_id=(select active_controller_id from public.device_control where id=1)
-    order by r.created_at desc,r.id desc limit 1;
-    update public.sensor_records set water_level='low' where id=v_record;
-    v_denied := false;
-    begin
-      perform public.control_command('pump',3000);
-    exception when sqlstate '55000' then
-      if sqlerrm <> 'watering denied: water level is not sufficient' then raise; end if;
-      v_denied := true;
-    end;
-    if not v_denied then raise exception 'No-water protection failed'; end if;
+    select * into strict v_reply from public.control_command('pump',3000);
+    if not v_reply.pump_bypass_sensor_checks or v_reply.pump_duration_ms<>3000 then
+      raise exception 'Authorized CIMA sensor-independent pulse was not accepted';
+    end if;
 
     v_denied := false;
     begin

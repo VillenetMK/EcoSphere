@@ -4,12 +4,12 @@
  * Todos los derechos reservados. Uso sujeto al archivo LICENSE.
  */
 
-const CACHE = 'ecosphere-web-v1.6.13-cima-irrigation';
+const CACHE = 'ecosphere-web-v1.6.14-cima-manual-pulse';
 const ASSETS = [
   './',
   './index.html',
-  './styles.css?v=20260911-irrigation',
-  './app.js?v=20260911-irrigation',
+  './styles.css?v=20260911-manual-pulse',
+  './app.js?v=20260911-manual-pulse',
   './android-auth-return.js',
   './manifest.webmanifest',
   './icon.svg',

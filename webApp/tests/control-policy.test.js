@@ -104,6 +104,64 @@ test('el permiso conserva sesión aprobada, modo manual, conexión y telemetría
   assert.equal(decide({ control: { ...control, last_seen_at: new Date(now - 31000).toISOString() } }).reason, 'telemetry-unavailable');
 });
 
+test('el permiso para el pulso sin sensores exige el booleano específico del servidor', () => {
+  for (const result of [
+    { allow_sensorless_manual_watering: true },
+    [{ allow_sensorless_manual_watering: true }],
+  ]) {
+    assert.equal(normalizeControlPermissions(result).allowSensorlessManualWatering, true);
+  }
+  for (const result of [
+    null, undefined, {}, [], true,
+    { allow_sensorless_manual_watering: false },
+    { allow_sensorless_manual_watering: 'true' },
+    { allow_sensorless_manual_watering: 1 },
+    { allow_wet_soil_manual_watering: true },
+    { role: 'admin', username: 'CIMA' },
+    [{ allow_sensorless_manual_watering: true }, { allow_sensorless_manual_watering: false }],
+  ]) {
+    assert.equal(normalizeControlPermissions(result).allowSensorlessManualWatering, false);
+  }
+});
+
+test('el pulso autorizado sin sensores conserva modo manual, cuenta aprobada y conexión actual', () => {
+  const now = Date.parse('2026-09-11T00:00:00.000Z');
+  const timestamp = new Date(now - 1000).toISOString();
+  const record = Object.freeze({ created_at: timestamp, soil_humidity: null, water_level: 'low' });
+  const control = { auto_mode: false, esp32_online: true, last_seen_at: timestamp };
+  const profile = { role: 'operator', status: 'approved' };
+  const permissions = normalizeControlPermissions({ allow_sensorless_manual_watering: true });
+  const decide = (overrides = {}) => manualIrrigationDecision(
+    Object.hasOwn(overrides, 'record') ? overrides.record : record,
+    Object.hasOwn(overrides, 'control') ? overrides.control : control,
+    Object.hasOwn(overrides, 'profile') ? overrides.profile : profile,
+    Object.hasOwn(overrides, 'permissions') ? overrides.permissions : permissions,
+    now,
+  );
+  assert.equal(decide().allowed, true);
+  assert.equal(decide().message, 'Pulso manual de 3 segundos.');
+  for (const soil of [null, 0, 35, 70, 100]) {
+    for (const water of [null, 'low', 'high']) {
+      assert.equal(decide({ record: { ...record, soil_humidity: soil, water_level: water } }).allowed, true);
+    }
+  }
+  assert.equal(record.soil_humidity, null);
+  assert.equal(record.water_level, 'low');
+  assert.equal(decide({ permissions: {} }).reason, 'missing-soil-reading');
+  assert.equal(decide({ permissions: { allowWetSoilManualWatering: true } }).reason, 'missing-soil-reading');
+  assert.equal(decide({ permissions: { allowSensorlessManualWatering: 'true' } }).reason, 'missing-soil-reading');
+  assert.equal(decide({ profile: null }).reason, 'operator-required');
+  assert.equal(decide({ profile: { ...profile, status: 'pending' } }).reason, 'operator-required');
+  assert.equal(decide({ profile: { ...profile, role: 'viewer' } }).reason, 'operator-required');
+  assert.equal(decide({ control: { ...control, auto_mode: true } }).reason, 'automatic-mode');
+  assert.equal(decide({ control: { ...control, auto_mode: null } }).reason, 'automatic-mode');
+  assert.equal(decide({ control: { ...control, esp32_online: false } }).reason, 'telemetry-unavailable');
+  assert.equal(decide({ control: null }).reason, 'telemetry-unavailable');
+  assert.equal(decide({ record: null }).reason, 'telemetry-unavailable');
+  assert.equal(decide({ record: { ...record, created_at: new Date(now - 31000).toISOString() } }).reason, 'telemetry-unavailable');
+  assert.equal(decide({ control: { ...control, last_seen_at: new Date(now - 31000).toISOString() } }).reason, 'telemetry-unavailable');
+});
+
 test('la potencia queda limitada entre cero y cien', () => {
   assert.equal(clampPower(-20), 0);
   assert.equal(clampPower(55), 55);
