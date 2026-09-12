@@ -28,7 +28,7 @@ dependencies {
     implementation(compose.desktop.currentOs)
     implementation(compose.material3)
     implementation("com.google.code.gson:gson:2.13.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
     implementation("io.github.jan-tennert.supabase:auth-kt:3.7.0")
     implementation("io.github.jan-tennert.supabase:postgrest-kt:3.7.0")
     implementation("io.ktor:ktor-client-cio:3.5.1")
