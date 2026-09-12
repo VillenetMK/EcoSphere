@@ -4,12 +4,12 @@
  * Todos los derechos reservados. Uso sujeto al archivo LICENSE.
  */
 
-const CACHE = 'ecosphere-web-v1.6.11-normal-operation';
+const CACHE = 'ecosphere-web-v1.6.12-normal-operation';
 const ASSETS = [
   './',
   './index.html',
-  './styles.css?v=1.6.11',
-  './app.js?v=1.6.11',
+  './styles.css?v=1.6.12',
+  './app.js?v=1.6.12',
   './android-auth-return.js',
   './manifest.webmanifest',
   './icon.svg',
