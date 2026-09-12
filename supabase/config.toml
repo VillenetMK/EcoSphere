@@ -6,3 +6,6 @@ verify_jwt = false
 
 [functions.controller-credentials]
 verify_jwt = false
+
+[functions.hever-ai]
+verify_jwt = false

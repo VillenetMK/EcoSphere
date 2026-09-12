@@ -9,7 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.ecosphere.shared.ExhibitionAmbientReadings
 import com.example.ecosphere.ui.viewmodel.EcoSphereUiState
 
 /**
@@ -21,7 +20,6 @@ import com.example.ecosphere.ui.viewmodel.EcoSphereUiState
 @Composable
 fun AdaptiveDashboardScreen(
     uiState: EcoSphereUiState,
-    exhibitionAmbient: ExhibitionAmbientReadings? = null,
     onRefresh: () -> Unit,
     onAutoModeChange: (Boolean) -> Unit,
     onFanPowerChange: (Int) -> Unit,
@@ -47,7 +45,6 @@ fun AdaptiveDashboardScreen(
             ) {
                 InteractiveDashboardScreen(
                     uiState = uiState,
-                    exhibitionAmbient = exhibitionAmbient,
                     onRefresh = onRefresh,
                     onAutoModeChange = onAutoModeChange,
                     onFanPowerChange = onFanPowerChange,

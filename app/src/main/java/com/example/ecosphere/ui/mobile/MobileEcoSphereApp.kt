@@ -39,7 +39,6 @@ import com.example.ecosphere.ui.screens.AdaptiveDashboardScreen
 import com.example.ecosphere.ui.screens.ControlAuditScreen
 import com.example.ecosphere.ui.screens.DiagnosticsScreen
 import com.example.ecosphere.ui.screens.HistoryScreen
-import com.example.ecosphere.shared.ExhibitionAmbientReadings
 import com.example.ecosphere.ui.viewmodel.EcoSphereUiState
 import kotlinx.coroutines.launch
 
@@ -60,7 +59,6 @@ private enum class MobileDestination(
 @Composable
 fun MobileEcoSphereApp(
     uiState: EcoSphereUiState,
-    exhibitionAmbient: ExhibitionAmbientReadings? = null,
     profileName: String,
     profileRole: String,
     onSignOut: () -> Unit,
@@ -174,7 +172,6 @@ fun MobileEcoSphereApp(
                 when (destination) {
                     MobileDestination.DASHBOARD -> AdaptiveDashboardScreen(
                         uiState = uiState,
-                        exhibitionAmbient = exhibitionAmbient,
                         onRefresh = onRefresh,
                         onAutoModeChange = onAutoModeChange,
                         onFanPowerChange = onFanPowerChange,

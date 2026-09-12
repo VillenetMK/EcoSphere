@@ -4,6 +4,8 @@
  * Todos los derechos reservados. Uso sujeto al archivo LICENSE.
  */
 
+import { controllerOperation, isPlainObject, rpcArguments, type JsonObject } from "./validation.ts";
+
 // This function intentionally has no request logging. Controller payloads
 // contain a long-lived device secret and must never enter Edge logs or errors.
 
@@ -22,8 +24,6 @@ const MAX_REQUEST_BYTES = 4096;
 const MAX_RPC_RESPONSE_BYTES = 8192;
 const MAX_JSON_NESTING = 4;
 const SAFE_ERROR = Object.freeze({ error: "Controller request rejected." });
-
-type JsonObject = Record<string, unknown>;
 
 class PayloadTooLargeError extends Error {}
 
@@ -154,107 +154,6 @@ async function readBoundedResponse(response: Response): Promise<unknown | undefi
   } catch {
     return undefined;
   }
-}
-
-function isPlainObject(value: unknown): value is JsonObject {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
-function hasOnlyFields(body: JsonObject, fields: readonly string[]) {
-  const allowed = new Set(fields);
-  return Object.keys(body).every((field) => allowed.has(field));
-}
-
-function isNullableBoolean(value: unknown) {
-  return value === undefined || value === null || typeof value === "boolean";
-}
-
-function isHardwareUid(value: unknown) {
-  return typeof value === "string" && /^[0-9A-Fa-f]{12}$/.test(value);
-}
-
-function isDeviceSecret(value: unknown) {
-  return typeof value === "string" && /^[0-9A-Fa-f]{64}$/.test(value);
-}
-
-function isFirmwareVersion(value: unknown) {
-  return typeof value === "string" && value.length >= 1 && value.length <= 40;
-}
-
-function isBootNonce(value: unknown) {
-  return typeof value === "string" && /^[0-9A-Fa-f]{32}$/.test(value);
-}
-
-function isNullableNumberInRange(value: unknown, minimum: number, maximum: number) {
-  return value === undefined
-    || value === null
-    || (typeof value === "number" && Number.isFinite(value) && value >= minimum && value <= maximum);
-}
-
-function isNullableIntegerInRange(value: unknown, minimum: number, maximum: number) {
-  return value === undefined
-    || value === null
-    || (typeof value === "number"
-      && Number.isSafeInteger(value)
-      && value >= minimum
-      && value <= maximum);
-}
-
-function isNullableWaterLevel(value: unknown) {
-  return value === undefined || value === null || value === "low" || value === "high";
-}
-
-function isNonNegativeBigint(value: unknown) {
-  if (typeof value === "number") return Number.isSafeInteger(value) && value >= 0;
-  return typeof value === "string"
-    && /^(?:0|[1-9][0-9]{0,18})$/.test(value)
-    && (value.length < 19 || value <= "9223372036854775807");
-}
-
-function controllerOperation(body: unknown): "begin_pairing" | "sync" | undefined {
-  if (!isPlainObject(body) || typeof body.operation !== "string") return undefined;
-
-  if (body.operation === "begin_pairing") {
-    const allowed = ["operation", "p_hardware_uid", "p_device_secret", "p_firmware_version"];
-    if (!hasOnlyFields(body, allowed)
-        || !isHardwareUid(body.p_hardware_uid)
-        || !isDeviceSecret(body.p_device_secret)
-        || !isFirmwareVersion(body.p_firmware_version)) return undefined;
-    return "begin_pairing";
-  }
-
-  if (body.operation !== "sync") return undefined;
-  const allowed = [
-    "operation", "p_hardware_uid", "p_device_secret", "p_heartbeat_seq",
-    "p_firmware_version", "p_has_telemetry", "p_temperature", "p_air_humidity",
-    "p_soil_humidity", "p_light_lux", "p_water_level", "p_fan_on", "p_pump_on",
-    "p_led_on", "p_reported_auto_mode", "p_reported_fan_power", "p_reported_led_power",
-    "p_boot_nonce",
-  ];
-  if (!hasOnlyFields(body, allowed)
-      || !isHardwareUid(body.p_hardware_uid)
-      || !isDeviceSecret(body.p_device_secret)
-      || !isNonNegativeBigint(body.p_heartbeat_seq)
-      || !isFirmwareVersion(body.p_firmware_version)
-      || typeof body.p_has_telemetry !== "boolean"
-      || !isNullableNumberInRange(body.p_temperature, -40, 85)
-      || !isNullableNumberInRange(body.p_air_humidity, 0, 100)
-      || !isNullableNumberInRange(body.p_soil_humidity, 0, 100)
-      || !isNullableNumberInRange(body.p_light_lux, 0, 200000)
-      || !isNullableWaterLevel(body.p_water_level)
-      || !isNullableBoolean(body.p_fan_on)
-      || !isNullableBoolean(body.p_pump_on)
-      || !isNullableBoolean(body.p_led_on)
-      || !isNullableBoolean(body.p_reported_auto_mode)
-      || !isNullableIntegerInRange(body.p_reported_fan_power, 0, 100)
-      || !isNullableIntegerInRange(body.p_reported_led_power, 0, 100)
-      || !isBootNonce(body.p_boot_nonce)) return undefined;
-  return "sync";
-}
-
-function rpcArguments(body: JsonObject) {
-  const { operation: _operation, ...argumentsForRpc } = body;
-  return argumentsForRpc;
 }
 
 async function sha256(value: string) {

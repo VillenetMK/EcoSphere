@@ -14,7 +14,6 @@ import com.example.ecosphere.auth.NativeAuthPage
 import com.example.ecosphere.auth.NativeAuthViewModel
 import com.example.ecosphere.auth.NativeSupabase
 import com.example.ecosphere.data.network.NetworkModule
-import com.example.ecosphere.shared.ExhibitionAmbient
 import com.example.ecosphere.data.repository.SensorRepository
 import com.example.ecosphere.ui.icons.DashboardControlIcons
 import com.example.ecosphere.ui.mobile.MobileAuthScreen
@@ -68,11 +67,6 @@ class MainActivity : ComponentActivity() {
 
                     MobileEcoSphereApp(
                         uiState = ecoSphereViewModel.uiState,
-                        exhibitionAmbient = ExhibitionAmbient.forViewer(
-                            NativeSupabase.client.auth.currentSessionOrNull()?.user?.id,
-                            authState.profile?.status,
-                            authState.profile?.role
-                        ),
                         profileName = authState.profile?.fullName.orEmpty(),
                         profileRole = authState.profile?.role.orEmpty(),
                         onSignOut = authViewModel::signOut,

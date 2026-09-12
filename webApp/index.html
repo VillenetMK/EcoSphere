@@ -15,7 +15,7 @@
   <title>EcoSphere</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=20260911-manual-pulse" />
+  <link rel="stylesheet" href="styles.css?v=1.6.11" />
   <script src="android-auth-return.js"></script>
 </head>
 <body>
@@ -155,7 +155,6 @@
         <button class="nav-item active" data-screen="dashboard"><img class="ui-icon nav-icon" src="icons/ic_dashboard.svg" alt="" aria-hidden="true" />Panel principal</button>
         <button class="nav-item" data-screen="history"><img class="ui-icon nav-icon" src="icons/ic_history.svg" alt="" aria-hidden="true" />Registros históricos</button>
         <button class="nav-item" data-screen="diagnostics"><img class="ui-icon nav-icon" src="icons/ic_diagnostics.svg" alt="" aria-hidden="true" />Diagnóstico del sistema</button>
-        <button id="heverAiNav" class="nav-item" data-screen="hever-ai" hidden><img class="ui-icon nav-icon" src="icons/ic_air_humidity.svg" alt="" aria-hidden="true" />Asistente de voz</button>
       </nav>
 
       <button id="downloadsBtn" class="install-btn">Descargar EcoSphere</button>
@@ -164,7 +163,7 @@
         <span id="currentUserRole">Acceso autorizado</span>
         <button type="button" data-auth-signout>Cerrar sesión</button>
       </div>
-      <div class="version">EcoSphere Web 1.6.10</div>
+      <div class="version">EcoSphere Web 1.6.11</div>
     </aside>
 
     <main class="main">
@@ -196,20 +195,19 @@
         </article>
 
         <header class="dashboard-section-heading">
-          <h3 id="environmentTitle">Lecturas ambientales</h3>
-          <p id="environmentHint">Abre el detalle de cada tarjeta para consultar su fuente</p>
+          <h3>Lecturas ambientales</h3>
+          <p>Toca cualquier tarjeta para abrir el detalle</p>
         </header>
-        <aside id="demoNotice" hidden></aside>
         <article id="emptyTelemetry" class="empty-telemetry" hidden>
           <strong>Esperando telemetría</strong>
           <p>Cuando el ESP32 vuelva a enviar datos, las lecturas aparecerán aquí automáticamente.</p>
         </article>
         <div id="metricsGrid" class="metrics">
-          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_temperature.svg" alt="" aria-hidden="true" /><span>Temperatura</span></div><strong id="temperatureValue">--</strong><details id="temperatureDetails" class="metric-source"><summary><span class="metric-more">Ver detalle</span></summary><div class="metric-detail"><small id="temperatureSource">BME280</small></div></details></article>
-          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_air_humidity.svg" alt="" aria-hidden="true" /><span>Humedad aire</span></div><strong id="airHumidityValue">--</strong><details id="airHumidityDetails" class="metric-source"><summary><span class="metric-more">Ver detalle</span></summary><div class="metric-detail"><small id="airHumiditySource">BME280</small></div></details></article>
-          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_soil_humidity.svg" alt="" aria-hidden="true" /><span>Humedad suelo</span></div><strong id="soilHumidityValue">--</strong><details id="soilDetails" class="metric-source"><summary><span class="metric-more">Ver detalle</span></summary><div class="metric-detail"><small id="soilSource">Sensor capacitivo</small></div></details></article>
-          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_light.svg" alt="" aria-hidden="true" /><span>Iluminación</span></div><strong id="lightValue">--</strong><details id="lightDetails" class="metric-source"><summary><span class="metric-more">Ver detalle</span></summary><div class="metric-detail"><small id="lightSource">BH1750</small></div></details></article>
-          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_water_level.svg" alt="" aria-hidden="true" /><span>Nivel de agua</span></div><strong id="waterValue">Sin registro</strong><details id="waterDetails" class="metric-source"><summary><span class="metric-more">Ver detalle</span></summary><div class="metric-detail"><small id="waterSource">Sensor horizontal GPIO32</small></div></details></article>
+          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_temperature.svg" alt="" aria-hidden="true" /><span>Temperatura</span></div><strong id="temperatureValue">--</strong><small>BME280</small></article>
+          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_air_humidity.svg" alt="" aria-hidden="true" /><span>Humedad aire</span></div><strong id="airHumidityValue">--</strong><small>BME280</small></article>
+          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_soil_humidity.svg" alt="" aria-hidden="true" /><span>Humedad suelo</span></div><strong id="soilHumidityValue">--</strong><small>Sensor capacitivo</small></article>
+          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_light.svg" alt="" aria-hidden="true" /><span>Iluminación</span></div><strong id="lightValue">--</strong><small>BH1750</small></article>
+          <article class="metric-card"><div class="metric-label"><img class="ui-icon metric-icon" src="icons/ic_water_level.svg" alt="" aria-hidden="true" /><span>Nivel de agua</span></div><strong id="waterValue">Sin registro</strong><small>Sensor horizontal GPIO32</small></article>
         </div>
 
         <header class="dashboard-section-heading">
@@ -342,9 +340,6 @@
         </section>
         <div id="diagnosticGroups" class="diagnostic-groups"></div>
       </section>
-      <section id="hever-ai" class="screen" aria-label="Asistente de voz de EcoSphere">
-        <div id="heverAiHost"></div>
-      </section>
     </main>
   </div>
 
@@ -360,17 +355,17 @@
       </header>
 
       <div class="platform-downloads">
-        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/latest/download/EcoSphere-1.4.7-Windows-x64.msi">
+        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/download/v1.4.13/EcoSphere-1.4.7-Windows-x64.msi">
           <img class="platform-icon" src="icons/ic_windows.svg" alt="" aria-hidden="true" />
           <div><strong>Windows</strong><span>Windows 10/11 · x64</span><small>Instalador MSI · versión 1.4.7</small></div>
           <span class="platform-action">Descargar MSI</span>
         </a>
-        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/latest/download/EcoSphere-1.4.7-Linux-amd64.deb">
+        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/download/v1.4.13/EcoSphere-1.4.7-Linux-amd64.deb">
           <img class="platform-icon" src="icons/ic_linux.svg" alt="" aria-hidden="true" />
           <div><strong>Linux</strong><span>Ubuntu/Debian · amd64</span><small>Paquete DEB · versión 1.4.7</small></div>
           <span class="platform-action">Descargar DEB</span>
         </a>
-        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/latest/download/EcoSphere-1.4.13-Android.apk">
+        <a class="platform-download" href="https://github.com/VillenetMK/EcoSphere/releases/download/v1.4.13/EcoSphere-1.4.13-Android.apk">
           <img class="platform-icon" src="icons/ic_android.svg" alt="" aria-hidden="true" />
           <div><strong>Android</strong><span>Android 7 o posterior</span><small>Archivo APK · versión 1.4.13</small></div>
           <span class="platform-action">Descargar APK</span>
@@ -432,6 +427,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="app.js?v=20260911-manual-pulse"></script>
+  <script type="module" src="app.js?v=1.6.11"></script>
 </body>
 </html>

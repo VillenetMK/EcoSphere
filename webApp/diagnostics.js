@@ -76,7 +76,7 @@ function actuatorStatus(name, reading, hasReading, fresh, outputActive) {
   );
 }
 
-export function buildDiagnosticModel(record, control, nowMillis = Date.now(), permissions = {}) {
+export function buildDiagnosticModel(record, control, nowMillis = Date.now()) {
   const online = isDeviceOnline(control, nowMillis);
   const fresh = isTelemetryFresh(record, nowMillis);
   const current = online && fresh;
@@ -139,9 +139,7 @@ export function buildDiagnosticModel(record, control, nowMillis = Date.now(), pe
         : 'No se puede evaluar el suelo actual; el riego permanece bloqueado por seguridad.',
     ));
   } else if (soil >= CONTROL_POLICY.soilManualDenyThreshold) {
-    sensors.push(permissions?.allowWetSoilManualWatering === true
-      ? item('Humedad de suelo', 'SUELO HÚMEDO · PERMISO MANUAL', 'warning', `${Math.round(soil)} %`, 'Tu cuenta tiene permiso de riego manual con suelo húmedo. Se siguen exigiendo agua disponible, conexión y modo manual.')
-      : item('Humedad de suelo', 'ADVERTENCIA · RIEGO BLOQUEADO', 'warning', `${Math.round(soil)} %`, 'El suelo supera el límite seguro configurado para riego manual.'));
+    sensors.push(item('Humedad de suelo', 'ADVERTENCIA · RIEGO BLOQUEADO', 'warning', `${Math.round(soil)} %`, 'El suelo supera el límite seguro configurado para riego manual.'));
   } else {
     sensors.push(item('Humedad de suelo', 'RANGO OPERATIVO', 'normal', `${Math.round(soil)} %`, 'La lectura es válida y permite evaluar el riego junto con el nivel de agua.'));
   }

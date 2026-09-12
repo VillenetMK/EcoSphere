@@ -1,20 +1,20 @@
 {
   "name": "ecosphere-web",
-  "version": "1.6.10",
+  "version": "1.6.11",
   "private": true,
   "author": "Gabriel Enrique Villenet Montero",
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
-    "build": "esbuild app.js --bundle --minify --format=esm --target=es2022 --outfile=../dist/app.js && esbuild hever-ai/app.js --bundle --minify --format=esm --target=es2022 --outfile=../dist/hever-ai/app.js && node ../scripts/copy-ai-assets.mjs",
+    "build": "esbuild app.js --bundle --minify --format=esm --target=es2022 --outfile=../dist/app.js",
     "check:copyright": "node ../scripts/check-copyright.mjs",
     "test": "node --test"
   },
   "dependencies": {
-    "@supabase/supabase-js": "2.112.3",
-    "three": "0.128.0"
+    "@supabase/supabase-js": "2.112.3"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "esbuild": "0.28.2"
   }
 }

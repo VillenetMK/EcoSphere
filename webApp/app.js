@@ -9,10 +9,10 @@ import {
   actuatorPwmLabel,
   actuatorSwitchLabel,
   clampPower,
+  irrigationDecision,
+  irrigationStatus,
   isDeviceOnline,
   isTelemetryCurrent,
-  manualIrrigationDecision,
-  normalizeControlPermissions,
   waterLevelLabel,
 } from './control-policy.js';
 import { buildDiagnosticModel, technicalReport } from './diagnostics.js';
@@ -27,8 +27,6 @@ import {
 import { authErrorMessage, initializeAuth } from './auth.js';
 import { clientErrorMessage, readJsonResponse } from './api-response.js';
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from './supabase-client.js';
-import { createHeverAssistant } from './hever-ai.js';
-import { environmentPresentation } from './demo-presentation.js';
 
 let latestRecord = null;
 let deviceControl = null;
@@ -43,10 +41,7 @@ let historyPageSize = HISTORY_CONFIG.defaultPageSize;
 let historyMetric = 'soil_humidity';
 let refreshTimer = null;
 let currentProfile = null;
-let currentUserId = null;
 let controllerStatus = null;
-let currentControlPermissions = normalizeControlPermissions(null);
-let applicationGeneration = 0;
 
 function normalizeSeparatedHex(value) {
   return String(value).replace(/[\s-]/g, '').toUpperCase();
@@ -58,28 +53,6 @@ function validatedHex(value, length) {
 }
 
 const $ = (id) => document.getElementById(id);
-
-function returnToDashboard() {
-  activeScreen = 'dashboard';
-  document.querySelectorAll('button.nav-item').forEach(button => button.classList.toggle('active', button.dataset.screen === activeScreen));
-  document.querySelectorAll('.screen').forEach(screen => screen.classList.toggle('active', screen.id === activeScreen));
-}
-
-const heverAssistant = createHeverAssistant({
-  button: $('heverAiNav'),
-  host: $('heverAiHost'),
-  onRevoked: returnToDashboard,
-  request: async action => {
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/hever-ai`, {
-      method: 'POST',
-      headers: await headers({ 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ action }),
-      cache: 'no-store',
-    });
-    try { return await readJsonResponse(response); }
-    catch (error) { error.status = response.status; throw error; }
-  },
-});
 
 const ICON_BASE = './icons';
 const HISTORY_METRIC_ICONS = {
@@ -143,25 +116,12 @@ async function apiPost(path, body = {}) {
 }
 
 async function loadLatest() {
-  const generation = applicationGeneration;
-  try {
-    const [records, controls, permissions] = await Promise.all([
-      apiGet('rest/v1/sensor_records?select=*&order=created_at.desc&limit=1'),
-      apiGet('rest/v1/device_control?id=eq.1&select=*'),
-      apiPost('rest/v1/rpc/my_control_permissions'),
-    ]);
-    if (generation !== applicationGeneration || !currentProfile) return false;
-    latestRecord = records[0] ?? null;
-    deviceControl = controls[0] ?? null;
-    currentControlPermissions = normalizeControlPermissions(permissions);
-    return true;
-  } catch (error) {
-    if (generation === applicationGeneration) {
-      currentControlPermissions = normalizeControlPermissions(null);
-      renderDashboard();
-    }
-    throw error;
-  }
+  const [records, controls] = await Promise.all([
+    apiGet('rest/v1/sensor_records?select=*&order=created_at.desc&limit=1'),
+    apiGet('rest/v1/device_control?id=eq.1&select=*'),
+  ]);
+  latestRecord = records[0] ?? null;
+  deviceControl = controls[0] ?? null;
 }
 
 async function loadHistory() {
@@ -183,7 +143,7 @@ async function refresh({ manual = false } = {}) {
   refreshing = true;
   if (manual) setRefreshLoading(true);
   try {
-    if (!await loadLatest()) return;
+    await loadLatest();
     if (activeScreen === 'history' && (manual || Date.now() - lastHistoryLoadedAt >= 30000)) {
       await loadHistory();
     }
@@ -229,9 +189,6 @@ function renderDashboard() {
   const online = onlineNow(deviceControl);
   const telemetryCurrent = isTelemetryCurrent(latestRecord, deviceControl);
   const currentRecord = telemetryCurrent ? latestRecord : null;
-  const environment = environmentPresentation(currentRecord, {
-    userId: currentUserId, profile: currentProfile,
-  });
   const auto = !!deviceControl?.auto_mode;
   $('systemStatus').textContent = online ? 'Sistema conectado' : 'Sistema sin conexión';
   $('modeValue').textContent = !deviceControl ? 'Sin confirmar' : auto ? 'Automático' : 'Manual';
@@ -242,27 +199,13 @@ function renderDashboard() {
 
   const hasTelemetry = latestRecord !== null;
   $('emptyTelemetry').hidden = hasTelemetry;
-  $('metricsGrid').hidden = !hasTelemetry && !environment.simulated;
-  $('demoNotice').hidden = true;
-  $('environmentTitle').textContent = environment.simulated ? 'Panel ambiental' : 'Lecturas ambientales';
-  $('environmentHint').hidden = environment.simulated;
-  for (const id of ['temperatureDetails', 'airHumidityDetails', 'lightDetails']) {
-    $(id).hidden = environment.simulated;
-    if (environment.simulated) $(id).open = false;
-  }
+  $('metricsGrid').hidden = !hasTelemetry;
 
-  $('temperatureValue').textContent = formatNumber(environment.temperature, '°C');
-  $('airHumidityValue').textContent = formatNumber(environment.air_humidity, '%');
+  $('temperatureValue').textContent = formatNumber(currentRecord?.temperature, '°C');
+  $('airHumidityValue').textContent = formatNumber(currentRecord?.air_humidity, '%');
   $('soilHumidityValue').textContent = formatNumber(currentRecord?.soil_humidity, '%');
-  $('lightValue').textContent = formatNumber(environment.light_lux, 'lux');
-  $('waterValue').textContent = currentRecord ? waterLevelLabel(currentRecord?.water_level) : '--';
-  for (const [id, sensor] of [
-    ['temperatureSource', 'BME280'], ['airHumiditySource', 'BME280'], ['lightSource', 'BH1750'],
-  ]) {
-    $(id).textContent = environment.simulated ? '' : sensor;
-  }
-  $('soilSource').textContent = 'Sensor capacitivo';
-  $('waterSource').textContent = 'Sensor horizontal GPIO32';
+  $('lightValue').textContent = formatNumber(currentRecord?.light_lux, 'lux');
+  $('waterValue').textContent = currentRecord ? waterLevelLabel(currentRecord.water_level) : '--';
 
   const reportedMode = telemetryCurrent ? latestRecord?.auto_mode : null;
   $('fanState').textContent = telemetryCurrent
@@ -294,11 +237,15 @@ function renderDashboard() {
   $('ledPowerLabel').textContent = `${led} %`;
   $('fanPower').disabled = busy || auto || !deviceControl || !canOperate;
   $('ledPower').disabled = busy || auto || !deviceControl || !canOperate;
-  const irrigation = manualIrrigationDecision(
-    latestRecord, deviceControl, currentProfile, currentControlPermissions,
+  const irrigation = irrigationDecision(
+    currentRecord?.soil_humidity,
+    currentRecord?.water_level,
   );
   $('pumpBtn').disabled = busy || !deviceControl || !irrigation.allowed || !canOperate;
-  $('pumpHint').textContent = irrigation.message;
+  $('pumpHint').textContent = irrigationStatus(
+    currentRecord?.soil_humidity,
+    currentRecord?.water_level,
+  );
 }
 
 function renderHistory() {
@@ -393,7 +340,7 @@ function renderHistoryChart(records) {
 }
 
 function renderDiagnostics() {
-  currentDiagnosticModel = buildDiagnosticModel(latestRecord, deviceControl, Date.now(), currentControlPermissions);
+  currentDiagnosticModel = buildDiagnosticModel(latestRecord, deviceControl);
   const model = currentDiagnosticModel;
   const summary = $('diagnosticSummary');
   summary.className = `diagnostic-summary severity-${model.severity}`;
@@ -710,29 +657,20 @@ $('ledPower').addEventListener('change', event => {
 });
 
 $('pumpBtn').addEventListener('click', async () => {
-  if (busy) return;
-  setBusy(true);
-  try {
-    if (!await loadLatest()) return;
-    const decision = manualIrrigationDecision(
-      latestRecord, deviceControl, currentProfile, currentControlPermissions,
-    );
-    if (!decision.allowed) {
-      toast(decision.message);
-      return;
-    }
-    await updateControl('pump', CONTROL_POLICY.pumpDurationMs);
-  } catch (error) {
-    toast(clientErrorMessage(error, 'No se pudo comprobar el permiso de riego. Intenta nuevamente.'));
-  } finally {
-    setBusy(false);
+  const currentRecord = isTelemetryCurrent(latestRecord, deviceControl) ? latestRecord : null;
+  const decision = irrigationDecision(
+    currentRecord?.soil_humidity,
+    currentRecord?.water_level,
+  );
+  if (!decision.allowed) {
+    toast(decision.message);
+    return;
   }
+  await updateControl('pump', CONTROL_POLICY.pumpDurationMs);
 });
 
 document.querySelectorAll('.nav-item').forEach(button => {
   button.addEventListener('click', async () => {
-    if (button.dataset.screen === 'hever-ai' && !heverAssistant.open()) return;
-    if (button.dataset.screen !== 'hever-ai') heverAssistant.close();
     activeScreen = button.dataset.screen;
     document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b === button));
     document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === activeScreen));
@@ -768,21 +706,8 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-function startApplication({ session, profile }) {
-  applicationGeneration += 1;
-  currentControlPermissions = normalizeControlPermissions(null);
-  const userId = session?.user?.id ?? null;
-  if (currentUserId !== userId) {
-    latestRecord = null;
-    deviceControl = null;
-    historyRecords = [];
-    controllerStatus = null;
-  }
-  currentUserId = userId;
+function startApplication({ profile }) {
   currentProfile = profile;
-  renderDashboard();
-  if (activeScreen === 'hever-ai') returnToDashboard();
-  heverAssistant.checkAccess();
   $('authGate').hidden = true;
   $('app').hidden = false;
   $('currentUserName').textContent = profile.username || profile.full_name;
@@ -796,10 +721,6 @@ function startApplication({ session, profile }) {
 }
 
 function stopApplication() {
-  applicationGeneration += 1;
-  currentControlPermissions = normalizeControlPermissions(null);
-  heverAssistant.reset();
-  if (activeScreen === 'hever-ai') returnToDashboard();
   $('app').hidden = true;
   $('authGate').hidden = false;
   if (refreshTimer) clearInterval(refreshTimer);
@@ -809,8 +730,6 @@ function stopApplication() {
   historyRecords = [];
   controllerStatus = null;
   currentProfile = null;
-  currentUserId = null;
-  renderDashboard();
 }
 
 initializeAuth({

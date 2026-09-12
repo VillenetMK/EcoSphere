@@ -18,17 +18,9 @@ export function clampPower(value) {
   return Math.min(100, Math.max(0, Math.round(numeric)));
 }
 
-export function normalizeControlPermissions(result) {
-  const row = Array.isArray(result) ? (result.length === 1 ? result[0] : null) : result;
-  return {
-    allowWetSoilManualWatering: row?.allow_wet_soil_manual_watering === true,
-    allowSensorlessManualWatering: row?.allow_sensorless_manual_watering === true,
-  };
-}
-
-export function irrigationDecision(soilHumidity, waterLevel, permissions = {}) {
+export function irrigationDecision(soilHumidity, waterLevel) {
   const soil = Number(soilHumidity);
-  if (soilHumidity == null || soilHumidity === '' || !Number.isFinite(soil) || soil < 0 || soil > 100) {
+  if (soilHumidity == null || !Number.isFinite(soil)) {
     return {
       allowed: false,
       reason: 'missing-soil-reading',
@@ -36,8 +28,7 @@ export function irrigationDecision(soilHumidity, waterLevel, permissions = {}) {
     };
   }
 
-  const wetSoilAuthorized = permissions?.allowWetSoilManualWatering === true;
-  if (soil >= CONTROL_POLICY.soilManualDenyThreshold && !wetSoilAuthorized) {
+  if (soil >= CONTROL_POLICY.soilManualDenyThreshold) {
     return {
       allowed: false,
       reason: 'soil-too-wet',
@@ -62,41 +53,15 @@ export function irrigationDecision(soilHumidity, waterLevel, permissions = {}) {
     };
   }
 
-  return {
-    allowed: true,
-    reason: 'none',
-    message: soil >= CONTROL_POLICY.soilManualDenyThreshold
-      ? 'Riego manual con suelo húmedo autorizado para tu cuenta. Pulso de 3 segundos.'
-      : 'Riego manual disponible.',
-  };
+  return { allowed: true, reason: 'none', message: 'Riego manual disponible.' };
 }
 
-export function irrigationStatus(soilHumidity, waterLevel, permissions = {}) {
-  const decision = irrigationDecision(soilHumidity, waterLevel, permissions);
+export function irrigationStatus(soilHumidity, waterLevel) {
+  const decision = irrigationDecision(soilHumidity, waterLevel);
   if (!decision.allowed) return decision.message;
-  if (Number(soilHumidity) >= CONTROL_POLICY.soilManualDenyThreshold) return decision.message;
   return Number(soilHumidity) <= CONTROL_POLICY.soilDryThreshold
     ? 'Suelo seco: riego permitido.'
     : 'Rango aceptable: riego manual disponible.';
-}
-
-export function manualIrrigationDecision(record, control, profile, permissions = {}, nowMillis = Date.now()) {
-  if (profile?.status !== 'approved' || !['operator', 'admin'].includes(profile?.role)) {
-    return { allowed: false, reason: 'operator-required', message: 'Tu cuenta no tiene permiso para realizar esta acción.' };
-  }
-  if (!isTelemetryCurrent(record, control, nowMillis)) {
-    return { allowed: false, reason: 'telemetry-unavailable', message: 'Riego bloqueado: se necesita telemetría actual y el ESP32 conectado.' };
-  }
-  if (control.auto_mode !== false) {
-    return { allowed: false, reason: 'automatic-mode', message: 'Desactiva el modo automático antes de solicitar riego manual.' };
-  }
-  if (permissions?.allowSensorlessManualWatering === true) {
-    return { allowed: true, reason: 'sensorless-manual-authorized', message: 'Pulso manual de 3 segundos.' };
-  }
-  const decision = irrigationDecision(record.soil_humidity, record.water_level, permissions);
-  return decision.allowed
-    ? { ...decision, message: irrigationStatus(record.soil_humidity, record.water_level, permissions) }
-    : decision;
 }
 
 export function waterLevelLabel(value) {

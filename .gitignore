@@ -1,6 +1,7 @@
 *.iml
 **/node_modules/
 /dist/
+supabase/.temp/
 .gradle
 /local.properties
 /.idea/caches

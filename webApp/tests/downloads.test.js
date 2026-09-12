@@ -23,7 +23,7 @@ test('la web ofrece instaladores oficiales para las tres plataformas', async () 
 
   for (const [platform, file, icon] of expected) {
     assert.match(html, new RegExp(`>${platform}<`));
-    assert.match(html, new RegExp(`releases/latest/download/${file.replaceAll('.', '\\.')}`));
+    assert.match(html, new RegExp(`releases/download/v1.4.13/${file.replaceAll('.', '\\.')}`));
     assert.match(html, new RegExp(`icons/${icon.replaceAll('.', '\\.')}`));
   }
 });

@@ -79,18 +79,6 @@ test('nivel bajo y suelo húmedo generan advertencias cuando el dato es reciente
   assert.equal(model.severity, 'warning');
 });
 
-test('el diagnóstico reconoce el permiso de suelo húmedo y conserva la advertencia de agua baja', () => {
-  const permissions = { allowWetSoilManualWatering: true };
-  const record = freshRecord({ soil_humidity: 70, water_level: 'low' });
-  const model = buildDiagnosticModel(record, onlineControl, NOW, permissions);
-  assert.equal(findItem(model, 'Humedad de suelo').status, 'SUELO HÚMEDO · PERMISO MANUAL');
-  assert.equal(findItem(model, 'Nivel de agua').status, 'ALERTA · RIEGO BLOQUEADO');
-
-  const stale = buildDiagnosticModel(record, onlineControl, NOW + 31000, permissions);
-  assert.equal(findItem(stale, 'Humedad de suelo').status, 'DATO ANTIGUO');
-  assert.match(findItem(stale, 'Humedad de suelo').detail, /riego permanece bloqueado/i);
-});
-
 test('sensores sin valores se identifican como sin datos, no como OK', () => {
   const model = buildDiagnosticModel(
     freshRecord({ temperature: null, air_humidity: null, light_lux: null }),

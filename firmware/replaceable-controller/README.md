@@ -54,8 +54,7 @@ void sendState() {
   JsonDocument commands;
   if (controller.sync(++heartbeatSequence, FIRMWARE_VERSION, true, telemetry.as<JsonObjectConst>(), commands)) {
     // Aplicar fan_target, fan_power, led_target, led_power, auto_mode,
-    // pump_request, pump_duration_ms, pump_authorized,
-    // pump_expires_at_epoch y pump_allow_wet_soil con las protecciones siguientes.
+    // pump_request y pump_duration_ms usando la lógica actual del sketch.
   }
 }
 ```
@@ -84,73 +83,7 @@ confirmada**, no confirma la presencia física del sensor y siempre bloquea la
 bomba. Para mostrar un estado separado de “sensor desconectado” se necesita un
 circuito supervisado con resistencia de fin de línea.
 
-## Permiso de riego manual con suelo húmedo
-
-La web consulta `my_control_permissions()` para la cuenta autenticada. El
-servidor sólo concede la excepción a cuentas aprobadas con una autorización
-explícita en `private.manual_watering_permissions`; no depende del nombre
-visible ni de metadatos modificables por el usuario. El resto de las cuentas
-conserva el bloqueo a partir del 60 % de humedad.
-
-El firmware completo necesita la integración de `2.1.3+replaceable`: cambiar
-únicamente el servidor no elimina el bloqueo local de versiones anteriores.
-La respuesta de `controller_sync` incluye `pump_allow_wet_soil` ligado al
-`pump_request` vigente, y el gateway conserva ese campo. El sketch debe:
-
-- establecer la secuencia inicial sin ejecutar órdenes anteriores al arranque;
-- aceptar sólo órdenes nuevas con `pump_authorized=true`, caducidad vigente y
-  modo manual; nunca reutilizar una orden rechazada;
-- omitir el umbral de humedad sólo para ese pulso si `pump_allow_wet_soil=true`;
-- mantener agua disponible, lectura de suelo válida y duración máxima de 10 s;
-- detener el pulso ante caducidad, falta de agua, lectura inválida o cambio a
-  automático, y borrar la excepción al apagar la bomba.
-
-La web solicita pulsos de 3 s. Los tiempos mínimos entre riegos siguen siendo
-10 s por sistema y 60 s por operador. Los instaladores nativos anteriores no
-incluyen la interfaz de esta excepción; se puede usar la web actualizada.
-
-Las concesiones por cuenta son datos operativos privados y no se incluyen en
-las migraciones del repositorio. La prueba SQL
-`supabase/tests/manual_watering_account_permission.sql` revierte todos los
-datos y órdenes de prueba, por lo que no activa el hardware.
-
 ## Reemplazo
-
-### Demostración temporal Eureka
-
-La cuenta aprobada de Hever dispone de una vista ambiental de demostración,
-identificada como **Valores de referencia**: temperatura 25,4 °C y humedad del
-aire 62 %. La iluminación muestra **Estimación según LED**, proporcional a la
-potencia reportada por el ESP32, con una referencia no calibrada de 850 lux al
-100 % (425 lux al 50 %, 0 lux al 0 %). Estima sólo el aporte del LED, no la luz
-ambiental ni una lectura del BH1750. Sin telemetría vigente o con un reporte
-de potencia inválido/incoherente muestra `--`. Espera la confirmación del ESP32;
-mover el deslizador por sí solo no cambia la estimación.
-La selección usa su identificador de sesión, no el nombre visible.
-Gabriel y las demás cuentas siguen viendo las lecturas reales. Los ejemplos
-no se escriben en `sensor_records`, no entran en el historial ni en la IA y
-no intervienen en las decisiones de riego.
-
-El sketch privado `EcoSphere_Eureka_Hever.ino` versión `2.1.4+replaceable`
-omite las comunicaciones BME280/BH1750 y envía sus campos como `null`, para que
-los buses I²C bloqueados no impidan probar el resto. Mantiene el suelo en
-GPIO34, agua en GPIO32, ventilador en GPIO25, bomba en GPIO26 y LED en GPIO33.
-No contiene un generador de telemetría simulada.
-
-Para demostrar los actuadores, cargar ese firmware y abrir la web como Hever,
-esperar a que indique ESP32 conectado y seleccionar **MANUAL**. Comprobar
-físicamente cada salida por separado. El riego sigue requiriendo suelo válido
-y agua disponible, dura 3 s desde la web y conserva la espera por cuenta.
-Los valores ambientales de ejemplo no prueban conectividad ni funcionamiento
-de los sensores. Las lecturas históricas de suelo y los estados de salida no
-deben interpretarse como actuales cuando el controlador está desconectado.
-
-Al terminar la feria, retirar la vista de demostración de los clientes y
-restaurar un firmware que lea los sensores reparados. La excepción de riego
-manual de Hever es independiente: debe revocarse en el servidor cuando deje
-de ser necesaria.
-
-### Procedimiento de reemplazo
 
 1. Encienda el ESP32 de reserva y copie de su puerto serie el **UID EcoSphere** y la **Prueba EcoSphere**.
 2. Entre como administrador con el autenticador habilitado.
