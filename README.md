@@ -1,4 +1,23 @@
 # EcoSphere
+### Microclima inteligente · Software e IoT
+
+Supervisión y control de un microclima desde una aplicación conectada a un ESP32. El proyecto reúne telemetría, historial y órdenes remotas en clientes para móvil, escritorio y navegador.
+
+**Qué resuelve:** consultar las condiciones del ecosistema y operar riego, ventilación e iluminación desde una misma plataforma.
+
+| En un vistazo | Detalle |
+|---|---|
+| Área | IoT y aplicaciones multiplataforma |
+| Tecnologías | Kotlin, Jetpack Compose, Compose Desktop, JavaScript, ESP32 y Supabase |
+| Funciones | Lecturas de sensores, historial, control remoto, autenticación y diagnóstico |
+| Plataformas del repositorio | Android, Windows, Linux y web |
+| Alcance | Proyecto en desarrollo; la operación completa requiere configurar el backend y conectar el hardware |
+
+**Explorar:** [código Android](app/) · [aplicación web](webApp/) · [firmware](firmware/) · [arquitectura de las interfaces](docs/PLATFORM_UI_ARCHITECTURE.md) · [compilaciones](https://github.com/VillenetMK/EcoSphere/actions)
+
+Las comprobaciones automáticas y el estado de cada compilación pueden consultarse en Actions. El comportamiento físico debe validarse con sensores y actuadores conectados.
+
+---
 
 EcoSphere es la aplicación multiplataforma para supervisar y controlar el microclima conectado al ESP32. Usa el mismo proyecto Supabase para telemetría, historial, heartbeat y órdenes remotas.
 
