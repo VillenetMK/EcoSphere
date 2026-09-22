@@ -1,7 +1,34 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { clientErrorMessage, readJsonResponse } from '../api-response.js';
+import { clientErrorMessage, fetchJson, readJsonResponse } from '../api-response.js';
+
+test('corta una conexión bloqueada para permitir el siguiente refresco', async t => {
+  t.mock.method(globalThis, 'fetch', async (_url, { signal }) => new Promise((resolve, reject) => {
+    signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+  }));
+  await assert.rejects(fetchJson('https://example.invalid', { timeoutMs: 10 }), /Network timeout/);
+});
+
+test('el tiempo máximo también cubre la descarga del cuerpo de la respuesta', async t => {
+  t.mock.method(globalThis, 'fetch', async (_url, { signal }) => ({
+    ok: true,
+    text: () => new Promise((resolve, reject) => {
+      signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+    }),
+  }));
+  await assert.rejects(fetchJson('https://example.invalid', { timeoutMs: 10 }), /Network timeout/);
+});
+
+test('propaga la cancelación sin esperar al tiempo máximo de red', async t => {
+  const controller = new AbortController();
+  t.mock.method(globalThis, 'fetch', async (_url, { signal }) => new Promise((resolve, reject) => {
+    signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+  }));
+  const request = fetchJson('https://example.invalid', { signal: controller.signal });
+  controller.abort();
+  await assert.rejects(request, { name: 'AbortError' });
+});
 
 test('no expone detalles internos de un error estructurado de Supabase', async () => {
   const response = new Response(JSON.stringify({
