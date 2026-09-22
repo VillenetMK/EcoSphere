@@ -18,6 +18,38 @@ Versiones de esta restauración: web **1.6.12**, Android **1.4.14** (código 19)
 
 ## Migración de restauración
 
+### Eliminación definitiva de permisos
+
+La migración `20260922235706_remove_eureka_permissions.sql` retira las excepciones
+que la restauración inicial había desactivado:
+
+- Elimina las tablas de permisos de riego/voz y el contador temporal de sesiones
+  de voz, junto con los cinco RPC exclusivos de esas funciones.
+- Elimina los dos campos de excepción del estado de control y sus referencias
+  en los comandos y el disparador de auditoría.
+- Conserva los nombres de esos dos campos en la respuesta al ESP32, siempre con
+  valor `false`, para los firmwares ya instalados. No permiten activar permisos.
+- Conserva las cuentas, la telemetría, la auditoría histórica, la identidad de
+  los controladores y los ajustes de modo, LED y ventilador. Las columnas de
+  auditoría de las antiguas excepciones siguen describiendo únicamente el pasado.
+- Mantiene el endpoint de voz cerrado con HTTP 410 para los clientes antiguos.
+
+Las pruebas ejecutan las migraciones de desactivación y eliminación en PostgreSQL
+aislado y comprueban el riego normal, sus rechazos, las pausas, los permisos/MFA,
+la conservación de datos y la respuesta compatible del ESP32. No controlan el
+hardware real. La migración se aplicó y verificó el 22 de septiembre de 2026:
+se conservaron exactamente las 6 cuentas, 48 280 lecturas, 255 auditorías,
+3 controladores y todos los ajustes del sistema. Pasaron 124 pruebas de
+web/contratos/SQL y 11 pruebas del gateway.
+
+El firmware privado `2.1.7+replaceable` revisado conserva riego automático cuando
+la lectura válida de suelo es ≤35 % y hay agua: pulsos de 3 segundos con una pausa
+de 5 minutos entre inicios. Que se active en arena puede corresponder a esa regla;
+no demuestra por sí solo una falla física. Esta limpieza de permisos no cambia
+los umbrales, la calibración ni el firmware cargado en la placa.
+
+### Restauración inicial del 12 de septiembre
+
 `supabase/migrations/20260912180644_restore_normal_operation_after_eureka.sql`:
 
 1. Revoca los permisos temporales de riego y voz.
