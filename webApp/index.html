@@ -15,7 +15,7 @@
   <title>EcoSphere</title>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="styles.css?v=1.6.12" />
+  <link rel="stylesheet" href="styles.css?v=1.6.13" />
   <script src="android-auth-return.js"></script>
 </head>
 <body>
@@ -163,7 +163,7 @@
         <span id="currentUserRole">Acceso autorizado</span>
         <button type="button" data-auth-signout>Cerrar sesión</button>
       </div>
-      <div class="version">EcoSphere Web 1.6.12</div>
+      <div class="version">EcoSphere Web 1.6.13</div>
     </aside>
 
     <main class="main">
@@ -256,6 +256,13 @@
             <button id="historyExportBtn" class="secondary-btn"><img class="ui-icon button-icon" src="icons/ic_history.svg" alt="" aria-hidden="true" />Exportar CSV</button>
           </div>
         </header>
+
+        <form id="historyFilterForm" class="history-filters">
+          <label>Desde<input id="historyFrom" type="datetime-local" step="1" /></label>
+          <label>Hasta<input id="historyTo" type="datetime-local" step="1" /></label>
+          <button class="secondary-btn" type="submit">Consultar fechas</button>
+          <p>Deja las fechas vacías para recorrer todo el historial.</p>
+        </form>
 
         <article id="historyNotice" class="history-notice severity-unknown" aria-live="polite">
           <div><strong id="historyNoticeTitle">Evaluando el historial…</strong><p id="historyNoticeDetail">Esperando la primera consulta.</p></div>
@@ -427,6 +434,6 @@
     </form>
   </dialog>
 
-  <script type="module" src="app.js?v=1.6.12"></script>
+  <script type="module" src="app.js?v=1.6.13"></script>
 </body>
 </html>

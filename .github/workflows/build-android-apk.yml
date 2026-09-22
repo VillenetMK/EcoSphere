@@ -33,12 +33,8 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
-
-      - name: Accept Android SDK licenses
-        run: yes | sdkmanager --licenses >/dev/null || true
-
-      - name: Install Android SDK 36
-        run: sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4

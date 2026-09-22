@@ -56,6 +56,8 @@ const SAFE_CLIENT_MESSAGES = new Set([
   'Actualiza el firmware del ESP32 antes de usarlo como reemplazo.',
   'El riego fue bloqueado porque las condiciones actuales no son seguras.',
   'Se enviaron demasiadas órdenes. Espera un momento e inténtalo nuevamente.',
+  'Selecciona fechas válidas para el historial.',
+  'La fecha inicial debe ser anterior a la fecha final.',
 ]);
 
 export function clientErrorMessage(error, fallback) {
@@ -86,4 +88,19 @@ export async function readJsonResponse(response) {
   }
 
   return text ? JSON.parse(text) : null;
+}
+
+export async function fetchJson(url, { signal, timeoutMs = 15000, ...options } = {}) {
+  const controller = new AbortController();
+  const abort = () => controller.abort(signal.reason);
+  signal?.throwIfAborted();
+  signal?.addEventListener('abort', abort, { once: true });
+  const timer = setTimeout(() => controller.abort(new Error('Network timeout')), timeoutMs);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    return await readJsonResponse(response);
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', abort);
+  }
 }

@@ -21,11 +21,11 @@ import {
   analyzeHistory,
   buildHistoryChart,
   historyCsv,
-  paginateHistory,
   prepareHistoryExport,
 } from './history.js';
+import { historyRange, loadHistoryPage, loadHistoryRange } from './history-source.js';
 import { authErrorMessage, initializeAuth } from './auth.js';
-import { clientErrorMessage, readJsonResponse } from './api-response.js';
+import { clientErrorMessage, fetchJson } from './api-response.js';
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL, supabase } from './supabase-client.js';
 
 let latestRecord = null;
@@ -42,6 +42,16 @@ let historyMetric = 'soil_humidity';
 let refreshTimer = null;
 let currentProfile = null;
 let controllerStatus = null;
+let connectionLost = false;
+let freshnessTimer = null;
+let applicationEpoch = 0;
+let historySnapshot = null;
+let historyCursors = [null];
+let historyHasMore = false;
+let historyNextCursor = null;
+let historyRequest = null;
+let historyLoading = false;
+let exportRequest = null;
 
 function normalizeSeparatedHex(value) {
   return String(value).replace(/[\s-]/g, '').toUpperCase();
@@ -98,13 +108,12 @@ async function headers(extra = {}) {
   };
 }
 
-async function apiGet(path) {
-  const response = await fetch(`${SUPABASE_URL}/${path}`, { headers: await headers() });
-  return readJsonResponse(response);
+async function apiGet(path, { signal } = {}) {
+  return fetchJson(`${SUPABASE_URL}/${path}`, { headers: await headers(), signal });
 }
 
 async function apiPost(path, body = {}) {
-  const response = await fetch(`${SUPABASE_URL}/${path}`, {
+  return fetchJson(`${SUPABASE_URL}/${path}`, {
     method: 'POST',
     headers: await headers({
       'Content-Type': 'application/json',
@@ -112,21 +121,49 @@ async function apiPost(path, body = {}) {
     }),
     body: JSON.stringify(body),
   });
-  return readJsonResponse(response);
 }
 
 async function loadLatest() {
+  const epoch = applicationEpoch;
   const [records, controls] = await Promise.all([
     apiGet('rest/v1/sensor_records?select=*&order=created_at.desc&limit=1'),
     apiGet('rest/v1/device_control?id=eq.1&select=*'),
   ]);
+  if (epoch !== applicationEpoch) throw new DOMException('Session changed', 'AbortError');
   latestRecord = records[0] ?? null;
   deviceControl = controls[0] ?? null;
+  connectionLost = false;
 }
 
-async function loadHistory() {
-  historyRecords = await apiGet('rest/v1/sensor_records?select=*&order=created_at.desc&limit=200');
-  lastHistoryLoadedAt = Date.now();
+async function loadHistory({ page = 1, reset = true } = {}) {
+  historyRequest?.abort();
+  const request = new AbortController();
+  historyRequest = request;
+  historyLoading = true;
+  renderHistory();
+  try {
+    const range = reset ? historyRange({ from: $('historyFrom').value, to: $('historyTo').value }) : historySnapshot;
+    const result = await loadHistoryPage(apiGet, {
+      range, cursor: reset ? null : historyCursors[page - 1], pageSize: historyPageSize, signal: request.signal,
+    });
+    if (request.signal.aborted) return;
+    historySnapshot = range;
+    historyRecords = result.records;
+    historyHasMore = result.hasMore;
+    historyNextCursor = result.nextCursor;
+    historyPage = page;
+    if (reset) historyCursors = [null];
+    lastHistoryLoadedAt = Date.now();
+    hideError();
+  } catch (error) {
+    if (!request.signal.aborted) showError(clientErrorMessage(error, 'Error cargando el historial.'));
+  } finally {
+    if (historyRequest === request) {
+      historyRequest = null;
+      historyLoading = false;
+      renderHistory();
+    }
+  }
 }
 
 async function loadControllerStatus() {
@@ -140,23 +177,29 @@ async function loadControllerStatus() {
 
 async function refresh({ manual = false } = {}) {
   if (refreshing) return;
+  const epoch = applicationEpoch;
   refreshing = true;
   if (manual) setRefreshLoading(true);
   try {
     await loadLatest();
-    if (activeScreen === 'history' && (manual || Date.now() - lastHistoryLoadedAt >= 30000)) {
-      await loadHistory();
+    if (activeScreen === 'history' && !historyLoading && historyPage === 1 && (manual || Date.now() - lastHistoryLoadedAt >= 30000)) {
+      void loadHistory();
     }
     if (activeScreen === 'diagnostics' && currentProfile?.role === 'admin') {
       await loadControllerStatus();
     }
     hideError();
-    renderAll();
   } catch (error) {
-    showError(clientErrorMessage(error, 'Error sincronizando con EcoSphere.'));
+    if (epoch === applicationEpoch) {
+      connectionLost = true;
+      showError(clientErrorMessage(error, 'Error sincronizando con EcoSphere.'));
+    }
   } finally {
-    if (manual) setRefreshLoading(false);
-    refreshing = false;
+    if (epoch === applicationEpoch) {
+      renderAll();
+      if (manual) setRefreshLoading(false);
+      refreshing = false;
+    }
   }
 }
 
@@ -186,11 +229,11 @@ function renderAll() {
 }
 
 function renderDashboard() {
-  const online = onlineNow(deviceControl);
-  const telemetryCurrent = isTelemetryCurrent(latestRecord, deviceControl);
+  const online = !connectionLost && onlineNow(deviceControl);
+  const telemetryCurrent = !connectionLost && isTelemetryCurrent(latestRecord, deviceControl);
   const currentRecord = telemetryCurrent ? latestRecord : null;
   const auto = !!deviceControl?.auto_mode;
-  $('systemStatus').textContent = online ? 'Sistema conectado' : 'Sistema sin conexión';
+  $('systemStatus').textContent = connectionLost ? 'Conexión sin confirmar' : online ? 'Sistema conectado' : 'Sistema sin conexión';
   $('modeValue').textContent = !deviceControl ? 'Sin confirmar' : auto ? 'Automático' : 'Manual';
   $('modeIcon').src = iconPath(!deviceControl ? 'ic_offline' : auto ? 'ic_auto_mode' : 'ic_manual_mode');
   $('lastEsp32').textContent = formatDate(deviceControl?.last_seen_at);
@@ -223,7 +266,7 @@ function renderDashboard() {
   $('reportedModeIcon').src = iconPath(reportedMode == null ? 'ic_offline' : reportedMode ? 'ic_auto_mode' : 'ic_manual_mode');
 
   $('autoMode').checked = auto;
-  const canOperate = ['operator', 'admin'].includes(currentProfile?.role);
+  const canOperate = !connectionLost && ['operator', 'admin'].includes(currentProfile?.role);
   $('autoMode').disabled = busy || !deviceControl || !canOperate;
   $('modeHint').textContent = !deviceControl
     ? 'Configuración remota sin confirmar'
@@ -231,10 +274,14 @@ function renderDashboard() {
 
   const fan = Number(deviceControl?.fan_power ?? 0);
   const led = Number(deviceControl?.led_power ?? 0);
-  $('fanPower').value = fan;
-  $('ledPower').value = led;
-  $('fanPowerLabel').textContent = `${fan} %`;
-  $('ledPowerLabel').textContent = `${led} %`;
+  if (document.activeElement !== $('fanPower')) {
+    $('fanPower').value = fan;
+    $('fanPowerLabel').textContent = `${fan} %`;
+  }
+  if (document.activeElement !== $('ledPower')) {
+    $('ledPower').value = led;
+    $('ledPowerLabel').textContent = `${led} %`;
+  }
   $('fanPower').disabled = busy || auto || !deviceControl || !canOperate;
   $('ledPower').disabled = busy || auto || !deviceControl || !canOperate;
   const irrigation = irrigationDecision(
@@ -250,11 +297,9 @@ function renderDashboard() {
 
 function renderHistory() {
   const analysis = analyzeHistory(historyRecords);
-  const pagination = paginateHistory(analysis.records, historyPage, historyPageSize);
-  historyPage = pagination.page;
-  $('historyCount').textContent = historyRecords.length
-    ? `${analysis.total} registros · última lectura ${analysis.newestAgeLabel}`
-    : 'Esperando registros históricos';
+  $('historyCount').textContent = historyLoading ? 'Consultando registros…' : historyRecords.length
+    ? `${analysis.total} registros en esta página · última lectura ${analysis.newestAgeLabel}`
+    : 'Sin registros en el intervalo seleccionado';
 
   const notice = $('historyNotice');
   notice.className = `history-notice ${analysis.stale ? 'severity-warning' : 'severity-normal'}`;
@@ -266,7 +311,7 @@ function renderHistory() {
     : 'Todavía no se han recibido registros para analizar.';
 
   $('historySummary').innerHTML = [
-    ['ic_history', 'Registros cargados', analysis.total, `Rango temporal: ${analysis.rangeLabel}`],
+    ['ic_history', 'Registros de esta página', analysis.total, `Rango temporal: ${analysis.rangeLabel}`],
     ['ic_info', 'Datos disponibles', `${analysis.completeness} %`, `${analysis.completeRecords} registros completos`],
     ['ic_water_level', 'Agua baja', analysis.lowWaterRecords, analysis.lowWaterRecords ? 'Riego bloqueado en esos registros' : 'Sin eventos detectados'],
     ['ic_soil_humidity', 'Saltos del suelo', analysis.abruptChanges, analysis.abruptChanges ? 'Cambios ≥ 40 puntos en ≤ 15 s' : 'Sin variaciones bruscas'],
@@ -279,7 +324,7 @@ function renderHistory() {
   `).join('');
 
   renderHistoryChart(analysis.records);
-  $('historyBody').innerHTML = pagination.items.map(row => `
+  $('historyBody').innerHTML = analysis.records.map(row => `
     <tr>
       <td class="history-date">${escapeHtml(formatDate(row.created_at))}</td>
       <td>${historyReading(row.temperature, '°C')}</td>
@@ -294,11 +339,12 @@ function renderHistory() {
     </tr>
   `).join('');
   $('historyPageStatus').textContent = analysis.total
-    ? `Mostrando ${pagination.from}–${pagination.to} de ${analysis.total}`
+    ? `Mostrando ${(historyPage - 1) * historyPageSize + 1}–${(historyPage - 1) * historyPageSize + analysis.total} · resumen y gráfica de esta página`
     : 'Sin registros';
-  $('historyPageNumber').textContent = `Página ${pagination.page} de ${pagination.pageCount}`;
-  $('historyPrevBtn').disabled = pagination.page <= 1;
-  $('historyNextBtn').disabled = pagination.page >= pagination.pageCount;
+  $('historyPageNumber').textContent = `Página ${historyPage}${historyHasMore ? '' : ' · última'}`;
+  $('historyPrevBtn').disabled = historyLoading || historyPage <= 1;
+  $('historyNextBtn').disabled = historyLoading || !historyHasMore;
+  $('historyRefreshBtn').disabled = historyLoading;
 }
 
 function historyReading(value, unit, decimals = 1) {
@@ -340,7 +386,7 @@ function renderHistoryChart(records) {
 }
 
 function renderDiagnostics() {
-  currentDiagnosticModel = buildDiagnosticModel(latestRecord, deviceControl);
+  currentDiagnosticModel = buildDiagnosticModel(connectionLost ? null : latestRecord, connectionLost ? null : deviceControl);
   const model = currentDiagnosticModel;
   const summary = $('diagnosticSummary');
   summary.className = `diagnostic-summary severity-${model.severity}`;
@@ -447,48 +493,48 @@ function setRefreshLoading(value) {
 }
 
 async function updateControl(action, value) {
+  const epoch = applicationEpoch;
   setBusy(true);
   try {
     const result = await apiPost('rest/v1/rpc/control_command', {
       p_action: action,
       p_value: value,
     });
+    if (epoch !== applicationEpoch) return;
     deviceControl = result[0] ?? deviceControl;
     await refresh();
   } catch (error) {
-    toast(clientErrorMessage(error, 'Error actualizando el control.'));
+    if (epoch === applicationEpoch) toast(clientErrorMessage(error, 'Error actualizando el control.'));
   } finally {
-    setBusy(false);
+    if (epoch === applicationEpoch) setBusy(false);
   }
 }
 
 $('refreshBtn').addEventListener('click', () => refresh({ manual: true }));
-$('historyRefreshBtn').addEventListener('click', () => refresh({ manual: true }));
+$('historyRefreshBtn').addEventListener('click', () => loadHistory());
+$('historyFilterForm').addEventListener('submit', event => {
+  event.preventDefault();
+  void loadHistory();
+});
 $('historyMetric').addEventListener('change', event => {
   historyMetric = event.target.value;
   renderHistory();
 });
 $('historyPageSize').addEventListener('change', event => {
   historyPageSize = Number(event.target.value);
-  historyPage = 1;
-  renderHistory();
+  void loadHistory();
 });
 $('historyPrevBtn').addEventListener('click', () => {
-  historyPage -= 1;
-  renderHistory();
+  if (!historyLoading && historyPage > 1) void loadHistory({ page: historyPage - 1, reset: false });
 });
 $('historyNextBtn').addEventListener('click', () => {
-  historyPage += 1;
-  renderHistory();
+  if (historyLoading || !historyHasMore) return;
+  historyCursors[historyPage] = historyNextCursor;
+  void loadHistory({ page: historyPage + 1, reset: false });
 });
 $('historyExportBtn').addEventListener('click', () => {
-  if (!historyRecords.length) {
-    toast('No hay registros para exportar.');
-    return;
-  }
-  const analysis = analyzeHistory(historyRecords);
-  $('historyExportFrom').value = localDateTimeInput(analysis.oldestAt);
-  $('historyExportTo').value = localDateTimeInput(analysis.newestAt, true);
+  $('historyExportFrom').value = historySnapshot?.from ? localDateTimeInput(Date.parse(historySnapshot.from)) : '';
+  $('historyExportTo').value = localDateTimeInput(historySnapshot ? Date.parse(historySnapshot.before) - 1 : Date.now());
   $('historyExportStatus').value = 'all';
   document.querySelectorAll('input[name="historyExportColumn"]').forEach(input => { input.checked = true; });
   updateHistoryExportPreview();
@@ -509,25 +555,30 @@ function historyExportOptions() {
   const fromValue = $('historyExportFrom').value;
   const toValue = $('historyExportTo').value;
   return {
-    from: fromValue ? new Date(fromValue).toISOString() : null,
-    to: toValue ? new Date(toValue).toISOString() : null,
+    from: fromValue || null,
+    to: toValue || null,
     status: $('historyExportStatus').value,
     columns: [...document.querySelectorAll('input[name="historyExportColumn"]:checked')].map(input => input.value),
   };
 }
 
 function updateHistoryExportPreview() {
+  if (exportRequest) return;
   const options = historyExportOptions();
-  const selection = prepareHistoryExport(historyRecords, options);
   const preview = $('historyExportPreview');
-  if (!selection.columns.length) {
+  let valid = options.columns.length > 0;
+  if (!valid) {
     preview.innerHTML = '<strong>Selecciona al menos una columna.</strong><span>No se generará ningún archivo hasta elegirla.</span>';
-  } else if (!selection.records.length) {
-    preview.innerHTML = '<strong>No hay registros con esos filtros.</strong><span>Cambia el rango o el tipo de registro.</span>';
   } else {
-    preview.innerHTML = `<strong>${selection.records.length} registros listos</strong><span>${selection.columns.length} columnas serán incluidas en el CSV.</span>`;
+    try {
+      historyRange(options);
+      preview.innerHTML = `<strong>Se consultará todo el intervalo elegido</strong><span>${options.columns.length} columnas. Incluye registros de otras páginas; las fechas vacías no limitan el historial.</span>`;
+    } catch (error) {
+      valid = false;
+      preview.textContent = error.message;
+    }
   }
-  $('historyExportDownloadBtn').disabled = !selection.records.length || !selection.columns.length;
+  $('historyExportDownloadBtn').disabled = !valid;
 }
 
 $('historyExportForm').addEventListener('input', updateHistoryExportPreview);
@@ -540,19 +591,42 @@ $('historyExportNoColumns').addEventListener('click', () => {
   document.querySelectorAll('input[name="historyExportColumn"]').forEach(input => { input.checked = false; });
   updateHistoryExportPreview();
 });
-$('historyExportDownloadBtn').addEventListener('click', () => {
+$('historyExportDialog').addEventListener('close', () => exportRequest?.abort());
+$('historyExportDownloadBtn').addEventListener('click', async () => {
+  if (exportRequest) return;
   const options = historyExportOptions();
-  const selection = prepareHistoryExport(historyRecords, options);
-  if (!selection.records.length || !selection.columns.length) return;
-  const blob = new Blob([`\ufeff${historyCsv(historyRecords, options)}`], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `EcoSphere-historial-${new Date().toISOString().slice(0, 10)}.csv`;
-  link.click();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-  $('historyExportDialog').close();
-  toast(`${selection.records.length} registros exportados en CSV.`);
+  if (!options.columns.length) return;
+  const request = new AbortController();
+  exportRequest = request;
+  $('historyExportDownloadBtn').disabled = true;
+  try {
+    const records = await loadHistoryRange(apiGet, {
+      range: historyRange(options), signal: request.signal,
+      onProgress: count => { $('historyExportPreview').textContent = `Recuperando historial: ${count} registros. Puedes cerrar esta ventana para cancelar.`; },
+    });
+    if (request.signal.aborted) return;
+    const selection = prepareHistoryExport(records, options);
+    if (!selection.records.length) {
+      toast('No hay registros con esos filtros.');
+      return;
+    }
+    const blob = new Blob([`\ufeff${historyCsv(records, options)}`], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `EcoSphere-historial-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+    $('historyExportDialog').close();
+    toast(`${selection.records.length} registros exportados en CSV.`);
+  } catch (error) {
+    if (!request.signal.aborted) toast(clientErrorMessage(error, 'No se pudo exportar el historial. Intenta nuevamente.'));
+  } finally {
+    if (exportRequest === request) {
+      exportRequest = null;
+      updateHistoryExportPreview();
+    }
+  }
 });
 $('diagnosticsRefreshBtn').addEventListener('click', () => refresh({ manual: true }));
 $('controllerAuthorizationForm').addEventListener('submit', async event => {
@@ -657,7 +731,7 @@ $('ledPower').addEventListener('change', event => {
 });
 
 $('pumpBtn').addEventListener('click', async () => {
-  const currentRecord = isTelemetryCurrent(latestRecord, deviceControl) ? latestRecord : null;
+  const currentRecord = !connectionLost && isTelemetryCurrent(latestRecord, deviceControl) ? latestRecord : null;
   const decision = irrigationDecision(
     currentRecord?.soil_humidity,
     currentRecord?.water_level,
@@ -675,8 +749,7 @@ document.querySelectorAll('.nav-item').forEach(button => {
     document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b === button));
     document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === activeScreen));
     if (activeScreen === 'history') {
-      try { await loadHistory(); renderHistory(); }
-      catch (error) { showError(clientErrorMessage(error, 'Error cargando el historial.')); }
+      await loadHistory();
     }
     if (activeScreen === 'diagnostics' && currentProfile?.role === 'admin') {
       try { await loadControllerStatus(); renderDiagnostics(); }
@@ -717,14 +790,37 @@ function startApplication({ profile }) {
   if (!refreshTimer) {
     refresh();
     refreshTimer = setInterval(() => refresh(), 2000);
+    // Expire displayed readings even while a request is pending or failing.
+    freshnessTimer = setInterval(() => {
+      renderDashboard();
+      if (activeScreen === 'diagnostics') renderDiagnostics();
+    }, 1000);
   }
 }
 
 function stopApplication() {
+  applicationEpoch += 1;
+  historyRequest?.abort();
+  exportRequest?.abort();
+  historyRequest = null;
+  exportRequest = null;
   $('app').hidden = true;
   $('authGate').hidden = false;
   if (refreshTimer) clearInterval(refreshTimer);
+  if (freshnessTimer) clearInterval(freshnessTimer);
   refreshTimer = null;
+  freshnessTimer = null;
+  refreshing = false;
+  busy = false;
+  connectionLost = false;
+  historyLoading = false;
+  historySnapshot = null;
+  historyCursors = [null];
+  historyPage = 1;
+  historyHasMore = false;
+  historyNextCursor = null;
+  lastHistoryLoadedAt = 0;
+  $('historyExportDialog').close();
   latestRecord = null;
   deviceControl = null;
   historyRecords = [];

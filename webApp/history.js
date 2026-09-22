@@ -130,8 +130,8 @@ export function analyzeHistory(records, nowMillis = Date.now()) {
     availableReadings: readingCount(record),
   }));
   const dated = sorted.map(record => timestamp(record.created_at)).filter(value => value !== null);
-  const newestAt = dated.length ? Math.max(...dated) : null;
-  const oldestAt = dated.length ? Math.min(...dated) : null;
+  const newestAt = dated.length ? dated.reduce((a, b) => Math.max(a, b)) : null;
+  const oldestAt = dated.length ? dated.reduce((a, b) => Math.min(a, b)) : null;
   const possibleReadings = sorted.length * 5;
   const availableReadings = sorted.reduce((sum, record) => sum + readingCount(record), 0);
   const lowWaterRecords = sorted.filter(record => String(record.water_level ?? '').toLowerCase() === 'low').length;
@@ -183,8 +183,8 @@ export function buildHistoryChart(records, metricField, maxPoints = 80) {
   if (!sampled.length) return { metric, points: [], min: null, average: null, max: null };
 
   const allNumbers = values.map(point => point.value);
-  const min = Math.min(...allNumbers);
-  const max = Math.max(...allNumbers);
+  const min = allNumbers.reduce((a, b) => Math.min(a, b));
+  const max = allNumbers.reduce((a, b) => Math.max(a, b));
   const average = allNumbers.reduce((sum, value) => sum + value, 0) / allNumbers.length;
   const firstTime = sampled[0].time;
   const lastTime = sampled.at(-1).time;
