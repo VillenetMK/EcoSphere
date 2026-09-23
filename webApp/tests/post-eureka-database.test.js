@@ -83,8 +83,10 @@ function extractFunction(sql, name) {
   return sql.slice(start, end);
 }
 
-for (const removePermissions of [false, true]) {
-  test(`${removePermissions ? 'eliminación definitiva' : 'restauración'} posterior a Eureka: migración y controles SQL reales`, async t => {
+for (const phase of ['restauración', 'eliminación definitiva', 'riego manual sin pausas']) {
+  const removePermissions = phase !== 'restauración';
+  const removeCooldowns = phase === 'riego manual sin pausas';
+  test(`${phase} posterior a Eureka: migración y controles SQL reales`, async t => {
     const db = new PGlite();
     try {
       await db.exec(fixture);
@@ -129,6 +131,9 @@ for (const removePermissions of [false, true]) {
           $$;
         `);
         await db.exec(await read('20260922235706_remove_eureka_permissions.sql'));
+      }
+      if (removeCooldowns) {
+        await db.exec(await read('20260923001440_remove_manual_watering_cooldowns.sql'));
       }
 
       const state = async () => (await db.query('select * from public.device_control where id=1')).rows[0];
@@ -217,10 +222,11 @@ for (const removePermissions of [false, true]) {
         }));
       }
 
-      await t.test('el riego válido se audita, respeta las pausas y no cambia el LED ni el ventilador', () => scenario(async () => {
+      await t.test('el riego válido se audita, aplica la política de pausas vigente y conserva las otras salidas', () => scenario(async () => {
         await db.exec('set local role authenticated;');
         const c = (await command('pump',3000)).rows[0];
         assert.equal(c.pump_request, 43);
+        assert.equal(c.pump_duration_ms, 3000);
         assert.equal(c.pump_allow_wet_soil, removePermissions ? undefined : false);
         assert.equal(c.pump_bypass_sensor_checks, removePermissions ? undefined : false);
         assert.equal(c.led_power, 67);
@@ -230,14 +236,53 @@ for (const removePermissions of [false, true]) {
         assert.equal(audit.actor_user_id, cima);
         assert.equal(audit.pump_requested, true);
         assert.equal(audit.pump_bypass_sensor_checks, false);
-        await assert.rejects(command('pump',3000), /system pump cooldown is active/);
+        await db.exec('set local role authenticated;');
+        if (removeCooldowns) {
+          const next = (await command('pump',3000)).rows[0];
+          assert.equal(next.pump_request, 44);
+          assert.equal(next.pump_duration_ms, 3000);
+          assert.equal(next.led_power, 67);
+          assert.equal(next.fan_power, 24);
+          await db.exec('reset role;');
+          assert.equal((await db.query('select count(*)::int as n from private.control_audit_log where created_at=now()')).rows[0].n, 2);
+          assert.equal((await db.query('select extract(epoch from (pump_expires_at-now()))::int as seconds from public.device_control where id=1')).rows[0].seconds, 15);
+        } else {
+          await assert.rejects(command('pump',3000), /system pump cooldown is active/);
+        }
       }));
 
-      await t.test('CIMA también conserva la pausa de sesenta segundos por operador', () => scenario(async () => {
+      await t.test('aplica la política vigente después de un riego del mismo operador hace veinte segundos', () => scenario(async () => {
         await db.exec(`insert into private.control_audit_log(actor_user_id,actor_username,actor_role,pump_requested,created_at)
           values ('${cima}','fixture-cima','operator',true,now()-interval '20 seconds');`);
-        await assert.rejects(command('pump',3000), /operator pump cooldown is active/);
+        await db.exec('set local role authenticated;');
+        if (removeCooldowns) {
+          assert.equal((await command('pump',3000)).rows[0].pump_request, 43);
+        } else {
+          await assert.rejects(command('pump',3000), /operator pump cooldown is active/);
+        }
       }));
+
+      if (removeCooldowns) {
+        await t.test('un riego reciente de otro operador no impone una pausa global', () => scenario(async () => {
+          await db.exec(`insert into private.control_audit_log(actor_user_id,actor_username,actor_role,pump_requested,created_at)
+            values ('${operator}','fixture-operator','operator',true,now()-interval '1 second');
+            set local role authenticated;`);
+          assert.equal((await command('pump',3000)).rows[0].pump_request, 43);
+        }));
+
+        await t.test('vuelve a comprobar el agua antes de aceptar el siguiente pulso', () => scenario(async () => {
+          await command('pump',3000);
+          await db.exec("update public.sensor_records set water_level='low' where id=1; set local role authenticated;");
+          await assert.rejects(command('pump',3000), /water level is not sufficient/);
+        }));
+
+        for (const duration of [499,10001]) {
+          await t.test(`sigue rechazando una duración de ${duration} ms`, () => scenario(async () => {
+            await db.exec('set local role authenticated;');
+            await assert.rejects(command('pump',duration), /duration must be between 500 and 10000 ms/);
+          }));
+        }
+      }
 
       await t.test('los controles normales siguen disponibles para otro operador', () => scenario(async () => {
         await asUser(operator);

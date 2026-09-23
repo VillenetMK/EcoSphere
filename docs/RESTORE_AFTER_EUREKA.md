@@ -7,7 +7,7 @@ La experiencia de Web, Android y escritorio vuelve a la base `d247283a324c36de2a
 - Panel con lecturas reales y estado «sin datos» cuando falta telemetría vigente.
 - Retirada de las lecturas de exhibición por cuenta y de la sección de voz de Eureka.
 - Controles normales de LED, ventilador y bomba; registro simplificado, historial, exportación, diagnóstico y reemplazo de ESP32 conservados.
-- El riego manual vuelve a exigir modo manual, suelo válido por debajo del 60 %, agua suficiente, telemetría vigente, duración limitada y pausas por sistema/operador.
+- El riego manual exige modo manual, suelo válido por debajo del 60 %, agua suficiente, telemetría vigente y duración limitada. Las pausas por sistema/operador se retiraron en el ajuste del 23 de septiembre descrito abajo.
 - Las sesiones activas, roles aprobados, MFA administrativo y auditoría siguen siendo obligatorios.
 
 ## Estado de esta entrega
@@ -17,6 +17,30 @@ El propietario autorizó aplicar y publicar la restauración el 12 de septiembre
 Versiones de esta restauración: web **1.6.12**, Android **1.4.14** (código 19) y escritorio **1.4.8**. La web renueva sus entradas y su caché. Los tres instaladores se compilaron y publicaron correctamente en GitHub Actions como `v1.4.14`, con sus sumas SHA-256. Los enlaces de la web apuntan directamente a los archivos verificados de esa publicación.
 
 ## Migración de restauración
+
+### Riego manual sin esperas adicionales
+
+La migración `20260923001440_remove_manual_watering_cooldowns.sql` elimina las
+esperas de 10 segundos para el sistema y 60 segundos por operador. Las solicitudes
+manuales sucesivas se aceptan sin consultar cuándo fue el riego anterior; cada una
+conserva los controles de sesión, rol, MFA administrativo, modo manual, suelo y agua,
+telemetría vigente, duración y caducidad. La app sigue solicitando pulsos de 3 segundos;
+el ESP32 revisado evita superponer pulsos. Las cuotas de cambios de modo, LED y
+ventilador se mantienen.
+
+El cambio sustituye únicamente la función interna de control; no modifica datos,
+no envía órdenes a los actuadores y funciona con la web y los instaladores existentes.
+La pausa de 5 minutos del firmware corresponde exclusivamente al riego automático
+y no bloquea el comando manual. Este ajuste no necesita cargar otro firmware.
+
+Las pruebas SQL reproducen las tres etapas de migración y comprueban solicitudes
+manuales consecutivas, riego reciente de otra cuenta, auditoría, caducidad y los
+rechazos por sensores, duración, modo o sesión. Se ejecutan en PostgreSQL aislado.
+La migración se aplicó y verificó el 23 de septiembre de 2026: la función desplegada
+coincide con el cambio probado y conserva sus permisos; siguen intactos el estado
+de control, las 6 cuentas, 48 280 lecturas, 255 auditorías y 3 controladores. Pasaron
+las 145 pruebas de web/contratos/SQL. No se emitieron órdenes físicas durante la
+verificación.
 
 ### Eliminación definitiva de permisos
 
