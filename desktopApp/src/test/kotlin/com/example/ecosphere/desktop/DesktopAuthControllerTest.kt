@@ -70,7 +70,7 @@ class DesktopAuthControllerTest {
 
     @Test fun blockedAndPendingAccountsRemainOutsideApp() = runTest {
         for (status in listOf("blocked", "pending")) {
-            backend.userProfile = profile().copy(status = status)
+            backend.userProfile = sampleProfile().copy(status = status)
             controller.signIn("test@example.invalid", "sample-password")
             assertEquals(DesktopAuthPage.PENDING, controller.state.page)
             assertEquals(status, controller.state.profile?.status)
@@ -79,7 +79,7 @@ class DesktopAuthControllerTest {
     }
 
     @Test fun administratorRequiresVerifiedMfaBeforeEnteringApp() = runTest {
-        backend.userProfile = profile().copy(role = "admin")
+        backend.userProfile = sampleProfile().copy(role = "admin")
         backend.challenge = DesktopMfaChallenge("test-factor")
         controller.signIn("test@example.invalid", "sample-password")
         assertEquals(DesktopAuthPage.MFA, controller.state.page)
@@ -185,7 +185,7 @@ class DesktopAuthControllerTest {
 
     private class FakeBackend : DesktopAuthBackend {
         var signedInEmail: String? = null
-        var userProfile: EcoSphereUserProfile? = profile()
+        var userProfile: EcoSphereUserProfile? = sampleProfile()
         var challenge: DesktopMfaChallenge? = null
         var failure: Exception? = null
         var oauthCompletes = true
@@ -213,6 +213,6 @@ class DesktopAuthControllerTest {
     }
 
     companion object {
-        private fun profile() = EcoSphereUserProfile("testuser", "Test", "Person", "Test Person", "test@example.invalid", "email", "approved", "operator")
+        private fun sampleProfile() = EcoSphereUserProfile("testuser", "Test", "Person", "Test Person", "test@example.invalid", "email", "approved", "operator")
     }
 }
