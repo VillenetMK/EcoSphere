@@ -30,18 +30,20 @@ test('Android no respalda sesiones ni datos pendientes de registro', async () =>
 });
 
 test('los borradores con DNI y teléfono vencen en todas las plataformas', async () => {
-  const [shared, web, android, desktop] = await Promise.all([
+  const [shared, web, android, desktop, desktopBackend] = await Promise.all([
     read('sharedCore/src/main/kotlin/com/example/ecosphere/shared/AuthContract.kt'),
     read('webApp/auth.js'),
     read('app/src/main/java/com/example/ecosphere/auth/NativeAuthViewModel.kt'),
     read('desktopApp/src/main/kotlin/com/example/ecosphere/desktop/DesktopAuthController.kt'),
+    read('desktopApp/src/main/kotlin/com/example/ecosphere/desktop/DesktopAuthBackend.kt'),
   ]);
   assert.match(shared, /REGISTRATION_DRAFT_TTL_MS = 24L \* 60L \* 60L \* 1_000L/);
   assert.match(web, /savedAtEpochMs: Date\.now\(\)/);
   assert.match(web, /age > 24 \* 60 \* 60 \* 1000/);
   assert.match(android, /AuthValidation\.isRegistrationDraftCurrent\(draft\)/);
   assert.match(desktop, /AuthValidation\.isRegistrationDraftCurrent\(draft\)/);
-  assert.match(desktop, /val activeSession = supabase\.auth\.currentSessionOrNull\(\)/);
+  assert.match(desktop, /val activeSession = backend\.accessToken\(\)/);
+  assert.match(desktopBackend, /fun accessToken\(\) = supabase\.auth\.currentAccessTokenOrNull\(\)/);
   assert.match(desktop, /completeProfile\(identity\.draft\)/);
 });
 

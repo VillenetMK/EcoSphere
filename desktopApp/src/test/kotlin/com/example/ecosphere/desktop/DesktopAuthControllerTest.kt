@@ -126,6 +126,27 @@ class DesktopAuthControllerTest {
         assertTrue(controller.state.message.orEmpty().contains("no coincide"))
     }
 
+    @Test fun expiredRegistrationDraftIsDiscardedBeforeProfileCompletion() = runTest {
+        val expired = RegistrationDraft("testuser", "Test", "Person", "12345678", "+51987654321",
+            "test@example.invalid", "email", savedAtEpochMs = 0)
+        prefs.put("pending-registration", com.google.gson.Gson().toJson(expired))
+        backend.signedInEmail = "test@example.invalid"
+        controller.initialize()
+        assertNull(backend.completedDraft)
+        assertNull(prefs.get("pending-registration", null))
+        assertEquals(DesktopAuthPage.APP, controller.state.page)
+    }
+
+    @Test fun confirmedSessionCompletesProfileWithoutRequestingAnotherPassword() = runTest {
+        backend.signedInEmail = "test@example.invalid"
+        controller.showRegister()
+        controller.registerWithEmail("testuser", "Test", "Person", "12345678", "+51987654321",
+            "test@example.invalid", "", "")
+        assertEquals(0, backend.signupCalls)
+        assertEquals("test@example.invalid", backend.completedDraft?.email)
+        assertEquals(DesktopAuthPage.APP, controller.state.page)
+    }
+
     @Test fun missingEmailProfileOpensCompletionForm() = runTest {
         backend.userProfile = null
         controller.signIn("test@example.invalid", "sample-password")
