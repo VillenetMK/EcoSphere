@@ -16,6 +16,7 @@ import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+@OptIn(ExperimentalTestApi::class)
 class DesktopAuthScreenTest {
     @get:Rule val compose = createComposeRule()
 

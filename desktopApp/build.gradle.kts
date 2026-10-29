@@ -4,6 +4,8 @@
  * Todos los derechos reservados. Uso sujeto al archivo LICENSE.
  */
 
+import java.util.Properties
+
 plugins {
     kotlin("jvm") version "2.4.10"
     id("org.jetbrains.compose") version "1.11.1"
@@ -12,7 +14,7 @@ plugins {
 }
 
 group = "com.example.ecosphere"
-version = java.util.Properties().apply {
+version = Properties().apply {
     file("src/main/resources/ecosphere-version.properties").inputStream().use { load(it) }
 }.getProperty("version")
 

@@ -77,7 +77,7 @@ internal class SupabaseDesktopAuthBackend : DesktopAuthBackend {
                 }
                 gson.fromJson(response.body(), UsernameLoginResponse::class.java)
             }
-            supabase.auth.importAuthToken(tokens.accessToken, tokens.refreshToken, retrieveUser = true)
+            supabase.auth.importAuthToken(accessToken = tokens.accessToken, refreshToken = tokens.refreshToken, retrieveUser = true)
         }
     }
 
