@@ -12,7 +12,9 @@ plugins {
 }
 
 group = "com.example.ecosphere"
-version = "1.4.8"
+version = java.util.Properties().apply {
+    file("src/main/resources/ecosphere-version.properties").inputStream().use { load(it) }
+}.getProperty("version")
 
 kotlin {
     jvmToolchain(17)
@@ -32,6 +34,9 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:auth-kt:3.7.0")
     implementation("io.github.jan-tennert.supabase:postgrest-kt:3.7.0")
     implementation("io.ktor:ktor-client-cio:3.5.1")
+    testImplementation(kotlin("test-junit"))
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
+    testImplementation(compose.desktop.uiTestJUnit4)
 }
 
 compose.desktop {
@@ -45,10 +50,18 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb
             )
             packageName = "EcoSphere"
-            packageVersion = "1.4.8"
+            packageVersion = project.version.toString()
             description = "EcoSphere - Sistema inteligente de microclima"
             vendor = "EcoSphere"
             modules("java.net.http", "java.prefs", "jdk.httpserver")
+            windows {
+                iconFile.set(project.file("src/main/resources/brand/ecosphere.ico"))
+                shortcut = true
+                menu = true
+            }
+            linux {
+                iconFile.set(project.file("src/main/resources/brand/ecosphere.png"))
+            }
         }
     }
 }

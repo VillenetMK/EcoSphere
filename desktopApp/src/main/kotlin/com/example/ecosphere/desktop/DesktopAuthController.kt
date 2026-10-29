@@ -4,29 +4,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.example.ecosphere.shared.AuthValidation
-import com.example.ecosphere.shared.EcoSphereConfig
 import com.example.ecosphere.shared.EcoSphereUserProfile
 import com.example.ecosphere.shared.RegistrationDraft
 import com.google.gson.Gson
-import com.google.gson.annotations.SerializedName
-import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.auth.mfa.AuthenticatorAssuranceLevel
-import io.github.jan.supabase.auth.mfa.FactorType
-import io.github.jan.supabase.auth.providers.Github
-import io.github.jan.supabase.auth.providers.OAuthProvider
-import io.github.jan.supabase.auth.providers.invoke
-import io.github.jan.supabase.auth.providers.builtin.Email
-import io.github.jan.supabase.postgrest.postgrest
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
-import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
-import java.time.Duration
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.job
+import java.net.BindException
 import java.util.prefs.Preferences
 
 enum class DesktopAuthPage {
@@ -46,56 +31,41 @@ data class DesktopAuthState(
     val profile: EcoSphereUserProfile? = null,
     val verifiedEmail: String? = null,
     val mfaFactorId: String? = null,
-    val mfaSecret: String? = null
+    val mfaSecret: String? = null,
+    val oauthProvider: String? = null
 )
 
-private data class UsernameLoginResponse(
-    @SerializedName("access_token") val accessToken: String,
-    @SerializedName("refresh_token") val refreshToken: String
-)
-
-class DesktopAuthController {
-    private val supabase = DesktopSupabase.client
-    private val preferences = Preferences.userRoot().node("com/example/ecosphere/auth")
+class DesktopAuthController internal constructor(
+    private val backend: DesktopAuthBackend = SupabaseDesktopAuthBackend(),
+    private val preferences: Preferences = Preferences.userRoot().node("com/example/ecosphere/auth"),
+    private val recordFailure: (String, Throwable) -> Unit = DesktopDiagnostics::record
+) {
     private val gson = Gson()
-    private val http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(12)).build()
+    private var operationInProgress = false
+    private var oauthJob: Job? = null
 
     var state by mutableStateOf(DesktopAuthState())
         private set
 
-    suspend fun initialize() = runBusy {
+    suspend fun initialize() = runBusy("initialize") {
         readPendingRegistration()
-        supabase.auth.awaitInitialization()
+        backend.initialize()
         resolveCurrentSession()
     }
 
     fun showLogin() {
+        if (operationInProgress) return
         state = state.copy(page = DesktopAuthPage.LOGIN, message = null, fieldErrors = emptyMap())
     }
 
     fun showRegister() {
+        if (operationInProgress) return
         state = state.copy(page = DesktopAuthPage.REGISTER, message = null, fieldErrors = emptyMap())
     }
 
-    suspend fun signIn(identifier: String, password: String) = runBusy {
+    suspend fun signIn(identifier: String, password: String) = runBusy("sign-in") {
         saveIntent(INTENT_LOGIN)
-        if (identifier.trim().contains('@')) {
-            supabase.auth.signInWith(Email) {
-                email = identifier.trim().lowercase()
-                this.password = password
-            }
-        } else {
-            val normalized = identifier.trim()
-            require(Regex("^[A-Za-z][A-Za-z0-9._-]{2,31}$").matches(normalized)) {
-                "Usuario o contraseña incorrectos."
-            }
-            val tokens = signInWithUsername(normalized, password)
-            supabase.auth.importAuthToken(
-                accessToken = tokens.accessToken,
-                refreshToken = tokens.refreshToken,
-                retrieveUser = true
-            )
-        }
+        backend.signIn(identifier, password)
         resolveCurrentSession()
     }
 
@@ -109,10 +79,11 @@ class DesktopAuthController {
         password: String,
         confirmation: String
     ) {
+        if (operationInProgress) return
         val identity = AuthValidation.validateRegistration(
             username, firstName, lastName, dni, phone, email, PROVIDER_EMAIL
         )
-        val activeSession = supabase.auth.currentSessionOrNull()
+        val activeSession = backend.accessToken()
         val passwordErrors = if (activeSession == null) {
             AuthValidation.validatePassword(password, confirmation)
         } else {
@@ -123,10 +94,10 @@ class DesktopAuthController {
             state = state.copy(fieldErrors = errors, message = "Revisa los datos del formulario.")
             return
         }
-        runBusy {
-            val session = supabase.auth.currentSessionOrNull()
+        runBusy("register") {
+            val session = backend.accessToken()
             if (session != null) {
-                val verifiedEmail = session.user?.email?.lowercase().orEmpty()
+                val verifiedEmail = backend.sessionEmail().orEmpty()
                 require(verifiedEmail == identity.draft.email) {
                     "El correo debe coincidir con la cuenta confirmada."
                 }
@@ -138,11 +109,8 @@ class DesktopAuthController {
             } else {
                 savePendingRegistration(identity.draft)
                 saveIntent(INTENT_REGISTER)
-                supabase.auth.signUpWith(Email) {
-                    this.email = identity.draft.email
-                    this.password = password
-                }
-                if (supabase.auth.currentSessionOrNull() != null) {
+                backend.signUp(identity.draft.email, password)
+                if (backend.accessToken() != null) {
                     resolveCurrentSession()
                 } else {
                     state = state.copy(
@@ -154,27 +122,28 @@ class DesktopAuthController {
         }
     }
 
-    suspend fun startOAuth(provider: String) {
+    suspend fun startOAuth(provider: String) = runBusy("oauth") {
+        require(provider in setOf(PROVIDER_GOOGLE, PROVIDER_GITHUB)) { "Proveedor de acceso no permitido." }
         clearPendingRegistration()
         saveIntent(INTENT_OAUTH)
-
-        runBusy {
-            if (supabase.auth.currentSessionOrNull() != null) supabase.auth.signOut()
-            val oauthProvider = when (provider) {
-                PROVIDER_GOOGLE -> OAuthProvider(PROVIDER_GOOGLE)
-                PROVIDER_GITHUB -> Github
-                else -> error("Proveedor de acceso no permitido.")
-            }
-            supabase.auth.signInWith(oauthProvider) {
-                if (provider == PROVIDER_GOOGLE) {
-                    queryParams["prompt"] = "select_account"
-                }
-            }
+        state = state.copy(oauthProvider = provider)
+        oauthJob = currentCoroutineContext().job
+        if (backend.accessToken() != null) backend.signOut()
+        backend.oauth(provider)
+        if (backend.accessToken() == null) {
+            clearIntent()
+            state = DesktopAuthState(page = DesktopAuthPage.LOGIN, busy = false, message = OAUTH_NOT_COMPLETED)
+        } else {
             resolveCurrentSession()
         }
     }
 
+    fun cancelOAuth() {
+        oauthJob?.cancel()
+    }
+
     suspend fun verifyMfa(code: String) {
+        if (operationInProgress) return
         val factorId = state.mfaFactorId
         if (factorId == null) {
             state = state.copy(message = "La verificación expiró. Inicia sesión nuevamente.")
@@ -184,12 +153,8 @@ class DesktopAuthController {
             state = state.copy(message = "Ingresa exactamente los seis dígitos del autenticador.")
             return
         }
-        runBusy {
-            supabase.auth.mfa.createChallengeAndVerify(factorId, code)
-            val level = supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-            check(level.current == AuthenticatorAssuranceLevel.AAL2) {
-                "No se pudo completar la verificación en dos pasos."
-            }
+        runBusy("mfa") {
+            backend.verifyMfa(factorId, code)
             state = state.copy(
                 page = DesktopAuthPage.APP,
                 mfaFactorId = null,
@@ -199,16 +164,16 @@ class DesktopAuthController {
         }
     }
 
-    suspend fun signOut() = runBusy {
-        supabase.auth.signOut()
+    suspend fun signOut() = runBusy("sign-out") {
+        backend.signOut()
         clearPendingRegistration()
         state = DesktopAuthState(page = DesktopAuthPage.LOGIN, busy = false)
     }
 
-    fun accessToken(): String? = supabase.auth.currentAccessTokenOrNull()
+    fun accessToken(): String? = backend.accessToken()
 
     private suspend fun resolveCurrentSession() {
-        val session = supabase.auth.currentSessionOrNull()
+        val session = backend.accessToken()
         if (session == null) {
             state = DesktopAuthState(page = DesktopAuthPage.LOGIN, busy = false)
             return
@@ -217,9 +182,9 @@ class DesktopAuthController {
         val intent = readIntent()
         val draft = readPendingRegistration()
         if (draft != null) {
-            val verifiedEmail = session.user?.email?.lowercase().orEmpty()
+            val verifiedEmail = backend.sessionEmail().orEmpty()
             if (verifiedEmail != draft.email) {
-                supabase.auth.signOut()
+                backend.signOut()
                 clearPendingRegistration()
                 error("El correo verificado no coincide con el correo ingresado en el registro.")
             }
@@ -229,7 +194,7 @@ class DesktopAuthController {
 
         val profile = loadProfile()
         if (profile == null && intent == INTENT_OAUTH) {
-            supabase.auth.signOut()
+            backend.signOut()
             clearPendingRegistration()
             state = DesktopAuthState(
                 page = DesktopAuthPage.LOGIN,
@@ -239,7 +204,7 @@ class DesktopAuthController {
             return
         }
         if (profile == null) {
-            val verifiedEmail = session.user?.email?.lowercase().orEmpty()
+            val verifiedEmail = backend.sessionEmail().orEmpty()
             state = DesktopAuthState(
                 page = DesktopAuthPage.REGISTER,
                 busy = false,
@@ -272,91 +237,56 @@ class DesktopAuthController {
     }
 
     private suspend fun requireAdminMfa(profile: EcoSphereUserProfile) {
-        val level = supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-        if (level.current == AuthenticatorAssuranceLevel.AAL2) {
-            state = DesktopAuthState(page = DesktopAuthPage.APP, busy = false, profile = profile)
-            return
-        }
-        val factors = supabase.auth.mfa.retrieveFactorsForCurrentUser()
-        val verified = factors.firstOrNull { it.factorType == "totp" && it.isVerified }
-        if (verified != null) {
-            state = DesktopAuthState(
-                page = DesktopAuthPage.MFA,
-                busy = false,
-                profile = profile,
-                mfaFactorId = verified.id
+        val challenge = backend.adminChallenge(profile)
+        state = if (challenge == null) {
+            DesktopAuthState(page = DesktopAuthPage.APP, busy = false, profile = profile)
+        } else {
+            DesktopAuthState(
+                page = DesktopAuthPage.MFA, busy = false, profile = profile,
+                mfaFactorId = challenge.factorId, mfaSecret = challenge.secret
             )
-            return
         }
-
-        factors.filter { it.factorType == "totp" && !it.isVerified }
-            .forEach { supabase.auth.mfa.unenroll(it.id) }
-        val enrollment = supabase.auth.mfa.enroll(
-            FactorType.TOTP,
-            friendlyName = "EcoSphere ${profile.username}"
-        ) { issuer = "EcoSphere" }
-        state = DesktopAuthState(
-            page = DesktopAuthPage.MFA,
-            busy = false,
-            profile = profile,
-            mfaFactorId = enrollment.id,
-            mfaSecret = enrollment.data.secret,
-            message = "Agrega esta clave en Google Authenticator y escribe el primer código."
-        )
     }
 
-    private suspend fun loadProfile(): EcoSphereUserProfile? =
-        supabase.postgrest.rpc("my_profile").decodeSingleOrNull()
+    private suspend fun loadProfile() = backend.profile()
+    private suspend fun completeProfile(draft: RegistrationDraft) = backend.completeProfile(draft)
 
-    private suspend fun completeProfile(draft: RegistrationDraft) {
-        supabase.postgrest.rpc(
-            "complete_user_profile",
-            buildJsonObject {
-                put("p_username", draft.username)
-                put("p_first_name", draft.firstName)
-                put("p_last_name", draft.lastName)
-                put("p_dni", draft.dni)
-                put("p_phone", draft.phone)
-                put("p_expected_email", draft.email)
-            }
-        )
-    }
-
-    private suspend fun signInWithUsername(username: String, password: String): UsernameLoginResponse =
-        withContext(Dispatchers.IO) {
-            val body = gson.toJson(mapOf("username" to username, "password" to password))
-            val request = HttpRequest.newBuilder()
-                .uri(URI.create("${EcoSphereConfig.SUPABASE_URL}/functions/v1/username-login"))
-                .timeout(Duration.ofSeconds(15))
-                .header("apikey", EcoSphereConfig.SUPABASE_PUBLISHABLE_KEY)
-                .header("Authorization", "Bearer ${EcoSphereConfig.SUPABASE_PUBLISHABLE_KEY}")
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build()
-            val response = http.send(request, HttpResponse.BodyHandlers.ofString())
-            require(response.statusCode() in 200..299) {
-                runCatching {
-                    gson.fromJson(response.body(), Map::class.java)["error"]?.toString()
-                }.getOrNull() ?: "No se pudo iniciar sesión."
-            }
-            gson.fromJson(response.body(), UsernameLoginResponse::class.java)
-        }
-
-    private suspend fun runBusy(block: suspend () -> Unit) {
+    private suspend fun runBusy(operation: String, block: suspend () -> Unit) {
+        if (operationInProgress) return
+        operationInProgress = true
         state = state.copy(busy = true, message = null, fieldErrors = emptyMap())
         try {
             block()
         } catch (error: CancellationException) {
+            if (operation == "oauth") {
+                state = state.copy(message = "Acceso cancelado. Puedes intentarlo de nuevo.")
+            }
             throw error
-        } catch (error: Throwable) {
-            state = state.copy(busy = false, message = friendlyMessage(error))
+        } catch (error: Exception) {
+            // Log only operation/type/stack locations, never the exception message or request data.
+            runCatching { recordFailure(operation, error) }
+            state = state.copy(
+                page = if (state.page == DesktopAuthPage.INITIALIZING) DesktopAuthPage.LOGIN else state.page,
+                message = friendlyMessage(error, operation)
+            )
         } finally {
-            if (state.busy) state = state.copy(busy = false)
+            state = state.copy(busy = false, oauthProvider = null)
+            oauthJob = null
+            operationInProgress = false
         }
     }
 
-    private fun friendlyMessage(error: Throwable): String =
-        AuthValidation.safeAuthErrorMessage(error.message)
+    private fun friendlyMessage(error: Throwable, operation: String): String {
+        val causes = generateSequence(error) { it.cause }.take(8).toList()
+        if (operation == "oauth") {
+            if (causes.any { it is BindException }) {
+                return "Otra aplicación está usando el acceso local de EcoSphere. Cierra otras ventanas de EcoSphere e inténtalo de nuevo."
+            }
+            if (causes.any { it.message.orEmpty().contains("timeout", ignoreCase = true) ||
+                    it.message.orEmpty().contains("timed out", ignoreCase = true) }) return OAUTH_NOT_COMPLETED
+        }
+        return AuthValidation.safeAuthErrorMessage(error.message)
+    }
 
     private fun savePendingRegistration(draft: RegistrationDraft) {
         preferences.put(KEY_DRAFT, gson.toJson(draft))
@@ -398,6 +328,7 @@ class DesktopAuthController {
     }
 
     companion object {
+        const val OAUTH_NOT_COMPLETED = "No se completó el acceso desde el navegador. Inténtalo de nuevo; si terminas en la web, el retorno de escritorio necesita revisión."
         const val PROVIDER_EMAIL = "email"
         const val PROVIDER_GOOGLE = "google"
         const val PROVIDER_GITHUB = "github"

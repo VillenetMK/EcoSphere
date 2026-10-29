@@ -50,3 +50,32 @@ para evitar una interrupción. Al flashear `2.1.0+replaceable` y completar su pr
 sincronización válida, la base activa el protocolo estricto y rechaza
 automáticamente las llamadas directas heredadas. Las credenciales del dispositivo
 nunca se reutilizan como cuentas humanas.
+
+## Retorno de Windows y Linux
+
+El cliente de escritorio utiliza PKCE y el servidor de retorno de `supabase-kt`
+3.7.0. En **Authentication → URL Configuration → Redirect URLs** debe figurar
+exactamente `http://localhost:54321` (sin barra final). Es un retorno local para
+la aplicación instalada; no es la URL del servidor de desarrollo de Supabase.
+Conservar el Site URL y todos los retornos de la web y Android existentes.
+No añadir comodines ni sustituir el callback de Google/GitHub, que continúa
+siendo `https://kslzmrddrhfyyrxyfmbw.supabase.co/auth/v1/callback`.
+
+Cuando falta esa entrada, Supabase puede enviar el navegador al Site URL. La
+aplicación queda esperando y finalmente vence el plazo de tres minutos. El SDK
+de escritorio espera el callback antes de devolver `signInWith`; no hay que
+pasar `redirectUrl` explícitamente porque eso omite su servidor de retorno.
+La cancelación cierra ese servidor y permite reintentar.
+
+La versión de escritorio proviene de
+`desktopApp/src/main/resources/ecosphere-version.properties`; la UI y los
+paquetes MSI/DEB leen ese mismo valor. Los errores locales se registran en
+`~/.ecosphere/logs/desktop-auth.log` con operación, tipo de excepción y ubicaciones
+de código; no se registran mensajes originales, URLs, contraseñas, datos de
+identidad, tokens ni códigos MFA.
+
+Para verificar una entrega, ejecutar `gradle -p desktopApp test packageMsi` en
+Windows y `xvfb-run -a gradle -p desktopApp test packageDeb` en Linux. Las pruebas
+no usan cuentas reales ni envían órdenes al controlador. Después verificar con
+una cuenta autorizada Google/GitHub, correo, usuario, confirmación de registro y
+MFA. Un build correcto no sustituye esas pruebas reales ni configura Supabase.
