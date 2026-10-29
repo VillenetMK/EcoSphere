@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.window.rememberWindowState
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import com.example.ecosphere.shared.ClientErrorMessages
@@ -208,19 +210,13 @@ fun main() = application {
     Window(
         onCloseRequest = ::exitApplication,
         title = "EcoSphere",
+        state = rememberWindowState(width = 1200.dp, height = 800.dp),
+        icon = painterResource("brand/ecosphere.png"),
     ) {
-        MaterialTheme(
-            colorScheme = darkColorScheme(
-                primary = EcoGreen,
-                onPrimary = Color(0xFF061108),
-                background = AppBackground,
-                onBackground = Color.White,
-                surface = AppSurface,
-                onSurface = Color.White,
-                surfaceVariant = AppSurface2,
-                onSurfaceVariant = Muted
-            )
-        ) {
+        LaunchedEffect(Unit) {
+            window.minimumSize = java.awt.Dimension(640, 480)
+        }
+        DesktopTheme {
             val authController = remember { DesktopAuthController() }
             val authScope = rememberCoroutineScope()
             val authState = authController.state
@@ -263,6 +259,7 @@ fun main() = application {
                             authController.startOAuth(provider)
                         }
                     },
+                    onCancelOAuth = authController::cancelOAuth,
                     onVerifyMfa = { code -> authScope.launch { authController.verifyMfa(code) } },
                     onSignOut = { authScope.launch { authController.signOut() } }
                 )
@@ -507,8 +504,8 @@ private fun NavigationPane(
         tonalElevation = 2.dp
     ) {
         Column(Modifier.padding(18.dp)) {
-            Text("EcoSphere", fontSize = 28.sp, fontWeight = FontWeight.Bold)
-            Text("Microclima inteligente", color = Muted, fontSize = 13.sp)
+            DesktopBrand()
+
             Spacer(Modifier.height(28.dp))
 
             Destination.entries.forEach { item ->
@@ -545,7 +542,7 @@ private fun NavigationPane(
                 Text("Cerrar sesión")
             }
             Spacer(Modifier.height(12.dp))
-            Text("EcoSphere Desktop 1.4.7", color = Muted, fontSize = 11.sp)
+            Text("EcoSphere Desktop ${DesktopBuild.version}", color = Muted, fontSize = 11.sp)
         }
     }
 }

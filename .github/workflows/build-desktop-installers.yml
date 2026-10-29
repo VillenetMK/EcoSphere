@@ -37,20 +37,35 @@ jobs:
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
         with:
           gradle-version: '9.3.1'
+      - name: Test desktop authentication and UI
+        shell: pwsh
+        run: gradle -p desktopApp test --stacktrace
       - name: Build Windows MSI
         shell: pwsh
         run: gradle -p desktopApp packageMsi --stacktrace
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: desktop-tests-windows
+          path: |
+            desktopApp/build/reports/tests
+            desktopApp/build/reports/desktop-ui
+            desktopApp/build/test-results
+          if-no-files-found: ignore
       - name: Collect Windows installer
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           $msi = Get-ChildItem -Path desktopApp/build/compose/binaries/main/msi -Filter *.msi -Recurse | Select-Object -First 1
           if (-not $msi) { throw 'MSI not found' }
-          Copy-Item $msi.FullName dist/EcoSphere-1.4.8-Windows-x64.msi
+          $version = (Select-String -Path desktopApp/src/main/resources/ecosphere-version.properties -Pattern '^version=(\d+\.\d+\.\d+)$').Matches.Groups[1].Value
+          if (-not $version) { throw 'Desktop version missing' }
+          Copy-Item $msi.FullName "dist/EcoSphere-$version-Windows-x64.msi"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: EcoSphere-Windows-Installer
-          path: dist/EcoSphere-1.4.8-Windows-x64.msi
+          path: dist/*.msi
           if-no-files-found: error
           retention-days: 30
 
@@ -66,21 +81,35 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Install packaging tools
-        run: sudo apt-get update && sudo apt-get install -y fakeroot
+        run: sudo apt-get update && sudo apt-get install -y fakeroot xvfb
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
         with:
           gradle-version: '9.3.1'
+      - name: Test desktop authentication and UI
+        run: xvfb-run -a gradle -p desktopApp test --stacktrace
       - name: Build Linux DEB
         run: gradle -p desktopApp packageDeb --stacktrace
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: desktop-tests-linux
+          path: |
+            desktopApp/build/reports/tests
+            desktopApp/build/reports/desktop-ui
+            desktopApp/build/test-results
+          if-no-files-found: ignore
       - name: Collect Linux installer
         run: |
           mkdir -p dist
           DEB=$(find desktopApp/build/compose/binaries/main/deb -name '*.deb' | head -n 1)
           test -n "$DEB"
-          cp "$DEB" dist/EcoSphere-1.4.8-Linux-amd64.deb
+          VERSION=$(sed -n 's/^version=//p' desktopApp/src/main/resources/ecosphere-version.properties)
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          cp "$DEB" "dist/EcoSphere-$VERSION-Linux-amd64.deb"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: EcoSphere-Linux-Installer
-          path: dist/EcoSphere-1.4.8-Linux-amd64.deb
+          path: dist/*.deb
           if-no-files-found: error
           retention-days: 30
