@@ -84,3 +84,20 @@ private fun Screen(
     onSignIn: (String, String) -> Unit = { _, _ -> }, onCancelOAuth: () -> Unit = {}
 ) = DesktopAuthScreen(state, onShowLogin, onShowRegister, onSignIn,
     onRegister = { _, _, _, _, _, _, _, _ -> }, onOAuth = {}, onVerifyMfa = {}, onSignOut = {}, onCancelOAuth = onCancelOAuth)
+
+@OptIn(ExperimentalTestApi::class)
+class DesktopAuthWideScreenTest {
+    @Test fun defaultWindowShowsAllLoginMethodsWithoutScrolling() = runDesktopComposeUiTest(width = 1200, height = 800) {
+        setContent { DesktopTheme { Screen(DesktopAuthState(page = DesktopAuthPage.LOGIN, busy = false)) } }
+        onNodeWithTag("login-submit").assertIsDisplayed()
+        onNodeWithText("Google", substring = false).assertIsDisplayed()
+        onNodeWithText("GitHub", substring = false).assertIsDisplayed()
+        onNodeWithText("EcoSphere Desktop ${DesktopBuild.version}").assertIsDisplayed()
+        val image = onRoot().captureToImage().toAwtImage()
+        assertEquals(1200, image.width)
+        assertEquals(800, image.height)
+        val file = File("build/reports/desktop-ui/login-1200x800.png")
+        file.parentFile.mkdirs()
+        ImageIO.write(image, "png", file)
+    }
+}
